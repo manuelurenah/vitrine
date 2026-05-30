@@ -18,6 +18,17 @@ export const env = createEnv({
       .min(32, 'SESSION_SECRET must be ≥32 chars. Generate with `node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"`.'),
     CIVITAI_BASE_URL: z.string().url().default('https://civitai.com'),
     ORCHESTRATOR_URL: z.string().url().default('https://orchestration.civitai.com'),
+    // Vitrine infra — optional at build time so the legacy demo + login
+    // still work without docker compose. Each module that reads these
+    // (db, s3, redis) should error loudly when used without the matching var.
+    DATABASE_URL: z.string().url().optional(),
+    S3_ENDPOINT: z.string().url().optional(),
+    S3_ACCESS_KEY_ID: z.string().optional(),
+    S3_SECRET_ACCESS_KEY: z.string().optional(),
+    S3_BUCKET_UPLOADS: z.string().optional(),
+    S3_BUCKET_ASSETS: z.string().optional(),
+    S3_PUBLIC_URL: z.string().url().optional(),
+    REDIS_URL: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url(),
@@ -29,6 +40,14 @@ export const env = createEnv({
     CIVITAI_BASE_URL: process.env.CIVITAI_BASE_URL,
     ORCHESTRATOR_URL: process.env.ORCHESTRATOR_URL,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    DATABASE_URL: process.env.DATABASE_URL,
+    S3_ENDPOINT: process.env.S3_ENDPOINT,
+    S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID,
+    S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY,
+    S3_BUCKET_UPLOADS: process.env.S3_BUCKET_UPLOADS,
+    S3_BUCKET_ASSETS: process.env.S3_BUCKET_ASSETS,
+    S3_PUBLIC_URL: process.env.S3_PUBLIC_URL,
+    REDIS_URL: process.env.REDIS_URL,
   },
   emptyStringAsUndefined: true,
   // CI runs `next build` without real env. Setting SKIP_ENV_VALIDATION=1 in

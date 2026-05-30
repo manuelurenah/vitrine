@@ -73,15 +73,27 @@ export async function getSession(): Promise<Session | null> {
 /** Shared cookie attrs — httpOnly + lax + secure-in-prod for every cookie we set. */
 async function writeCookie(name: string, value: string, maxAge: number): Promise<void> {
   const jar = await cookies();
-  jar.set({
-    name,
-    value,
-    maxAge,
-    path: '/',
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-  });
+  try {
+    jar.set({
+      name,
+      value,
+      maxAge,
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
+  } catch (err) {
+    // Next 16 throws when cookies are mutated outside a Server Action / Route
+    // Handler (e.g. from a Server Component reading getSession() and hitting
+    // the refresh-failure → clearSession path). The read still works; the
+    // cookie just survives until the user's next route handler hits.
+    // Surfacing the throw would 500 the page render — silently absorb so the
+    // RSC treats the user as logged-out and renders the login screen.
+    const msg = err instanceof Error ? err.message : '';
+    if (msg.includes('Cookies can only be modified')) return;
+    throw err;
+  }
 }
 
 export async function setSession(session: Session): Promise<void> {

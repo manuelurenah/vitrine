@@ -1,4 +1,4 @@
-import { bitmaskFromScopes } from '@civitai/app-sdk/scopes';
+import { bitmaskFromScopes } from "@civitai/app-sdk/scopes";
 
 /**
  * Scopes this app requests at OAuth consent. Keep narrow — users are more
@@ -10,8 +10,10 @@ import { bitmaskFromScopes } from '@civitai/app-sdk/scopes';
  *   AIServicesWrite  — needed to submit a new generation (spends user's Buzz)
  */
 export const REQUESTED_SCOPES = bitmaskFromScopes([
-  'UserRead',
-  'BuzzRead',
-  'AIServicesRead',
-  'AIServicesWrite',
+  "UserRead",
+  "BuzzRead",
+  "AIServicesRead",
+  "AIServicesWrite",
+  "MediaRead",
+  "MediaWrite",
 ]);

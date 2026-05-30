@@ -1,91 +1,102 @@
-# Agent Guide — `next-app`
+# Agent Guide — `vitrine`
 
-> **If you only read one thing:** this is a Next.js 15 App Router app whose
-> only persistent state is an encrypted session cookie. OAuth tokens never
-> leave the server. The demo: login → balance + scopes → cost preview →
-> submit one generation → display.
+> **If you only read one thing:** Civitai OAuth + Buzz-powered campaign
+> generator. Postgres-backed (Drizzle), MinIO/R2 for uploads. Demo:
+> login → onboarding → brand dna → cook a campaign or photoshoot → review.
 
-You're inside the Next.js 15 App Router starter for Civitai apps. The user
-cloned this via `npx tiged` to bootstrap their own app — there is **no
-monorepo around you**; `@civitai/app-sdk` is an npm dependency, not a
-sibling workspace. Help them extend it.
+Next.js 16 App Router app on top of `@civitai/app-sdk`. The starter has
+been extended with Drizzle (Postgres), the AWS S3 SDK (MinIO local / R2
+prod), MSW (e2e mocks), and a Playwright suite that runs against an
+isolated test database.
 
 ## Stack
 
-- Next.js 15, App Router, TypeScript strict
-- React 19
-- Tailwind 3.4
+- Next.js 16, App Router, TypeScript strict, React 19, Tailwind 3.4
 - `@civitai/app-sdk` for all OAuth + orchestrator glue
-- No DB, no Redis, no external session store — encrypted-cookie sessions only
+- Postgres + Drizzle ORM (`src/lib/db/`) — required, app fails loud if `DATABASE_URL` unset
+- S3-compatible object storage (MinIO local, R2 prod) — required for the asset uploader
+- Encrypted-cookie sessions (no token storage in DB)
+- MSW node interceptor for e2e (`src/instrumentation.ts`, gated on `MOCK_CIVITAI=1`)
 
 ## File layout
 
 ```
 src/
 ├── app/
-│   ├── layout.tsx          # root layout, Tailwind import
-│   ├── page.tsx            # the demo home page
-│   ├── globals.css
-│   └── api/
-│       ├── auth/
-│       │   ├── login/route.ts            # POST → start OAuth
-│       │   ├── callback/civitai/route.ts # GET  → exchange code
-│       │   ├── logout/route.ts           # POST → clear session
-│       │   └── revoke/route.ts           # POST → revoke + clear
-│       ├── generate/
-│       │   ├── estimate/route.ts         # POST → whatif=true
-│       │   └── route.ts                  # POST → submit
-│       └── workflow/[id]/route.ts        # GET  → snapshot
-├── components/             # client components (login button, prompt form, etc.)
+│   ├── page.tsx                            login or post-OAuth onboarding-gate redirect
+│   ├── onboarding/[step]/                  5-step flow; each view persists state
+│   ├── (app)/                              auth-guarded shell, also enforces onboarding
+│   │   ├── campaigns/                      list · new · [id]
+│   │   ├── photoshoot/                     list · new · [id]
+│   │   └── brand/                          dna · book · catalog · assets (+ /new uploader)
+│   ├── api/
+│   │   ├── auth/                           login · callback/civitai · logout · revoke
+│   │   ├── campaigns/                      cook · estimate · [id]/tiles/[tileId]/regenerate
+│   │   ├── photoshoot/cook/
+│   │   ├── catalog/products/               GET · POST · [id] GET/PATCH/DELETE
+│   │   ├── assets/                         GET list · POST finalize · presign/
+│   │   └── workflow/[id]/                  long-poll snapshot; updates db on terminal
+│   └── instrumentation.ts                  starts MSW node when MOCK_CIVITAI=1
+├── components/                             ui · shell · login · onboarding · campaigns ·
+│                                            photoshoot · catalog · assets
 └── lib/
-    ├── env.ts              # validated env access
-    ├── session.ts          # read/write the sealed session cookie
-    └── civitai.ts          # @civitai/app-sdk wiring (createAppClient, fetchMe, etc.)
+    ├── env.ts                              Zod env validation
+    ├── session.ts                          sealed-cookie session (read · write · refresh)
+    ├── civitai.ts                          SDK wiring (fetchMe, buzz, orchestrator)
+    ├── userKey.ts                          upserts `users` row; returns stable id
+    ├── db/                                 Drizzle client + schema (12 tables, 8 enums)
+    ├── onboarding.ts · brand.ts · catalog.ts · campaigns.ts · photoshoots.ts
+    ├── generations.ts · buzz.ts · assets.ts
+    └── s3.ts                               presigned PUT + public URL builder
 ```
 
 ## Patterns to keep
 
-- **OAuth + tokens stay server-side.** Never expose `access_token`, `refresh_token`, or `CIVITAI_CLIENT_SECRET` to the browser. The client only ever sees an opaque `httpOnly` `civ_session` cookie.
-- **Session = sealed cookie.** Read via `getSession()` in `src/lib/session.ts`. If `null`, the user is logged out. Don't reach into the cookie store directly elsewhere.
-- **All Civitai API calls happen in route handlers**, not React server components. RSCs can trigger route handlers via `fetch('/api/…')` or read session via `getSession()` and call helpers in `lib/civitai.ts` directly.
-- **Buzz cost preview before submission.** Always call `/api/generate/estimate` and show the cost before submitting. Users blame the app, not Civitai, when they're surprised by Buzz spend.
+- **OAuth + tokens stay server-side.** Browser only ever sees the opaque `httpOnly` `civ_session` cookie. Never expose `access_token`, `refresh_token`, or `CIVITAI_CLIENT_SECRET`.
+- **Session = sealed cookie.** Read via `getSession()` in `src/lib/session.ts`. If `null`, user is logged out. Don't reach into the cookie store anywhere else.
+- **User key = drizzle FK.** Always call `getUserKey(session)` before writing any user-scoped row — it upserts the `users` row that everything else FKs to.
+- **Onboarding gate.** `app/page.tsx` and `(app)/layout.tsx` both check `getOnboarding(userKey).completedAt`. Incomplete users get redirected to `/onboarding/<currentStep>`. If you add new app routes that should be gated, put them under `src/app/(app)/`.
+- **Generation audit trail.** Every `submitWorkflow` call goes through `recordGeneration` + `recordBuzzEvent` (estimate + submit). Terminal workflow status triggers `syncAssetsFromSnapshot` to create the `assets` row and link it to the tile.
+- **Buzz cost preview before submission.** Always call `estimate` and surface the cost; users blame the app, not Civitai.
+- **All Civitai SDK calls happen in route handlers**, not RSCs. RSCs can call drizzle helpers in `lib/*` directly via `getSession()`.
 
 ## Patterns to avoid
 
 - ❌ Storing tokens in `localStorage`, cookies-without-httpOnly, or in rendered HTML.
-- ❌ Using the `next-auth` / `@auth/core` patterns from older Next.js tutorials — this starter intentionally does not use those.
+- ❌ Writing to user-scoped tables (`products`, `campaigns`, `assets`, …) without going through `getUserKey()` first.
+- ❌ Skipping `recordGeneration` / `recordBuzzEvent` when submitting a new workflow — the audit + UI both depend on it.
+- ❌ Mutating sessions or session-derived state in middleware.
 - ❌ Hard-coding orchestrator base URLs — use the SDK defaults or env override.
-- ❌ Adding new env vars without putting them in `.env.example` and validating them in `src/lib/env.ts`.
-- ❌ Adding a database for "just storing some stuff" — make the user actively opt into infra. Suggest Vercel KV or Cloudflare D1 if they ask.
+- ❌ Adding new env vars without putting them in `.env.example` **and** validating them in `src/lib/env.ts`.
 
 ## Extending
 
 | Task | How |
 |---|---|
-| Add a new Civitai API call | Add a function to `src/lib/civitai.ts` taking the session, returning typed result. Use the SDK's `createAppClient`. |
-| Request more OAuth scopes | Edit `src/lib/scopes.ts` (`REQUESTED_SCOPES`). User will need to re-consent on next login. |
-| Add a generation engine option | Edit the workflow body builder. Don't ship 30 engine configs — pick one or two that exemplify the pattern. |
-| Persist generation history | This is **net-new infra** — flag it. Recommend Vercel KV for simple list/get, Postgres for richer queries. Don't silently add Prisma. |
-| Add another OAuth provider | Don't — this is a Civitai-focused starter. Suggest the user pull a different starter or wire `better-auth` themselves. |
+| New Civitai SDK call | Add to `src/lib/civitai.ts`. Don't call SDK from RSCs. |
+| New OAuth scope | Bump `REQUESTED_SCOPES` in `src/lib/scopes.ts` + grant on the OAuth App. Users re-login. |
+| New social preset / shoot template | Append to `PRESETS` / `PHOTOSHOOT_TEMPLATES`. `width`/`height` drive aspect ratio; `styleNotes` get injected into the prompt. |
+| New persisted entity | Add the table to `src/lib/db/schema.ts`, run `pnpm db:generate` to emit a migration, run `pnpm db:migrate`. Add a `lib/<entity>.ts` helper module with the same shape as `lib/catalog.ts`. |
+| New env var | Add to Zod schema in `src/lib/env.ts` **and** `.env.example`. |
+| New asset workflow | Use `presignUpload()` from `lib/s3.ts` for client uploads, then `createAsset()` from `lib/assets.ts` to persist. For orchestrator outputs, `syncAssetsFromSnapshot()` already runs from the workflow route. |
+| Mock external service for e2e | Add an http handler to `src/mocks/handlers.ts`. Already covers `/api/v1/me`, buzz, and orchestrator. |
 
-## Demo flow (read this before changing the home page)
+## Demo flow
 
-1. Logged out → `<LoginButton>` → `POST /api/auth/login` → 302 to Civitai → user consents → `GET /api/auth/callback/civitai` → session sealed → 302 to `/`.
-2. Logged in → `getSession()` on server → `fetchMe()` → render balance, scope summary, prompt form.
-3. Submit prompt → client `POST /api/generate/estimate` → display Buzz cost → user confirms.
-4. Client `POST /api/generate` → returns workflow ID → client polls `GET /api/workflow/[id]` every 2s.
-5. On terminal status → display image(s) or error.
+1. Logged out → `<CivitaiSsoButton>` → `POST /api/auth/login` → 303 to Civitai authorize → user consents → `GET /api/auth/callback/civitai` → session sealed → 303 to `/`.
+2. `app/page.tsx` reads session, calls `getOnboarding(userKey)`. If `completed_at` is null → redirect to `/onboarding/<currentStep>`; else → `/campaigns`.
+3. User walks onboarding; visiting `/onboarding/next` sets `completed_at`.
+4. From `/campaigns/new` (or `/photoshoot/new`), client submits a brief → server cooks per-tile workflows in parallel → persists campaign + tiles + generations + buzz events.
+5. Client polls `/api/workflow/[id]?wait=15000`. On terminal status, server updates generation, creates asset rows, links to tile, records charged buzz once.
 
 ## Verifying changes
-
-After any meaningful change, run the matching check before declaring done:
 
 | You touched | Run |
 |---|---|
 | Anything in `src/` | `pnpm typecheck` |
-| `next.config.mjs`, env wiring, security headers | `pnpm build` |
-| Auth flow (`src/app/api/auth/**`), session helpers | `pnpm test:e2e -- auth-flow` |
-| Generation flow (`src/app/api/generate/**`, workflow polling) | `pnpm test:e2e -- generation` |
+| `next.config.mjs`, env, security headers | `pnpm build` |
+| Schema (`src/lib/db/schema.ts`) | `pnpm db:generate` → review SQL → `pnpm db:migrate` (and `pnpm test:db:setup` to keep `vitrine_test` in sync) |
+| Auth flow (`src/app/api/auth/**`, `lib/session.ts`) | `pnpm test:e2e` (the suite includes the real-OAuth `00-auth-flow` spec) |
+| Cook / regenerate / workflow polling | `pnpm test:e2e` (50-campaigns, 60-photoshoot specs cook against MSW-mocked orchestrator) |
 
-`pnpm test:e2e` needs a Civitai dev server with the `testing-login` provider
-and matching OAuth app — see [README › End-to-end tests](./README.md#end-to-end-tests).
+`pnpm test:e2e` needs a Civitai dev server with `testing-login` enabled and an OAuth app whose redirect URIs include both `http://localhost:3333/api/auth/callback/civitai` (dev) and `http://localhost:3334/...` (e2e). See [README › End-to-end tests](./README.md#end-to-end-tests) for the full prereqs.

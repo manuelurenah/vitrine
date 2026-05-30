@@ -1,0 +1,53 @@
+# Local-dev infra for vitrine.
+# Boots Postgres + MinIO + Redis on localhost. Same SDKs talk to managed
+# equivalents in prod (Vercel Postgres, Cloudflare R2, Upstash Redis) via
+# endpoint swap in .env — see docs/project-overview.md "Tech stack".
+#
+# Usage:
+#   pnpm dev:up      # docker compose up -d
+#   pnpm dev:down    # docker compose down
+#   pnpm dev:reset   # docker compose down -v && docker compose up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports: ['5432:5432']
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: vitrine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U app -d vitrine']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports: ['9000:9000', '9001:9001']
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - miniodata:/data
+
+  minio-init:
+    image: minio/mc
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "
+        until (mc alias set local http://minio:9000 minioadmin minioadmin) do sleep 1; done;
+        mc mb -p local/uploads local/assets local/thumbs;
+        mc anonymous set download local/assets;
+        mc anonymous set download local/thumbs;
+      "
+
+  redis:
+    image: redis:7-alpine
+    ports: ['6380:6379']
+
+volumes:
+  pgdata:
+  miniodata:

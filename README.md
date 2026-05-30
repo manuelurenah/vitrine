@@ -1,98 +1,203 @@
-# Civitai Next.js Starter
+# vitrine
 
-[![CI](https://github.com/civitai/civitai-app-starters/actions/workflows/ci.yml/badge.svg)](https://github.com/civitai/civitai-app-starters/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Node](https://img.shields.io/badge/node-%E2%89%A520-brightgreen.svg)](https://nodejs.org)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org)
+[![React](https://img.shields.io/badge/React-19-149eca.svg)](https://react.dev)
 [![@civitai/app-sdk](https://img.shields.io/npm/v/@civitai/app-sdk.svg?label=%40civitai%2Fapp-sdk)](https://www.npmjs.com/package/@civitai/app-sdk)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fcivitai%2Fcivitai-app-starters%2Ftree%2Fmain%2Fstarters%2Fnext-app&env=CIVITAI_CLIENT_ID,CIVITAI_CLIENT_SECRET,SESSION_SECRET,NEXT_PUBLIC_APP_URL&envDescription=Civitai+OAuth+App+credentials+%2B+a+32-byte+session+secret&envLink=https%3A%2F%2Fdeveloper.civitai.com%2Fdocs%2Foauth&project-name=civitai-next-app&repository-name=civitai-next-app)
+> Pomelli, but powered by Civitai. Drop a product photo, ship a campaign — 12 social posts, 3 ad creatives, a hero video, paid in Buzz.
 
-Minimal Next.js 15 App Router starter for building [Civitai](https://civitai.com) apps. Includes OAuth login, encrypted-cookie sessions, Buzz balance, cost preview, and a single image generation flow.
+Vitrine is a Civitai-powered campaign generator for small businesses, creators, and D2C brands. Upload product photos, pick a target audience + industry, and Civitai's orchestrator renders an Asset Pack in parallel — high-quality stills, sized-for-channel ad creatives, all editable in-app.
 
-Built on `@civitai/app-sdk` — see the [SDK README](https://github.com/civitai/civitai-app-starters/tree/main/packages/civitai-app-sdk#readme) for the underlying primitives.
+Built on the [`@civitai/app-sdk`](https://github.com/civitai/civitai-app-starters/tree/main/packages/civitai-app-sdk) starter (`next-app`). See [`docs/project-overview.md`](./docs/project-overview.md) and [`design_handoff_vitrine/README.md`](./design_handoff_vitrine/README.md) for product vision + design system.
 
-## Getting started
+## What works today
+
+End-to-end loops are live against the real Civitai orchestrator and a local Postgres + MinIO + Redis stack:
+
+- **Auth.** Civitai OAuth, encrypted-cookie sessions, post-login onboarding gate enforced server-side in `app/page.tsx` + `(app)/layout.tsx`.
+- **Onboarding.** 5-step flow at `/onboarding/[step]` — welcome · brand input · DNA generation · DNA reveal · next-action picker. Each step view persists progress; reaching `/onboarding/next` sets `completed_at` and unlocks the app shell.
+- **Brand.** Default brand profile auto-seeded on first visit (`/brand`). `/brand/book` lists brand profiles, `/brand/assets` is a gallery + uploader.
+- **Catalog.** Drizzle-backed product CRUD (name, sku, notes, tags[], status).
+- **Asset uploads.** Drag-drop or click-to-choose at `/brand/assets/new` → presigned PUT to MinIO/R2 → row recorded in `assets` table with collection + tags metadata.
+- **Campaigns.** Brief modal → parallel `submitWorkflow` per preset → live-polling tile grid → per-tile regenerate. Each tile records a `generations` row + two `buzz_events` (estimate, submit). Workflow snapshots on terminal status create `assets` rows and link them to tiles.
+- **Photoshoot.** Template builder (studio / lifestyle / hero) × variants × 4 ratios → same `generations` + `buzz_events` audit trail.
+
+## Stack
+
+| Layer | Today |
+|---|---|
+| Framework | Next.js 16 App Router, React 19, TypeScript strict |
+| Styling | Tailwind v3 + CSS variable tokens |
+| Icons | `lucide-react` |
+| Validation | Zod (env, briefs, uploads, all route bodies) |
+| Civitai | `@civitai/app-sdk` v0.6 (OAuth + PKCE + orchestrator) |
+| DB | Postgres 16 + Drizzle ORM (`drizzle-kit migrate`) |
+| Object storage | MinIO (dev, `@aws-sdk/client-s3` + `s3-request-presigner`) → Cloudflare R2 (prod, endpoint swap) |
+| Cache | Redis (dev `:6380`) → Upstash (prod) — wired in docker, not yet read from code |
+| E2E | Playwright + MSW (node) + isolated `vitrine_test` database |
+
+## Quickstart
 
 ```bash
-# Pull just this starter (recommended)
-npx tiged civitai/civitai-app-starters/starters/next-app my-app
-cd my-app
-
+git clone <repo> vitrine && cd vitrine
 cp .env.example .env
-# Fill in CIVITAI_CLIENT_ID, CIVITAI_CLIENT_SECRET, SESSION_SECRET
-
+# Fill CIVITAI_CLIENT_ID, CIVITAI_CLIENT_SECRET, SESSION_SECRET
 pnpm install
-pnpm dev
+pnpm dev:up           # docker compose: Postgres + MinIO + Redis
+pnpm db:migrate       # apply Drizzle migrations to `vitrine`
+pnpm dev              # Next dev on :3333
 ```
 
-Open <http://localhost:3000>.
+Open <http://localhost:3333>.
 
 ### Register a Civitai OAuth App
 
-1. Go to <https://civitai.com/user/account> → **OAuth Apps** → **Create**.
-2. Client type: **Confidential (server-side app)** — this starter holds the secret server-side.
+1. <https://civitai.com/user/account> → **OAuth Apps** → **Create**.
+2. Client type: **Confidential** (this app holds the secret server-side).
 3. Grants: `authorization_code`, `refresh_token`.
-4. Redirect URI: `http://localhost:3000/api/auth/callback/civitai` (replace host for prod).
-5. Scopes (minimum for the demo): `UserRead`, `AIServicesRead`, `AIServicesWrite`, `BuzzRead`.
-6. Copy the **Client ID** and **Client Secret** into `.env`.
+4. Redirect URI: `http://localhost:3333/api/auth/callback/civitai` (add `http://localhost:3334/...` too if you'll run the e2e suite).
+5. Scopes (minimum): `UserRead`, `BuzzRead`, `AIServicesRead`, `AIServicesWrite`. Add scopes by editing `REQUESTED_SCOPES` in `src/lib/scopes.ts`.
+6. Copy **Client ID** + **Client Secret** into `.env`.
 
-Generate `SESSION_SECRET` with:
+Generate `SESSION_SECRET`:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-## What's in the demo
+## Project layout
 
-- `/` — login button when logged out; balance + prompt form when logged in.
-- `POST /api/auth/login` — generates PKCE pair, seals state cookie, redirects to Civitai.
-- `GET /api/auth/callback/civitai` — exchanges code, seals session cookie.
-- `POST /api/auth/logout` — clears session.
-- `POST /api/auth/revoke` — revokes tokens at Civitai then clears session.
-- `POST /api/generate/estimate` — calls `whatif=true` to preview Buzz cost.
-- `POST /api/generate` — submits the workflow and debits the user's Buzz.
-- `GET /api/workflow/[id]` — fetches a workflow snapshot (client polls this).
+```
+src/
+├── app/
+│   ├── layout.tsx                 root layout (dark theme, fonts, tokens)
+│   ├── page.tsx                   logged-out → LoginScreen; logged-in → onboarding gate
+│   ├── instrumentation.ts         boots MSW node when MOCK_CIVITAI=1
+│   ├── onboarding/[step]/         5-step flow; each view writes onboarding_state
+│   ├── (app)/                     auth-guarded route group, enforces onboarding completion
+│   │   ├── campaigns/             list · new (brief modal) · [id] (live-polling tiles)
+│   │   ├── photoshoot/            list · new (builder) · [id] (grouped results)
+│   │   ├── brand/
+│   │   │   ├── page.tsx           brand DNA overview (auto-seeds default profile)
+│   │   │   ├── book/              brand book list
+│   │   │   ├── catalog/           product CRUD
+│   │   │   └── assets/            gallery + /new dropzone uploader
+│   │   └── animate/page.tsx       stub
+│   └── api/
+│       ├── auth/                  login · callback · logout · revoke
+│       ├── campaigns/             cook · estimate · [id]/tiles/[tileId]/regenerate
+│       ├── photoshoot/cook/
+│       ├── catalog/products/      GET list · POST · GET/PATCH/DELETE [id]
+│       ├── assets/                GET list · POST finalize · presign/
+│       └── workflow/[id]/         long-poll snapshot; on terminal → assets + tile.assetId
+├── components/
+│   ├── ui/                        atoms (Button, Chip, Input, Modal, …)
+│   ├── shell/                     Sidebar, TopBar, Shell, PlaceholderScreen, nav
+│   ├── login/                     LoginScreen + AuthCard + CivitaiSsoButton
+│   ├── onboarding/                OnboardingFrame + 5 step screens
+│   ├── campaigns/                 List · Detail · BriefForm · CreativeCard (polling)
+│   ├── photoshoot/                List · Builder · Results
+│   ├── catalog/                   Grid · Detail · AddProductForm
+│   └── assets/                    AssetUploader (presign + XHR PUT + finalize) · AssetsGallery
+├── lib/
+│   ├── env.ts                     Zod env (CIVITAI_*, SESSION_SECRET, DATABASE_URL, S3_*, REDIS_URL)
+│   ├── session.ts                 sealed-cookie session
+│   ├── civitai.ts                 SDK wiring — fetchMe, buzz, orchestrator
+│   ├── scopes.ts                  REQUESTED_SCOPES bitmask
+│   ├── presets.ts                 social presets + prompt builder
+│   ├── photoshootTemplates.ts     templates + ratios + prompt builder
+│   ├── briefSchema.ts             Zod for campaign briefs
+│   ├── photoshootSchema.ts        Zod for photoshoot briefs
+│   ├── catalogSchema.ts           Zod for product CRUD
+│   ├── db/                        Drizzle client + 12-table schema (users, onboarding_state,
+│   │                              brand_profiles, products, product_assets, assets,
+│   │                              campaigns, campaign_tiles, photoshoots, photoshoot_tiles,
+│   │                              generations, buzz_events) + 8 enums
+│   ├── userKey.ts                 stable per-user key (upserts users row)
+│   ├── onboarding.ts              get / step-record / complete
+│   ├── brand.ts                   CRUD + ensureDefaultBrand
+│   ├── catalog.ts                 product CRUD
+│   ├── campaigns.ts               campaign + tile tx insert / list / get / swap
+│   ├── photoshoots.ts             photoshoot + tile tx insert / list / get
+│   ├── generations.ts             recordGeneration · updateGenerationFromSnapshot
+│   ├── buzz.ts                    recordBuzzEvent · listBuzzEvents · sumChargedBuzz
+│   ├── assets.ts                  CRUD · syncAssetsFromSnapshot · markTileFailed
+│   ├── s3.ts                      presignUpload · publicUrlFor (MinIO / R2)
+│   └── mocks/                     MSW handlers for Civitai + orchestrator (e2e only)
+└── instrumentation.ts             starts MSW node interceptor when MOCK_CIVITAI=1
+```
 
-## How to extend
+## How the generation loop works
 
-See [`AGENTS.md`](./AGENTS.md). Short version:
-
-- **New API call** — add a function to `src/lib/civitai.ts` that uses the user's session.
-- **New OAuth scope** — bump the constant in `src/lib/scopes.ts`. Users will re-consent on next login.
-- **Persistent storage** — this starter is intentionally stateless. Add Vercel KV / Postgres / etc. if you need to remember things across sessions.
+1. Client builds a `BriefPayload` and `POST`s to `/api/campaigns/cook`.
+2. Server resolves user key (upserts `users` row), validates with Zod.
+3. For each preset, runs `estimateWorkflow` + `submitWorkflow` in parallel.
+4. Server inserts `campaigns` + `campaign_tiles` rows in a transaction, then records a `generations` row + estimate/submit `buzz_events` per tile.
+5. Client navigates to `/campaigns/[id]`; each `<CreativeCard>` long-polls `/api/workflow/[id]?wait=15000`.
+6. On terminal status, the workflow route updates the `generations` row, calls `syncAssetsFromSnapshot` → inserts `assets` rows + links the first asset to the tile (`tile.assetId`, `status='done'`), records a single charged `buzz_event`.
+7. Tile regenerate (`POST /api/campaigns/[id]/tiles/[tileId]/regenerate`) swaps workflow id, records a new `generations` + `buzz_event`.
 
 ## End-to-end tests
 
-A small Playwright suite under `e2e/` exercises the full OAuth flow against a real Civitai dev server using its `testing-login` credentials provider (dev/test only).
+Playwright suite under `e2e/`. Runs against an isolated `vitrine_test` Postgres database and a dedicated Next dev server (port 3334) with MSW intercepting Civitai + orchestrator HTTP calls — no Buzz is spent, no real orchestrator dependency.
 
-Prereqs:
-
-1. Civitai dev server running locally (the `civitai/civitai` repo's `pnpm dev`).
-2. This starter's dev server running (`pnpm dev`).
-3. An OAuth app registered on that Civitai instance with the starter's `/api/auth/callback/civitai` URL as a registered redirect URI.
-4. `.env` filled with that OAuth app's id/secret + `CIVITAI_BASE_URL` pointing at the dev Civitai.
-
-Then:
+### One-time setup
 
 ```bash
-pnpm test:e2e:install   # one-time: install Chromium for Playwright
+pnpm test:e2e:install     # install Chromium for Playwright
+pnpm test:db:setup        # CREATE DATABASE vitrine_test + apply migrations
+```
+
+Make sure your Civitai OAuth app has both `http://localhost:3333/api/auth/callback/civitai` and `http://localhost:3334/api/auth/callback/civitai` registered as redirect URIs.
+
+### Running
+
+```bash
 CIVITAI_BASE_URL=http://localhost:3000 \
-APP_URL=http://localhost:3333 \
 TEST_USER_ID=1 \
 pnpm test:e2e
 ```
 
-Two specs are included:
+Playwright auto-boots the test Next dev server (`scripts/test-server.mjs`) — no manual `pnpm dev` needed. `pnpm dev` can run in parallel; the test server uses `.next-test/` as its `distDir` to side-step Next 16's per-directory dev-server lock.
 
-- `e2e/auth-flow.spec.ts` — programmatically signs the test user in to Civitai via `testing-login`, drives the OAuth consent (or skips it on subsequent runs), and asserts the starter's signed-in UI shows up.
-- `e2e/generation.spec.ts` — clicks **Preview Buzz cost**, asserts a `?whatif=true` price comes back. No Buzz is spent.
+### Auth strategy
 
-The tests **fail loudly** if `CIVITAI_BASE_URL` or `APP_URL` are unset. Aimed at local dev; running against prod requires a real browser-session auth (no `testing-login` available there).
+Global setup signs in once via Civitai's `testing-login` provider, then seals a fake-token `civ_session` cookie with your `SESSION_SECRET` so every spec starts pre-authenticated to the app. The `00-auth-flow.spec.ts` spec clears that cookie in `beforeEach` to exercise the real OAuth round-trip; everything else skips OAuth entirely (avoiding the Civitai dev server's rate limits).
+
+### What's covered
+
+| Spec | Covers |
+|---|---|
+| `00-auth-flow` | real OAuth → onboarding redirect for a fresh user |
+| `10-onboarding` | walks the 5-step flow → unlocks the shell |
+| `20-catalog` | create product → list → delete |
+| `30-brand` | brand DNA / book / assets render with seeded data |
+| `40-assets-uploader` | uploader UI renders (stubbed-PUT upload test is `.fixme` — see spec comment) |
+| `50-campaigns` | list · new brief · cook → redirect to `/campaigns/[id]` (MSW-mocked orchestrator) |
+| `60-photoshoot` | list · new builder · cook → redirect to `/photoshoot/[id]` |
+| `70-api-health` | `GET /api/health` |
 
 ## Deploying
 
-Drop-in to Vercel: push the repo, set the four env vars in the Vercel dashboard, register the OAuth App's prod redirect URI. No DB, no Redis, no extra infra.
+Vercel-ready. Set `CIVITAI_CLIENT_ID`, `CIVITAI_CLIENT_SECRET`, `SESSION_SECRET`, `NEXT_PUBLIC_APP_URL`, `DATABASE_URL` (Vercel Postgres / Neon), `S3_ENDPOINT` + `S3_ACCESS_KEY_ID` + `S3_SECRET_ACCESS_KEY` + `S3_BUCKET_*` + `S3_PUBLIC_URL` (R2), and register the prod redirect URI on the OAuth App. `REDIS_URL` is optional today.
+
+## Useful scripts
+
+| Script | What it does |
+|---|---|
+| `pnpm dev` | Next dev on `:3333` (writes to `.next/`) |
+| `pnpm dev:up` / `dev:down` / `dev:reset` | docker-compose for Postgres + MinIO + Redis |
+| `pnpm db:generate` | Drizzle: generate SQL from schema |
+| `pnpm db:migrate` / `db:push` | Apply migrations / push schema to `DATABASE_URL` |
+| `pnpm db:studio` | Drizzle Studio |
+| `pnpm build` | Next production build |
+| `pnpm typecheck` | `tsc --noEmit` |
+| `pnpm lint` | ESLint (Next config) |
+| `pnpm check:env` | Validate `.env` against the Zod schema |
+| `pnpm test:db:setup` | Create + migrate `vitrine_test` |
+| `pnpm test:server` | Boot the e2e Next dev server (port 3334, MSW on, test DB) |
+| `pnpm test:e2e` | Playwright suite (auto-boots `test:server`) |
 
 ## License
 

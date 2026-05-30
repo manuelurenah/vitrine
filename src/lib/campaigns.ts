@@ -1,0 +1,181 @@
+import 'server-only';
+import { and, desc, eq, inArray } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import {
+  campaigns as campaignsTable,
+  campaignTiles as campaignTilesTable,
+  type Campaign as CampaignRow,
+  type CampaignTile as CampaignTileRow,
+} from '@/lib/db/schema';
+import type { BriefForPresets, PresetId } from './presets';
+
+export type TileStatus = 'queued' | 'cooking' | 'done' | 'failed';
+
+export type CampaignTile = {
+  id: string;
+  presetId: PresetId;
+  workflowId: string;
+  status: TileStatus;
+  prompt: string;
+};
+
+export type Campaign = {
+  id: string;
+  userId: string;
+  title: string;
+  brief: BriefForPresets;
+  presetIds: PresetId[];
+  tiles: CampaignTile[];
+  estimatedBuzz: number;
+  createdAt: number;
+};
+
+function toTile(row: CampaignTileRow): CampaignTile {
+  return {
+    id: row.id,
+    presetId: row.presetId as PresetId,
+    workflowId: row.workflowId,
+    status: row.status,
+    prompt: row.prompt,
+  };
+}
+
+function toCampaign(row: CampaignRow, tiles: CampaignTileRow[]): Campaign {
+  return {
+    id: row.id,
+    userId: row.userId,
+    title: row.title,
+    brief: row.brief as BriefForPresets,
+    presetIds: row.presetIds as PresetId[],
+    tiles: tiles.map(toTile),
+    estimatedBuzz: row.estimatedBuzz,
+    createdAt: row.createdAt.getTime(),
+  };
+}
+
+export type CreateCampaignInput = {
+  userId: string;
+  title: string;
+  brief: BriefForPresets;
+  presetIds: PresetId[];
+  tiles: Array<{ presetId: PresetId; workflowId: string; prompt: string }>;
+  estimatedBuzz: number;
+};
+
+export async function createCampaign(input: CreateCampaignInput): Promise<Campaign> {
+  return db.transaction(async (tx) => {
+    const [campaignRow] = await tx
+      .insert(campaignsTable)
+      .values({
+        userId: input.userId,
+        title: input.title,
+        brief: input.brief,
+        presetIds: input.presetIds,
+        estimatedBuzz: input.estimatedBuzz,
+      })
+      .returning();
+    if (!campaignRow) throw new Error('campaign insert returned no row');
+
+    const tileRows = input.tiles.length
+      ? await tx
+          .insert(campaignTilesTable)
+          .values(
+            input.tiles.map((t) => ({
+              campaignId: campaignRow.id,
+              presetId: t.presetId,
+              workflowId: t.workflowId,
+              prompt: t.prompt,
+              status: 'cooking' as TileStatus,
+            })),
+          )
+          .returning()
+      : [];
+
+    return toCampaign(campaignRow, tileRows);
+  });
+}
+
+async function loadCampaign(userId: string, id: string): Promise<Campaign | null> {
+  const [row] = await db
+    .select()
+    .from(campaignsTable)
+    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
+    .limit(1);
+  if (!row) return null;
+  const tiles = await db
+    .select()
+    .from(campaignTilesTable)
+    .where(eq(campaignTilesTable.campaignId, row.id))
+    .orderBy(campaignTilesTable.createdAt);
+  return toCampaign(row, tiles);
+}
+
+export function getCampaign(userId: string, id: string): Promise<Campaign | null> {
+  return loadCampaign(userId, id);
+}
+
+export async function listCampaigns(userId: string): Promise<Campaign[]> {
+  const rows = await db
+    .select()
+    .from(campaignsTable)
+    .where(eq(campaignsTable.userId, userId))
+    .orderBy(desc(campaignsTable.createdAt));
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((r) => r.id);
+  const tiles = await db
+    .select()
+    .from(campaignTilesTable)
+    .where(inArray(campaignTilesTable.campaignId, ids))
+    .orderBy(campaignTilesTable.createdAt);
+
+  const byCampaign = new Map<string, CampaignTileRow[]>();
+  for (const t of tiles) {
+    const bucket = byCampaign.get(t.campaignId) ?? [];
+    bucket.push(t);
+    byCampaign.set(t.campaignId, bucket);
+  }
+
+  return rows.map((r) => toCampaign(r, byCampaign.get(r.id) ?? []));
+}
+
+export async function updateTileStatus(
+  userId: string,
+  campaignId: string,
+  tileId: string,
+  status: TileStatus,
+): Promise<Campaign | null> {
+  const campaign = await loadCampaign(userId, campaignId);
+  if (!campaign) return null;
+  await db
+    .update(campaignTilesTable)
+    .set({ status, updatedAt: new Date() })
+    .where(and(eq(campaignTilesTable.id, tileId), eq(campaignTilesTable.campaignId, campaignId)));
+  return loadCampaign(userId, campaignId);
+}
+
+export async function swapTileWorkflow(
+  userId: string,
+  campaignId: string,
+  tileId: string,
+  newWorkflowId: string,
+): Promise<CampaignTile | null> {
+  // Make sure the campaign belongs to the user before mutating any tile.
+  const owner = await db
+    .select({ id: campaignsTable.id })
+    .from(campaignsTable)
+    .where(and(eq(campaignsTable.id, campaignId), eq(campaignsTable.userId, userId)))
+    .limit(1);
+  if (owner.length === 0) return null;
+
+  const [row] = await db
+    .update(campaignTilesTable)
+    .set({
+      workflowId: newWorkflowId,
+      status: 'cooking',
+      updatedAt: new Date(),
+    })
+    .where(and(eq(campaignTilesTable.id, tileId), eq(campaignTilesTable.campaignId, campaignId)))
+    .returning();
+  return row ? toTile(row) : null;
+}

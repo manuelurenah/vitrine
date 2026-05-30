@@ -1,0 +1,302 @@
+/* Mobile-only styles for vitrine. Loads after app.css.
+   All sizes target a 390px-wide artboard. */
+
+/* ─── Screen frame ─── */
+.m-screen {
+  position: relative;
+  width: 390px;
+  height: 100%;
+  background: var(--bg-0);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  font-family: var(--font-body);
+  color: var(--fg-0);
+}
+.m-bloom {
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 380px 280px at 50% -20px, var(--volt-soft), transparent 60%),
+    radial-gradient(ellipse 320px 240px at 110% 60%, var(--ultraviolet-soft), transparent 60%);
+}
+.m-screen-content {
+  position: relative; z-index: 1; flex: 1;
+  overflow-y: auto; overflow-x: hidden;
+  padding: 0 16px 0;
+}
+
+/* ─── Topbar ─── */
+.m-topbar {
+  position: sticky; top: 0; z-index: 10;
+  height: 52px; padding: 0 8px;
+  display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 8px;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  margin: 0 -16px;
+  padding-left: 8px; padding-right: 8px;
+}
+.m-back, .m-icon-btn {
+  width: 36px; height: 36px; border-radius: 999px;
+  background: var(--bg-2); border: 1px solid var(--line-subtle);
+  color: var(--fg-0); cursor: pointer;
+  display: grid; place-items: center;
+}
+.m-back:hover, .m-icon-btn:hover { background: var(--bg-3); }
+.m-wordmark {
+  font-family: var(--font-display); font-weight: 800; font-size: 22px;
+  letter-spacing: -0.04em; line-height: 1; padding-left: 6px;
+  color: var(--fg-0);
+}
+.m-wordmark .wv {
+  background: linear-gradient(135deg, var(--volt), var(--ion));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.m-topbar-title {
+  display: flex; flex-direction: column; align-items: center;
+  line-height: 1.1;
+}
+.m-topbar-title .m-title {
+  font-family: var(--font-display); font-weight: 600; font-size: 15px;
+  letter-spacing: -0.02em; color: var(--fg-0);
+}
+.m-eyebrow-sm {
+  font-family: var(--font-mono); font-size: 9.5px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--fg-3);
+}
+.m-topbar-action { display: flex; align-items: center; gap: 6px; padding-right: 4px; }
+
+/* ─── Tab bar ─── */
+.m-tabbar {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 76px; padding: 8px 4px 14px;
+  background: rgba(15, 15, 22, 0.94);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--line-subtle);
+  display: grid; grid-template-columns: repeat(4, 1fr); align-items: center;
+  z-index: 20;
+}
+.m-tab {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  color: var(--fg-3); cursor: pointer;
+  transition: color 120ms var(--ease-out);
+}
+.m-tab .m-tab-icon { display: inline-flex; }
+.m-tab .m-tab-label {
+  font-size: 10.5px; font-weight: 500; letter-spacing: -0.005em;
+}
+.m-tab.active { color: var(--volt); }
+.m-tab.active .m-tab-icon { filter: drop-shadow(0 0 6px var(--volt-glow)); }
+.m-home-indicator {
+  position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%);
+  width: 110px; height: 4px; border-radius: 999px;
+  background: rgba(255,255,255,0.5);
+}
+
+/* ─── Sticky CTA above tab bar ─── */
+.m-sticky-cta {
+  position: absolute; left: 12px; right: 12px;
+  padding: 10px; border-radius: 14px;
+  background: rgba(15,15,22,0.92);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  display: flex; align-items: center; gap: 10px;
+  z-index: 15;
+  box-shadow: 0 -8px 32px -12px rgba(0,0,0,0.5);
+}
+
+/* ─── Buzz pill ─── */
+.m-buzz {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--buzz-soft); border: 1px solid var(--buzz-border);
+  border-radius: 999px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--buzz);
+  white-space: nowrap;
+}
+
+/* ─── Section head ─── */
+.m-section-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 18px 0 10px;
+}
+.m-section-icon { color: var(--fg-3); display: inline-flex; }
+.m-section-title {
+  font-family: var(--font-display); font-weight: 600; font-size: 14px;
+  letter-spacing: -0.015em; color: var(--fg-0);
+}
+.m-section-count {
+  font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--fg-3); letter-spacing: 0.04em;
+}
+.m-section-action {
+  margin-left: auto; font-size: 12px; color: var(--fg-2);
+  display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+}
+
+/* ─── Bottom sheet ─── */
+.m-sheet-wrap { position: absolute; inset: 0; z-index: 50; }
+.m-sheet-scrim {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.m-sheet {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: var(--bg-1);
+  border-top: 1px solid var(--line);
+  border-top-left-radius: 22px; border-top-right-radius: 22px;
+  box-shadow: 0 -24px 60px -10px rgba(0,0,0,0.6);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.m-sheet-handle {
+  width: 40px; height: 4px; border-radius: 999px;
+  background: rgba(255,255,255,0.2);
+  margin: 8px auto 4px;
+  flex-shrink: 0;
+}
+.m-sheet-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px 12px;
+  border-bottom: 1px solid var(--line-subtle);
+  flex-shrink: 0;
+}
+.m-sheet-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 18px;
+  letter-spacing: -0.02em; color: var(--fg-0); margin-top: 2px;
+}
+.m-sheet-body {
+  padding: 14px 16px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ─── FAB ─── */
+.m-fab {
+  position: absolute; bottom: 92px; right: 16px;
+  height: 52px; padding: 0 18px 0 16px;
+  border-radius: 26px;
+  background: var(--volt); color: var(--fg-on-volt);
+  border: 0;
+  font-family: var(--font-body); font-weight: 700; font-size: 14px;
+  letter-spacing: -0.005em;
+  display: inline-flex; align-items: center; gap: 8px;
+  cursor: pointer;
+  box-shadow:
+    0 0 0 1px var(--volt-glow),
+    0 0 32px -2px var(--volt-glow),
+    0 12px 32px -8px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.3);
+  z-index: 18;
+}
+.m-fab-icon { display: inline-flex; }
+
+/* ─── Mobile common type ─── */
+.m-h1 {
+  font-family: var(--font-display); font-weight: 700; font-size: 34px;
+  letter-spacing: -0.04em; line-height: 1.02; color: var(--fg-0);
+  font-variation-settings: "opsz" 40;
+  margin: 0;
+}
+.m-h2 {
+  font-family: var(--font-display); font-weight: 700; font-size: 22px;
+  letter-spacing: -0.025em; color: var(--fg-0);
+  margin: 0;
+}
+.m-h3 {
+  font-family: var(--font-display); font-weight: 600; font-size: 16px;
+  letter-spacing: -0.02em; color: var(--fg-0);
+  margin: 0;
+}
+.m-lede {
+  color: var(--fg-2); font-size: 14px; line-height: 1.5;
+  margin: 8px 0 0;
+}
+.m-eyebrow {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--fg-2);
+}
+
+/* ─── Composer (mobile) ─── */
+.m-composer {
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 16px; padding: 12px 12px 10px;
+  position: relative;
+  box-shadow: 0 16px 40px -16px rgba(0,255,157,0.15);
+}
+.m-composer::before {
+  content: ""; position: absolute; inset: -1px; border-radius: inherit;
+  pointer-events: none; padding: 1px;
+  background: linear-gradient(135deg, rgba(0,255,157,0.35), transparent 40%,
+                              transparent 60%, rgba(25,240,255,0.25));
+  -webkit-mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.m-composer textarea {
+  width: 100%; background: transparent; border: 0; outline: 0;
+  color: var(--fg-0); font-family: var(--font-body);
+  font-size: 15px; line-height: 1.35;
+  resize: none; padding: 4px 0 0; min-height: 56px;
+}
+.m-composer textarea::placeholder { color: var(--fg-3); }
+.m-composer .m-composer-row {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 8px;
+  flex-wrap: nowrap; overflow-x: auto;
+  scrollbar-width: none;
+}
+.m-composer .m-composer-row::-webkit-scrollbar { display: none; }
+
+/* ─── Cards (mobile) ─── */
+.m-card {
+  background: var(--bg-2); border: 1px solid var(--line-subtle);
+  border-radius: 14px; padding: 14px;
+}
+.m-card.tap { cursor: pointer; transition: all 160ms var(--ease-out); }
+.m-card.tap:active { background: var(--bg-3); transform: scale(0.99); }
+
+/* ─── List row ─── */
+.m-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-subtle);
+}
+.m-row:last-child { border-bottom: 0; }
+
+/* ─── Pills (segmented) ─── */
+.m-pills {
+  display: flex; gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+  margin: 0 -16px;
+  padding-left: 16px; padding-right: 16px;
+}
+.m-pills::-webkit-scrollbar { display: none; }
+
+/* ─── Big primary CTA ─── */
+.m-cta {
+  width: 100%; height: 52px;
+  background: var(--volt); color: var(--fg-on-volt);
+  border: 0; border-radius: 14px;
+  font-family: var(--font-body); font-weight: 700; font-size: 15px;
+  letter-spacing: -0.005em;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  cursor: pointer;
+  box-shadow:
+    0 0 0 1px var(--volt-glow),
+    0 0 24px -4px var(--volt-glow),
+    inset 0 1px 0 rgba(255,255,255,0.3);
+}
+.m-cta:disabled { background: var(--bg-3); color: var(--fg-3); box-shadow: none; }
+.m-cta.sm { height: 44px; font-size: 14px; border-radius: 12px; }
+.m-cta.secondary {
+  background: var(--bg-2); color: var(--fg-0); border: 1px solid var(--line);
+  box-shadow: none;
+}
+.m-cta.ghost {
+  background: transparent; color: var(--fg-1); box-shadow: none; border: 0;
+}
+
+/* DesignCanvas artboard background = pure dark so screens read clearly */
+.dc-artboard { background: var(--bg-0); }

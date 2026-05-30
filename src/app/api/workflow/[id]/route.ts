@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createOrchestratorClient, isTerminal, OrchestratorError, pollWorkflow } from '@civitai/app-sdk/orchestrator';
 import { env } from '@/lib/env';
 import { getSession } from '@/lib/session';
+import { getUserKey } from '@/lib/userKey';
+import { updateGenerationFromSnapshot } from '@/lib/generations';
+import { markTileFailed, syncAssetsFromSnapshot } from '@/lib/assets';
+import { recordBuzzEvent } from '@/lib/buzz';
 
 /**
  * Long-poll endpoint. `?wait=<ms>` (capped at MAX_WAIT_MS) holds the
@@ -31,7 +35,30 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       timeoutMs: waitMs,
       signal: req.signal,
     });
-    return NextResponse.json({ snapshot, done: isTerminal(snapshot) });
+
+    const done = isTerminal(snapshot);
+    if (done) {
+      const userKey = await getUserKey(session);
+      const prevGen = await updateGenerationFromSnapshot(id, snapshot);
+      const status = String(snapshot.status ?? '').toLowerCase();
+      if (status.includes('fail') || status.includes('error')) {
+        await markTileFailed(id, status || 'failed');
+      } else {
+        await syncAssetsFromSnapshot(userKey, snapshot);
+      }
+      const charged = snapshot.cost?.total ?? 0;
+      if (charged > 0 && (!prevGen || prevGen.chargedBuzz !== charged)) {
+        await recordBuzzEvent({
+          userId: userKey,
+          workflowId: id,
+          kind: 'submit',
+          charged,
+          note: 'workflow_done',
+        });
+      }
+    }
+
+    return NextResponse.json({ snapshot, done });
   } catch (err) {
     if (err instanceof OrchestratorError) {
       return NextResponse.json(

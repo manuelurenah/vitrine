@@ -1,0 +1,10 @@
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 84" width="320" height="84" role="img" aria-label="vitrine">
+  <defs>
+    <linearGradient id="wm-v" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0%" stop-color="#00ff9d"></stop>
+      <stop offset="100%" stop-color="#19f0ff"></stop>
+    </linearGradient>
+  </defs>
+  <text x="0" y="64" font-family="&#39;Bricolage Grotesque&#39;, &#39;Space Grotesk&#39;, system-ui, sans-serif" font-weight="800" font-size="72" letter-spacing="-3.6" fill="#f6f6fa"><tspan fill="url(#wm-v)">v</tspan>itrine</text>
+</svg>
