@@ -63,10 +63,19 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Override the build/dev output directory when running the e2e test server
+  // so it can coexist with a parallel `pnpm dev` (Next 16 advisory-locks
+  // each distDir against multiple concurrent dev processes).
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   // @civitai/app-sdk is a workspace package shipping uncompiled-style ESM.
   // Telling Next to transpile it keeps source-maps and lets us iterate
   // without a separate publish cycle during local development.
   transpilePackages: ['@civitai/app-sdk'],
+  // Tree-shake icon barrels — Next 16 rewrites `import { Foo } from 'lucide-react'`
+  // into deep imports so unused icons drop out of the bundle.
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
+  },
   images: {
     // The orchestrator returns blob URLs on its CDN. Allow them as image sources.
     remotePatterns: [

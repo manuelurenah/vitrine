@@ -156,14 +156,48 @@ export default async function globalSetup(_config: FullConfig) {
     );
   }
 
-  // 4. Convert captured cookies into Playwright storageState shape and write.
+  // 4. Convert captured cookies into Playwright storageState shape.
   const cookies: PwCookie[] = Array.from(parsed.values()).map((p) => toPwCookie(p, civitaiHost));
+
+  // 5. Inject a pre-sealed `civ_session` cookie so every spec starts with a
+  //    valid app session — skipping the per-test OAuth roundtrip (which gets
+  //    rate-limited by the Civitai dev server). MSW intercepts /api/v1/me +
+  //    /api/trpc/buzz.getUserAccount on the test server, so the mock token
+  //    is never actually validated. The auth-flow spec explicitly clears
+  //    this cookie before doing a real OAuth round-trip.
+  const sessionSecret = process.env.SESSION_SECRET;
+  if (!sessionSecret) {
+    throw new Error('SESSION_SECRET is required to seal an e2e app session cookie.');
+  }
+  const { sealCookie } = await import('@civitai/app-sdk');
+  const fakeSession = {
+    tokens: {
+      access_token: 'e2e-mock-access-token',
+      refresh_token: 'e2e-mock-refresh-token',
+      token_type: 'Bearer',
+      expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      scope: 0xff,
+    },
+    user: { id: Number(userId), username: 'e2e-tester' },
+  };
+  const sealed = sealCookie(JSON.stringify(fakeSession), sessionSecret);
+  cookies.push({
+    name: 'civ_session',
+    value: sealed,
+    domain: 'localhost',
+    path: '/',
+    expires: -1,
+    httpOnly: true,
+    secure: false,
+    sameSite: 'Lax',
+  });
+
   const state = { cookies, origins: [] };
 
   await mkdir(dirname(STORAGE_STATE_PATH), { recursive: true });
   await writeFile(STORAGE_STATE_PATH, JSON.stringify(state, null, 2), 'utf8');
 
   console.log(
-    `[e2e] signed in as user ${userId} on ${civitaiBaseUrl}; ${cookies.length} cookies → ${STORAGE_STATE_PATH}`,
+    `[e2e] signed in as user ${userId} on ${civitaiBaseUrl}; ${cookies.length} cookies (incl. injected civ_session) → ${STORAGE_STATE_PATH}`,
   );
 }
