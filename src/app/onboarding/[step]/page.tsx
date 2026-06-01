@@ -1,17 +1,21 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import {
   DnaStep,
-  GeneratingStep,
   InputStep,
   NextStep,
   OnboardingFrame,
+  ProcessingStep,
   WelcomeStep,
   isOnboardingStep,
   type OnboardingStep,
 } from '@/components/onboarding';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { recordOnboardingStep } from '@/lib/onboarding';
+import {
+  getOnboarding,
+  recordOnboardingStep,
+  type OnboardingPayload,
+} from '@/lib/onboarding';
 
 type Params = Promise<{ step: string }>;
 
@@ -21,29 +25,34 @@ export default async function OnboardingStepPage({ params }: { params: Params })
   const { step } = await params;
   if (!isOnboardingStep(step)) notFound();
 
+  // Onboarding requires a session. Without this guard the page renders
+  // anyway but every authenticated API call (scrape, payload patch) 401s,
+  // which looks like a bug rather than a missing login.
   const session = await getSession();
-  if (session) {
-    const userKey = await getUserKey(session);
-    await recordOnboardingStep(userKey, step);
-  }
+  if (!session) redirect('/');
+
+  const userKey = await getUserKey(session);
+  await recordOnboardingStep(userKey, step);
+  const snapshot = await getOnboarding(userKey);
+  const payload: OnboardingPayload = snapshot.payload;
 
   return (
     <OnboardingFrame step={step}>
-      <Screen step={step} />
+      <Screen step={step} payload={payload} />
     </OnboardingFrame>
   );
 }
 
-function Screen({ step }: { step: OnboardingStep }) {
+function Screen({ step, payload }: { step: OnboardingStep; payload: OnboardingPayload }) {
   switch (step) {
     case 'welcome':
       return <WelcomeStep />;
     case 'input':
-      return <InputStep />;
-    case 'generating':
-      return <GeneratingStep />;
+      return <InputStep payload={payload} />;
+    case 'processing':
+      return <ProcessingStep payload={payload} />;
     case 'dna':
-      return <DnaStep />;
+      return <DnaStep payload={payload} />;
     case 'next':
       return <NextStep />;
   }

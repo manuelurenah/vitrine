@@ -2,12 +2,14 @@ import Link from 'next/link';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { BuzzPill } from '@/components/ui';
 import { CreativeCard } from './CreativeCard';
+import { ExportCampaignButton } from './ExportCampaignButton';
 import { SectionHead } from './SectionHead';
 import type { Campaign } from '@/lib/campaigns';
 
 type Props = { campaign: Campaign };
 
 export function CampaignDetail({ campaign }: Props) {
+  const doneCount = campaign.tiles.filter((t) => t.status === 'done').length;
   return (
     <div className="relative">
       <header className="flex flex-wrap items-start gap-6">
@@ -29,6 +31,7 @@ export function CampaignDetail({ campaign }: Props) {
           <span className="inline-flex items-center gap-[5px] font-mono text-[11px] uppercase tracking-[0.1em] text-volt">
             <Sparkles size={12} strokeWidth={1.75} /> cooking
           </span>
+          <ExportCampaignButton campaignId={campaign.id} disabled={doneCount === 0} />
         </div>
       </header>
 

@@ -1,4 +1,4 @@
-import { PlaceholderScreen } from '@/components/shell/PlaceholderScreen';
+import { redirect } from 'next/navigation';
 import { AssetsGallery } from '@/components/assets';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
@@ -9,16 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function AssetsPage() {
   const session = await getSession();
-  if (!session) {
-    return (
-      <PlaceholderScreen
-        eyebrow="assets"
-        title="logos, partners, references."
-        body="sign in to view your assets."
-      />
-    );
-  }
-
+  if (!session) redirect('/');
   const userKey = await getUserKey(session);
   const assets = await listAssets(userKey, 200);
 

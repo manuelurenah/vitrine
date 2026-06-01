@@ -1,25 +1,25 @@
 import Link from 'next/link';
-import { ArrowRight, Dna, Megaphone, Camera } from 'lucide-react';
+import { ArrowRight, Dna, Pencil, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui';
 
 const cards = [
   {
     num: '1',
-    title: 'build your brand dna',
-    body: 'drop a url, a logo, or just describe yourself — we extract palette, tone, audience.',
-    icon: Dna,
+    title: 'tell us about your brand',
+    body: 'drop a url, a logo, brand colors, or a quick one-liner — any combo works. nothing is required.',
+    icon: Pencil,
   },
   {
     num: '2',
-    title: 'cook three reads',
-    body: 'we propose three distinct campaign directions — pick the one that clicks.',
-    icon: Megaphone,
+    title: 'we extract your dna',
+    body: 'palette, tone of voice, audience, and aesthetic — pulled together while you wait.',
+    icon: Dna,
   },
   {
     num: '3',
-    title: 'shoot, post, ship',
-    body: 'phone photo → studio shot. one product → 12 posts, 3 ads, a hero reel.',
-    icon: Camera,
+    title: 'review and pick your first ship',
+    body: 'tweak anything that feels off, then choose where to spend your first Buzz — a campaign or a photoshoot.',
+    icon: Sparkles,
   },
 ];
 
@@ -37,7 +37,8 @@ export function WelcomeStep() {
           </span>
         </h1>
         <p className="max-w-[520px] text-[16px] leading-[1.5] text-fg-2">
-          generate on-brand campaigns, photos, and reels — paid in Buzz. three steps to your first.
+          generate on-brand campaigns, photos, and reels — paid in Buzz. a quick setup teaches
+          vitrine your brand so every shoot and campaign looks like you.
         </p>
       </header>
 

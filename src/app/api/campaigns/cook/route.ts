@@ -56,6 +56,8 @@ export async function POST(req: NextRequest) {
       presetIds: brief.presetIds,
       tiles: results.map((r) => ({ presetId: r.presetId, workflowId: r.workflowId, prompt: r.prompt })),
       estimatedBuzz,
+      audience: brief.audience?.trim() || null,
+      aesthetics: brief.aesthetics?.trim() || null,
     });
 
     await Promise.all(

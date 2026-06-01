@@ -1,7 +1,8 @@
 import 'server-only';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
+  assets as assetsTable,
   campaigns as campaignsTable,
   campaignTiles as campaignTilesTable,
   type Campaign as CampaignRow,
@@ -27,6 +28,8 @@ export type Campaign = {
   presetIds: PresetId[];
   tiles: CampaignTile[];
   estimatedBuzz: number;
+  audience: string | null;
+  aesthetics: string | null;
   createdAt: number;
 };
 
@@ -49,6 +52,8 @@ function toCampaign(row: CampaignRow, tiles: CampaignTileRow[]): Campaign {
     presetIds: row.presetIds as PresetId[],
     tiles: tiles.map(toTile),
     estimatedBuzz: row.estimatedBuzz,
+    audience: row.audience,
+    aesthetics: row.aesthetics,
     createdAt: row.createdAt.getTime(),
   };
 }
@@ -60,6 +65,8 @@ export type CreateCampaignInput = {
   presetIds: PresetId[];
   tiles: Array<{ presetId: PresetId; workflowId: string; prompt: string }>;
   estimatedBuzz: number;
+  audience?: string | null;
+  aesthetics?: string | null;
 };
 
 export async function createCampaign(input: CreateCampaignInput): Promise<Campaign> {
@@ -72,6 +79,8 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Campai
         brief: input.brief,
         presetIds: input.presetIds,
         estimatedBuzz: input.estimatedBuzz,
+        audience: input.audience ?? null,
+        aesthetics: input.aesthetics ?? null,
       })
       .returning();
     if (!campaignRow) throw new Error('campaign insert returned no row');
@@ -152,6 +161,41 @@ export async function updateTileStatus(
     .set({ status, updatedAt: new Date() })
     .where(and(eq(campaignTilesTable.id, tileId), eq(campaignTilesTable.campaignId, campaignId)));
   return loadCampaign(userId, campaignId);
+}
+
+export type CampaignAssetEntry = {
+  tileId: string;
+  presetId: string;
+  publicUrl: string;
+  contentType: string | null;
+};
+
+export async function listCampaignAssets(
+  userId: string,
+  campaignId: string,
+): Promise<CampaignAssetEntry[]> {
+  const rows = await db
+    .select({
+      tileId: campaignTilesTable.id,
+      presetId: campaignTilesTable.presetId,
+      publicUrl: assetsTable.publicUrl,
+      contentType: assetsTable.contentType,
+    })
+    .from(campaignTilesTable)
+    .innerJoin(campaignsTable, eq(campaignsTable.id, campaignTilesTable.campaignId))
+    .innerJoin(assetsTable, eq(assetsTable.id, campaignTilesTable.assetId))
+    .where(
+      and(
+        eq(campaignsTable.id, campaignId),
+        eq(campaignsTable.userId, userId),
+        eq(campaignTilesTable.status, 'done'),
+        isNull(assetsTable.deletedAt),
+      ),
+    );
+  return rows
+    .filter((r): r is { tileId: string; presetId: string; publicUrl: string; contentType: string | null } =>
+      Boolean(r.publicUrl),
+    );
 }
 
 export async function swapTileWorkflow(

@@ -16,10 +16,15 @@ test.describe('Brand pages render', () => {
     await expect(page.getByText(/my brand/i).first()).toBeVisible();
   });
 
-  test('brand book page renders', async ({ page, baseURL }) => {
+  test('brand editor saves a palette swatch', async ({ page, baseURL }) => {
     await signInToApp(page, baseURL!);
-    await page.goto(`${baseURL}/brand/book`);
-    await expect(page.getByText(/brand book/i).first()).toBeVisible();
+    await page.goto(`${baseURL}/brand`);
+    const swatchInput = page.getByPlaceholder('#1a1a1a');
+    await swatchInput.fill('#0f172a');
+    await page.getByRole('button', { name: /^add$/i }).click();
+    await expect(page.getByText('#0f172a')).toBeVisible();
+    await page.getByRole('button', { name: /save changes/i }).click();
+    await expect(page.getByText('saved.')).toBeVisible({ timeout: 5_000 });
   });
 
   test('assets gallery renders with empty state when no uploads', async ({ page, baseURL }) => {

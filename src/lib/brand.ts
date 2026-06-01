@@ -5,6 +5,7 @@ import {
   brandProfiles,
   type BrandProfile as BrandRow,
 } from '@/lib/db/schema';
+import { getOnboarding, type OnboardingPayload } from '@/lib/onboarding';
 
 export type BrandProfile = {
   id: string;
@@ -15,7 +16,9 @@ export type BrandProfile = {
   palette: string[];
   tone: string | null;
   industry: string | null;
-  audience: string | null;
+  tagline: string | null;
+  font: string | null;
+  logoUrl: string | null;
   isDefault: boolean;
   createdAt: number;
   updatedAt: number;
@@ -31,7 +34,9 @@ function toBrand(row: BrandRow): BrandProfile {
     palette: Array.isArray(row.palette) ? (row.palette as string[]) : [],
     tone: row.tone,
     industry: row.industry,
-    audience: row.audience,
+    tagline: row.tagline,
+    font: row.font,
+    logoUrl: row.logoUrl,
     isDefault: row.isDefault,
     createdAt: row.createdAt.getTime(),
     updatedAt: row.updatedAt.getTime(),
@@ -46,7 +51,9 @@ export type CreateBrandInput = {
   palette?: string[];
   tone?: string | null;
   industry?: string | null;
-  audience?: string | null;
+  tagline?: string | null;
+  font?: string | null;
+  logoUrl?: string | null;
   isDefault?: boolean;
 };
 
@@ -61,7 +68,9 @@ export async function createBrand(input: CreateBrandInput): Promise<BrandProfile
       palette: input.palette ?? [],
       tone: input.tone ?? null,
       industry: input.industry ?? null,
-      audience: input.audience ?? null,
+      tagline: input.tagline ?? null,
+      font: input.font ?? null,
+      logoUrl: input.logoUrl ?? null,
       isDefault: input.isDefault ?? false,
     })
     .returning();
@@ -95,10 +104,69 @@ export async function getDefaultBrand(userId: string): Promise<BrandProfile | nu
   return row ? toBrand(row) : null;
 }
 
+type BrandSeed = {
+  name: string | null;
+  description: string | null;
+  sourceUrl: string | null;
+  palette: string[];
+  tone: string | null;
+  tagline: string | null;
+  font: string | null;
+  logoUrl: string | null;
+};
+
+function seedFromPayload(payload: OnboardingPayload): BrandSeed {
+  const scrape = payload.scrape ?? null;
+  const trimOrNull = (v: string | null | undefined): string | null => {
+    const t = (v ?? '').trim();
+    return t.length > 0 ? t : null;
+  };
+  const colors =
+    payload.colors && payload.colors.length > 0 ? payload.colors : scrape?.palette ?? [];
+  const tone =
+    payload.tone && payload.tone.length > 0 ? payload.tone.join(', ') : null;
+  return {
+    name: trimOrNull(payload.brandName) ?? trimOrNull(scrape?.brandName),
+    description: trimOrNull(payload.description) ?? trimOrNull(scrape?.description),
+    sourceUrl: trimOrNull(payload.websiteUrl) ?? trimOrNull(scrape?.finalUrl),
+    palette: colors,
+    tone,
+    tagline: trimOrNull(payload.tagline),
+    font: trimOrNull(payload.font) ?? trimOrNull(scrape?.font),
+    logoUrl: trimOrNull(payload.logoUrl) ?? trimOrNull(scrape?.logoUrl),
+  };
+}
+
 export async function ensureDefaultBrand(userId: string, name = 'my brand'): Promise<BrandProfile> {
+  const seed = seedFromPayload((await getOnboarding(userId)).payload);
   const existing = await getDefaultBrand(userId);
-  if (existing) return existing;
-  return createBrand({ userId, name, isDefault: true });
+  if (existing) {
+    const patch: Partial<BrandProfile> = {};
+    if ((existing.name === 'my brand' || existing.name.trim().length === 0) && seed.name)
+      patch.name = seed.name;
+    if (!existing.description && seed.description) patch.description = seed.description;
+    if (!existing.sourceUrl && seed.sourceUrl) patch.sourceUrl = seed.sourceUrl;
+    if (existing.palette.length === 0 && seed.palette.length > 0) patch.palette = seed.palette;
+    if (!existing.tone && seed.tone) patch.tone = seed.tone;
+    if (!existing.tagline && seed.tagline) patch.tagline = seed.tagline;
+    if (!existing.font && seed.font) patch.font = seed.font;
+    if (!existing.logoUrl && seed.logoUrl) patch.logoUrl = seed.logoUrl;
+    if (Object.keys(patch).length === 0) return existing;
+    const updated = await updateBrand(userId, existing.id, patch);
+    return updated ?? existing;
+  }
+  return createBrand({
+    userId,
+    name: seed.name ?? name,
+    description: seed.description,
+    sourceUrl: seed.sourceUrl,
+    palette: seed.palette,
+    tone: seed.tone,
+    tagline: seed.tagline,
+    font: seed.font,
+    logoUrl: seed.logoUrl,
+    isDefault: true,
+  });
 }
 
 export async function updateBrand(
@@ -113,7 +181,9 @@ export async function updateBrand(
   if (patch.palette !== undefined) set.palette = patch.palette;
   if (patch.tone !== undefined) set.tone = patch.tone;
   if (patch.industry !== undefined) set.industry = patch.industry;
-  if (patch.audience !== undefined) set.audience = patch.audience;
+  if (patch.tagline !== undefined) set.tagline = patch.tagline;
+  if (patch.font !== undefined) set.font = patch.font;
+  if (patch.logoUrl !== undefined) set.logoUrl = patch.logoUrl;
   if (patch.isDefault !== undefined) set.isDefault = patch.isDefault;
 
   const [row] = await db

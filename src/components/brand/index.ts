@@ -1,0 +1,1 @@
+export { BrandEditor } from './BrandEditor';

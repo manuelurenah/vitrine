@@ -25,7 +25,7 @@ export function NextStep() {
   return (
     <section className="flex flex-col items-center gap-10 pt-12 text-center">
       <header className="flex flex-col items-center gap-3">
-        <span className="t-eyebrow">// what&apos;s next</span>
+        <span className="t-eyebrow">// step 3 of 3 · pick your ship</span>
         <h2 className="t-h2 text-fg-0">pick your first ship.</h2>
         <p className="max-w-[480px] text-[14.5px] leading-[1.5] text-fg-2">
           we&apos;ve got everything we need to start cooking. choose where to spend your first 60
@@ -63,6 +63,13 @@ export function NextStep() {
           </Link>
         ))}
       </div>
+
+      <Link
+        href="/onboarding/dna"
+        className="font-mono text-[12px] uppercase tracking-[0.12em] text-fg-3 hover:text-fg-1"
+      >
+        ← review your brand dna
+      </Link>
     </section>
   );
 }

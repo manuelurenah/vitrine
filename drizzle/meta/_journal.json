@@ -8,6 +8,20 @@
       "when": 1780083257243,
       "tag": "0000_serious_crusher_hogan",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780335035188,
+      "tag": "0001_soft_mentor",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780339378156,
+      "tag": "0002_redundant_phantom_reporter",
+      "breakpoints": true
     }
   ]
 }

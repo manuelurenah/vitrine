@@ -19,6 +19,7 @@ export const onboardingStep = pgEnum('onboarding_step', [
   'welcome',
   'input',
   'generating',
+  'processing',
   'dna',
   'next',
 ]);
@@ -78,7 +79,9 @@ export const brandProfiles = pgTable(
     palette: jsonb('palette').default(sql`'[]'::jsonb`).notNull(),
     tone: text('tone'),
     industry: text('industry'),
-    audience: text('audience'),
+    tagline: text('tagline'),
+    font: text('font'),
+    logoUrl: text('logo_url'),
     isDefault: boolean('is_default').default(false).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -187,6 +190,7 @@ export const campaigns = pgTable(
       .default(sql`ARRAY[]::text[]`)
       .notNull(),
     audience: text('audience'),
+    aesthetics: text('aesthetics'),
     industry: text('industry'),
     goal: text('goal'),
     channels: text('channels').array(),

@@ -1,8 +1,8 @@
 {
-  "name": "civitai-next-app-starter",
-  "version": "0.0.0",
+  "name": "vitrine",
+  "version": "0.1.0",
   "private": true,
-  "description": "Next.js 15 App Router starter for building Civitai OAuth + Buzz-powered apps.",
+  "description": "Vitrine — Civitai OAuth + Buzz-powered campaign + photoshoot generator.",
   "type": "module",
   "license": "MIT",
   "keywords": [
@@ -42,7 +42,9 @@
     "test:server": "node --env-file=.env scripts/test-server.mjs",
     "test:e2e": "node --env-file=.env ./node_modules/@playwright/test/cli.js test",
     "test:e2e:ui": "node --env-file=.env ./node_modules/@playwright/test/cli.js test --ui",
-    "test:e2e:install": "playwright install --with-deps chromium"
+    "test:e2e:install": "playwright install --with-deps chromium",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1057.0",
@@ -54,6 +56,7 @@
     "next": "^16.2.6",
     "pg": "^8.21.0",
     "react": "^19.0.0",
+    "react-colorful": "^5.7.0",
     "react-dom": "^19.0.0",
     "zod": "^3.24.0"
   },
@@ -71,6 +74,7 @@
     "postcss": "^8.4.49",
     "server-only": "^0.0.1",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   }
 }

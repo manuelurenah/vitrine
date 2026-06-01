@@ -20,7 +20,7 @@ test.describe('OAuth + session', () => {
     baseURL,
   }) => {
     await page.goto(baseURL!);
-    await expect(page.getByRole('heading', { name: /one door\./i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /shot on demand\./i })).toBeVisible();
     await expect(page.getByRole('button', { name: /continue with Civitai/i })).toBeVisible();
 
     await signInToApp(page, baseURL!, { realOAuth: true });

@@ -1,4 +1,5 @@
-import { PlaceholderScreen } from '@/components/shell/PlaceholderScreen';
+import { redirect } from 'next/navigation';
+import { BrandEditor } from '@/components/brand';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
 import { ensureDefaultBrand } from '@/lib/brand';
@@ -8,36 +9,21 @@ export const dynamic = 'force-dynamic';
 
 export default async function BrandPage() {
   const session = await getSession();
-  if (!session) {
-    return (
-      <PlaceholderScreen
-        eyebrow="your brand dna"
-        title="brand overview."
-        body="sign in to see your brand dna."
-      />
-    );
-  }
+  if (!session) redirect('/');
 
   const userKey = await getUserKey(session);
   const brand = await ensureDefaultBrand(userKey);
 
-  const paletteSummary = brand.palette.length
-    ? brand.palette.slice(0, 4).join(' · ')
-    : 'palette not extracted yet';
-
   return (
-    <PlaceholderScreen
-      eyebrow="your brand dna"
-      title={brand.name}
-      body={[
-        brand.description ?? 'no description yet — finish onboarding to populate.',
-        `palette: ${paletteSummary}`,
-        brand.tone ? `tone: ${brand.tone}` : 'tone: tbd',
-        brand.industry ? `industry: ${brand.industry}` : null,
-        brand.audience ? `audience: ${brand.audience}` : null,
-      ]
-        .filter(Boolean)
-        .join(' · ')}
-    />
+    <div className="mx-auto flex max-w-[760px] flex-col gap-6">
+      <header className="flex flex-col gap-1.5">
+        <span className="t-eyebrow">{'// '}brand dna</span>
+        <h1 className="t-h2 text-fg-0">{brand.name}.</h1>
+        <p className="text-[13.5px] text-fg-2">
+          tone + palette feeds every campaign + photoshoot prompt. edit anytime.
+        </p>
+      </header>
+      <BrandEditor brand={brand} />
+    </div>
   );
 }

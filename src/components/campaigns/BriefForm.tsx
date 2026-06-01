@@ -19,6 +19,8 @@ export type BriefPayload = {
   description: string;
   goal: string;
   offer: string;
+  audience: string;
+  aesthetics: string;
   presetIds: string[];
 };
 
@@ -39,6 +41,8 @@ export function BriefForm({
   );
   const [goal, setGoal] = useState('launch');
   const [offer, setOffer] = useState('20% off bundle');
+  const [audience, setAudience] = useState('');
+  const [aesthetics, setAesthetics] = useState('');
   const [presetIds, setPresetIds] = useState<string[]>(['ig-feed', 'ig-story', 'li']);
 
   const buzzCost = 8 + presetIds.length * 6;
@@ -48,7 +52,7 @@ export function BriefForm({
       className="flex flex-col gap-6"
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit?.({ prompt, title, description, goal, offer, presetIds });
+        onSubmit?.({ prompt, title, description, goal, offer, audience, aesthetics, presetIds });
       }}
     >
       <section className="rounded-[14px] border border-line-subtle bg-bg-2 p-4">
@@ -98,6 +102,27 @@ export function BriefForm({
           onChange={(e) => setOffer(e.target.value)}
           placeholder="20% off bundle · early access · free shipping"
         />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <FieldLabel htmlFor="brief-audience">audience</FieldLabel>
+          <Input
+            id="brief-audience"
+            value={audience}
+            onChange={(e) => setAudience(e.target.value)}
+            placeholder="30s · urban · gift-giving"
+          />
+        </div>
+        <div>
+          <FieldLabel htmlFor="brief-aesthetics">aesthetics</FieldLabel>
+          <Input
+            id="brief-aesthetics"
+            value={aesthetics}
+            onChange={(e) => setAesthetics(e.target.value)}
+            placeholder="festive · citrus-forward · golden hour"
+          />
+        </div>
       </div>
 
       <section>

@@ -1,4 +1,4 @@
-export const ONBOARDING_STEPS = ['welcome', 'input', 'generating', 'dna', 'next'] as const;
+export const ONBOARDING_STEPS = ['welcome', 'input', 'processing', 'dna', 'next'] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
 export function isOnboardingStep(value: string): value is OnboardingStep {

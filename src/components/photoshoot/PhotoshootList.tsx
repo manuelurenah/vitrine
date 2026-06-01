@@ -13,7 +13,7 @@ export function PhotoshootList({ shoots }: Props) {
     <div className="relative">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 z-base h-[420px] opacity-90"
+        className="pointer-events-none absolute inset-x-0 -top-7 z-base h-[420px] opacity-90"
         style={{
           background:
             'radial-gradient(ellipse 700px 320px at 50% -10%, var(--ion-soft), transparent 60%)',

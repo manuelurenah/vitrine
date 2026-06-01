@@ -9,7 +9,23 @@ export type OnboardingPayload = {
   websiteUrl?: string;
   description?: string;
   logoName?: string;
+  logoUrl?: string;
   colors?: string[];
+  tagline?: string;
+  tone?: string[];
+  font?: string;
+  scrape?: ScrapedSite;
+};
+
+export type ScrapedSite = {
+  fetchedAt: number;
+  finalUrl: string;
+  brandName: string | null;
+  description: string | null;
+  logoUrl: string | null;
+  themeColor: string | null;
+  palette: string[];
+  font: string | null;
 };
 
 export type OnboardingSnapshot = {
@@ -18,9 +34,16 @@ export type OnboardingSnapshot = {
   payload: OnboardingPayload;
 };
 
+// Legacy DBs may still carry 'generating' rows from before that step was
+// renamed. Map to 'processing' (its replacement) on read so the UI never
+// sees the dead value.
+function coerceStep(s: OnboardingState['currentStep']): OnboardingStep {
+  return (s as string) === 'generating' ? 'processing' : (s as OnboardingStep);
+}
+
 function toSnapshot(row: OnboardingState): OnboardingSnapshot {
   return {
-    currentStep: row.currentStep,
+    currentStep: coerceStep(row.currentStep),
     completedAt: row.completedAt?.getTime() ?? null,
     payload: (row.payload as OnboardingPayload) ?? {},
   };
@@ -51,12 +74,16 @@ export async function recordOnboardingStep(
   userId: string,
   step: OnboardingStep,
 ): Promise<OnboardingSnapshot> {
-  await ensureRow(userId);
+  const existing = await ensureRow(userId);
   const isFinal = step === ONBOARDING_STEPS[ONBOARDING_STEPS.length - 1];
+  const visitedIdx = ONBOARDING_STEPS.indexOf(step);
+  const existingStep = coerceStep(existing.currentStep);
+  const currentIdx = ONBOARDING_STEPS.indexOf(existingStep);
+  const furthest = visitedIdx > currentIdx ? step : existingStep;
   const [row] = await db
     .update(onboardingState)
     .set({
-      currentStep: step,
+      currentStep: furthest,
       updatedAt: new Date(),
       completedAt: isFinal ? new Date() : sql`${onboardingState.completedAt}`,
     })

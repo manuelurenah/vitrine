@@ -96,15 +96,21 @@ export type BriefForPresets = {
   goal: string;
   offer: string;
   prompt: string;
+  audience?: string;
+  aesthetics?: string;
 };
 
 export function buildGenerateInput(brief: BriefForPresets, preset: PresetDef): GenerateInput {
   const goalLine = brief.goal ? `goal: ${brief.goal}.` : '';
   const offerLine = brief.offer ? `offer: ${brief.offer}.` : '';
+  const audienceLine = brief.audience ? `audience: ${brief.audience}.` : '';
+  const aestheticsLine = brief.aesthetics ? `aesthetic: ${brief.aesthetics}.` : '';
   const prompt = [
     brief.description.trim() || brief.prompt.trim(),
     goalLine,
     offerLine,
+    audienceLine,
+    aestheticsLine,
     preset.styleNotes,
     'on-brand, product-forward, no text overlay, high quality',
   ]

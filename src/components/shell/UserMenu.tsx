@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronDown, LogOut, ShieldOff } from 'lucide-react';
+import { ChevronDown, LogOut, Settings, ShieldOff } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar, cn } from '@/components/ui';
 
@@ -59,11 +60,19 @@ export function UserMenu({ user }: Props) {
 
       {open && (
         <div className="absolute bottom-[calc(100%+6px)] left-0 right-0 z-overlay overflow-hidden rounded-[10px] border border-line bg-bg-2 shadow-lg">
+          <Link
+            href="/settings"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2 px-3 py-[10px] text-left text-[13px] text-fg-0 transition-colors duration-fast ease-out hover:bg-bg-3"
+          >
+            <Settings size={14} strokeWidth={1.75} className="text-fg-2" />
+            settings
+          </Link>
           <button
             type="button"
             onClick={() => call('/api/auth/logout')}
             disabled={busy !== 'none'}
-            className="flex w-full items-center gap-2 px-3 py-[10px] text-left text-[13px] text-fg-0 transition-colors duration-fast ease-out hover:bg-bg-3 disabled:opacity-60"
+            className="flex w-full items-center gap-2 border-t border-line-subtle px-3 py-[10px] text-left text-[13px] text-fg-0 transition-colors duration-fast ease-out hover:bg-bg-3 disabled:opacity-60"
           >
             <LogOut size={14} strokeWidth={1.75} className="text-fg-2" />
             {busy === 'logout' ? 'signing out…' : 'sign out'}

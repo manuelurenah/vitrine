@@ -117,6 +117,15 @@ export async function listAssets(userId: string, limit = 200): Promise<Asset[]> 
   return rows.map(toAsset);
 }
 
+export async function softDeleteAsset(userId: string, id: string): Promise<boolean> {
+  const rows = await db
+    .update(assets)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(assets.id, id), eq(assets.userId, userId), isNull(assets.deletedAt)))
+    .returning({ id: assets.id });
+  return rows.length > 0;
+}
+
 export async function listAssetsForProduct(productId: string): Promise<Asset[]> {
   const rows = await db
     .select({ asset: assets })

@@ -39,13 +39,31 @@ const CIVITAI_HOSTS = Array.from(
   ),
 );
 
+// Object-storage origins (MinIO for local dev, R2 for prod). Folded into
+// `connect-src` so presigned-URL PUTs from the browser aren't blocked, and
+// into `img-src` so uploaded logo previews render.
+const STORAGE_HOSTS = Array.from(
+  new Set(
+    [
+      originOrNull(process.env.S3_ENDPOINT),
+      originOrNull(process.env.S3_PUBLIC_URL),
+    ].filter(Boolean),
+  ),
+);
+
+// Google Fonts are loaded dynamically by the DnaStep font picker.
+const GOOGLE_FONTS = [
+  'https://fonts.googleapis.com',
+  'https://fonts.gstatic.com',
+];
+
 const csp = [
   `default-src 'self'`,
-  `img-src 'self' data: blob: ${CIVITAI_HOSTS.join(' ')}`,
+  `img-src 'self' data: blob: ${[...CIVITAI_HOSTS, ...STORAGE_HOSTS].join(' ')}`,
   `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
-  `style-src 'self' 'unsafe-inline'`,
-  `font-src 'self' data:`,
-  `connect-src 'self' ${CIVITAI_HOSTS.join(' ')}`,
+  `style-src 'self' 'unsafe-inline' ${GOOGLE_FONTS[0]}`,
+  `font-src 'self' data: ${GOOGLE_FONTS[1]}`,
+  `connect-src 'self' ${[...CIVITAI_HOSTS, ...STORAGE_HOSTS].join(' ')}`,
   `frame-ancestors 'none'`,
   `base-uri 'self'`,
   `form-action 'self' ${CIVITAI_HOSTS.join(' ')}`,

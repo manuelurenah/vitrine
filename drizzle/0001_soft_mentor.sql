@@ -1,0 +1,1 @@
+ALTER TYPE "public"."onboarding_step" ADD VALUE 'processing' BEFORE 'dna';

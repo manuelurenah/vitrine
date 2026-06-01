@@ -7,6 +7,8 @@ export const briefSchema = z.object({
   description: z.string().min(1).max(2000),
   goal: z.string().max(120).default(''),
   offer: z.string().max(120).default(''),
+  audience: z.string().max(500).default(''),
+  aesthetics: z.string().max(500).default(''),
   presetIds: z
     .array(z.string())
     .min(1)

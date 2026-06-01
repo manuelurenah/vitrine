@@ -66,7 +66,7 @@ export function CampaignsList({ past }: Props) {
     <div className="relative">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 z-base h-[480px] opacity-90"
+        className="pointer-events-none absolute inset-x-0 -top-7 z-base h-[480px] opacity-90"
         style={{
           background:
             'radial-gradient(ellipse 720px 360px at 50% -20%, var(--volt-soft), transparent 60%)',
