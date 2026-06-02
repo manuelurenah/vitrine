@@ -39,6 +39,7 @@ export type CampaignWizardInitial = {
   brandName?: string | null;
   productCount?: number;
   assetCount?: number;
+  buzzBalance?: number | null;
   defaultBrief?: Partial<PreviewBrief & { presetIds: string[] }>;
   defaultReferenceAssetIds?: string[];
 };
@@ -58,16 +59,12 @@ function parseStep(raw: string | null): Step {
   return 'brief';
 }
 
-const DEFAULT_PROMPT =
-  'launch the four-piece chili oil sampler for summer. festive, citrus-forward, loud.';
-
 const DEFAULT_BRIEF: PreviewBrief = {
-  prompt: DEFAULT_PROMPT,
-  title: "summer heat sampler '26",
-  description:
-    'four chili oils, four moods. bright, citrus-forward photography, festive energy, no holiday clichés.',
-  goal: 'launch',
-  offer: '20% off bundle',
+  prompt: '',
+  title: '',
+  description: '',
+  goal: '',
+  offer: '',
   audience: '',
   aesthetics: '',
 };
@@ -286,6 +283,7 @@ export function CampaignWizard({ initial, fetcher }: Props) {
           onBack={() => goToStep('brief')}
           onCook={handleCook}
           error={error}
+          buzzBalance={initial?.buzzBalance ?? null}
         />
       )}
       {step === 'submit' && (
@@ -588,6 +586,7 @@ type ReviewStepProps = {
   onBack: () => void;
   onCook: () => void;
   error: string | null;
+  buzzBalance?: number | null;
 };
 
 function ReviewStep({
@@ -604,6 +603,7 @@ function ReviewStep({
   onBack,
   onCook,
   error,
+  buzzBalance,
 }: ReviewStepProps) {
   if (!preview) {
     return (
@@ -616,6 +616,8 @@ function ReviewStep({
     );
   }
   const total = preview.totalBuzz;
+  const insufficientBuzz =
+    typeof buzzBalance === 'number' && total > buzzBalance;
   return (
     <div className="flex flex-col gap-5" data-testid="review-step">
       <header className="flex flex-wrap items-center gap-3 border-b border-line-subtle pb-4">
@@ -782,10 +784,27 @@ function ReviewStep({
             {error}
           </span>
         )}
+        {insufficientBuzz && (
+          <span
+            className="font-mono text-[11.5px] text-danger"
+            data-testid="insufficient-buzz"
+          >
+            insufficient buzz · {' '}
+            <a
+              href="https://civitai.com/purchase/buzz"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-fg-0"
+            >
+              top up
+            </a>
+          </span>
+        )}
         <Button
           variant="primary"
           size="lg"
           onClick={onCook}
+          disabled={insufficientBuzz}
           leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
           data-testid="review-cook"
         >

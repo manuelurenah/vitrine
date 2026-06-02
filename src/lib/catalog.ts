@@ -18,11 +18,12 @@ export type Product = {
   tags: string[];
   status: ProductStatus;
   heroAssetId?: string;
+  heroUrl?: string;
   usedInCount: number;
   createdAt: number;
 };
 
-function toProduct(row: ProductRow): Product {
+function toProduct(row: ProductRow, heroUrl?: string | null): Product {
   return {
     id: row.id,
     userId: row.userId,
@@ -31,6 +32,7 @@ function toProduct(row: ProductRow): Product {
     tags: row.tags ?? [],
     status: row.status,
     heroAssetId: row.heroAssetId ?? undefined,
+    heroUrl: heroUrl ?? undefined,
     usedInCount: row.usedInCount,
     createdAt: row.createdAt.getTime(),
   };
@@ -79,7 +81,7 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
         name: input.name,
         notes: input.notes?.trim() || null,
         tags: cleanTags(input.tags),
-        status: input.status ?? 'draft',
+        status: input.status ?? 'live',
         heroAssetId: validImageIds[0] ?? null,
       })
       .returning();
@@ -111,20 +113,28 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
 
 export async function getProduct(userId: string, id: string): Promise<Product | null> {
   const [row] = await db
-    .select()
+    .select({
+      product: productsTable,
+      heroUrl: assetsTable.publicUrl,
+    })
     .from(productsTable)
+    .leftJoin(assetsTable, eq(assetsTable.id, productsTable.heroAssetId))
     .where(and(eq(productsTable.id, id), eq(productsTable.userId, userId)))
     .limit(1);
-  return row ? toProduct(row) : null;
+  return row ? toProduct(row.product, row.heroUrl) : null;
 }
 
 export async function listProducts(userId: string): Promise<Product[]> {
   const rows = await db
-    .select()
+    .select({
+      product: productsTable,
+      heroUrl: assetsTable.publicUrl,
+    })
     .from(productsTable)
+    .leftJoin(assetsTable, eq(assetsTable.id, productsTable.heroAssetId))
     .where(eq(productsTable.userId, userId))
     .orderBy(desc(productsTable.createdAt));
-  return rows.map(toProduct);
+  return rows.map((r) => toProduct(r.product, r.heroUrl));
 }
 
 export async function deleteProduct(userId: string, id: string): Promise<boolean> {

@@ -56,9 +56,10 @@ export function PhotoshootList({ shoots }: Props) {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {shoots.map((s, i) => {
                 const live = s.tiles.filter((t) => t.status === 'done').length;
+                const slots = Array.from({ length: 4 });
                 return (
                   <Link
                     key={s.id}
@@ -66,22 +67,30 @@ export function PhotoshootList({ shoots }: Props) {
                     className="group flex flex-col gap-3 rounded-[14px] border border-line-subtle bg-bg-2 p-3 transition-all duration-base ease-out hover:-translate-y-[2px] hover:border-line-strong"
                   >
                     <div className="grid grid-cols-2 gap-1">
-                      <GradientThumb
-                        tone={TONES[i % TONES.length]}
-                        className="aspect-[4/5]"
-                      />
-                      <GradientThumb
-                        tone={TONES[(i + 1) % TONES.length]}
-                        className="aspect-[4/5]"
-                      />
-                      <GradientThumb
-                        tone={TONES[(i + 2) % TONES.length]}
-                        className="aspect-[4/5]"
-                      />
-                      <GradientThumb
-                        tone={TONES[(i + 3) % TONES.length]}
-                        className="aspect-[4/5]"
-                      />
+                      {slots.map((_, slotIdx) => {
+                        const url = s.thumbUrls[slotIdx];
+                        if (url) {
+                          return (
+                            <div
+                              key={slotIdx}
+                              className="relative aspect-[4/5] overflow-hidden rounded-[12px] bg-bg-3"
+                            >
+                              <img
+                                src={url}
+                                alt=""
+                                className="absolute inset-0 h-full w-full object-cover"
+                              />
+                            </div>
+                          );
+                        }
+                        return (
+                          <GradientThumb
+                            key={slotIdx}
+                            tone={TONES[(i + slotIdx) % TONES.length]}
+                            className="aspect-[4/5]"
+                          />
+                        );
+                      })}
                     </div>
                     <div>
                       <div className="text-[14px] font-medium text-fg-0">{s.title}</div>

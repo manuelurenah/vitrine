@@ -30,7 +30,6 @@ export function CatalogGrid({ products }: Props) {
       <div className="mt-6 flex flex-wrap items-center gap-2">
         <Chip active>all · {products.length}</Chip>
         <Chip>live · {products.filter((p) => p.status === 'live').length}</Chip>
-        <Chip>draft · {products.filter((p) => p.status === 'draft').length}</Chip>
         <Chip>archived · {products.filter((p) => p.status === 'archived').length}</Chip>
       </div>
 
@@ -56,7 +55,18 @@ export function CatalogGrid({ products }: Props) {
               href={`/brand/catalog/${p.id}`}
               className="group flex flex-col gap-3 rounded-[14px] border border-line-subtle bg-bg-2 p-3 transition-all duration-base ease-out hover:-translate-y-[2px] hover:border-line-strong"
             >
-              <GradientThumb tone={TONES[i % TONES.length]} className="aspect-square" />
+              {p.heroUrl ? (
+                <div className="relative aspect-square overflow-hidden rounded-[10px] border border-line bg-bg-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={p.heroUrl}
+                    alt={p.name}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <GradientThumb tone={TONES[i % TONES.length]} className="aspect-square" />
+              )}
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-[14px] font-medium text-fg-0">{p.name}</span>

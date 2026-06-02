@@ -1,14 +1,14 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ImagePlus, Sparkles, Trash2 } from 'lucide-react';
-import { Button, FieldLabel, Input, Textarea, cn } from '@/components/ui';
+import { Check, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import { Button, Chip, cn, FieldLabel, Input, Textarea } from '@/components/ui';
 
 const MAX_BYTES = 20 * 1024 * 1024;
 const MAX_IMAGES = 8;
 
-type StagedStatus = 'queued' | 'uploading' | 'done' | 'failed';
+type StagedStatus = 'queued' | 'signing' | 'uploading' | 'saving' | 'done' | 'failed';
 
 type StagedImage = {
   localId: string;
@@ -42,24 +42,97 @@ function putWithProgress(
   });
 }
 
-export function AddProductForm() {
+export type AddProductFormProps = {
+  redirectTo?: string;
+};
+
+export function AddProductForm({ redirectTo = '/brand/catalog' }: AddProductFormProps = {}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const fileInputId = useId();
+  const nameId = useId();
+  const descriptionId = useId();
+  const tagsId = useId();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [tagsRaw, setTagsRaw] = useState('');
   const [images, setImages] = useState<StagedImage[]>([]);
+  const [dragOver, setDragOver] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const tags = useMemo(
+    () =>
+      tagsRaw
+        .split(/[,\n]/)
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .slice(0, 10),
+    [tagsRaw],
+  );
+
+  const doneCount = images.filter((s) => s.status === 'done').length;
+  const capReached = images.length >= MAX_IMAGES;
 
   function patch(localId: string, p: Partial<StagedImage>) {
     setImages((prev) => prev.map((s) => (s.localId === localId ? { ...s, ...p } : s)));
   }
 
+  const addFiles = useCallback(
+    (files: FileList | File[]) => {
+      setError(null);
+      const list = Array.from(files);
+      setImages((prev) => {
+        const remaining = MAX_IMAGES - prev.length;
+        if (remaining <= 0) return prev;
+        const next: StagedImage[] = [...prev];
+        for (const file of list.slice(0, remaining)) {
+          if (!file.type.startsWith('image/')) {
+            setError(`${file.name} is not an image`);
+            continue;
+          }
+          if (file.size > MAX_BYTES) {
+            setError(`${file.name} exceeds ${MAX_BYTES / 1024 / 1024}MB`);
+            continue;
+          }
+          next.push({
+            localId:
+              typeof crypto !== 'undefined' && 'randomUUID' in crypto
+                ? crypto.randomUUID()
+                : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            file,
+            previewUrl: URL.createObjectURL(file),
+            status: 'queued',
+            progress: 0,
+          });
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    if (e.target.files) addFiles(e.target.files);
+    e.target.value = '';
+  }
+
+  function onDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  }
+
+  function removeImage(localId: string) {
+    setImages((prev) => {
+      const target = prev.find((s) => s.localId === localId);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((s) => s.localId !== localId);
+    });
+  }
+
   async function uploadOne(s: StagedImage): Promise<string | null> {
-    patch(s.localId, { status: 'uploading', progress: 0 });
+    patch(s.localId, { status: 'signing', progress: 0 });
     try {
       const presignRes = await fetch('/api/assets/presign', {
         method: 'POST',
@@ -81,6 +154,8 @@ export function AddProductForm() {
         putUrl: string;
         publicUrl: string;
       };
+
+      patch(s.localId, { status: 'uploading' });
       await putWithProgress(
         presign.putUrl,
         s.file,
@@ -88,6 +163,7 @@ export function AddProductForm() {
         (p) => patch(s.localId, { progress: p }),
       );
 
+      patch(s.localId, { status: 'saving', progress: 100 });
       const finalizeRes = await fetch('/api/assets', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -117,36 +193,6 @@ export function AddProductForm() {
     }
   }
 
-  function pickFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    const remaining = MAX_IMAGES - images.length;
-    const accepted: StagedImage[] = [];
-    for (const file of Array.from(files).slice(0, remaining)) {
-      if (!file.type.startsWith('image/')) continue;
-      if (file.size > MAX_BYTES) {
-        setError(`${file.name} exceeds ${MAX_BYTES / 1024 / 1024}MB`);
-        continue;
-      }
-      accepted.push({
-        localId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        file,
-        previewUrl: URL.createObjectURL(file),
-        status: 'queued',
-        progress: 0,
-      });
-    }
-    if (accepted.length > 0) setImages((prev) => [...prev, ...accepted]);
-    if (inputRef.current) inputRef.current.value = '';
-  }
-
-  function removeImage(localId: string) {
-    setImages((prev) => {
-      const target = prev.find((s) => s.localId === localId);
-      if (target) URL.revokeObjectURL(target.previewUrl);
-      return prev.filter((s) => s.localId !== localId);
-    });
-  }
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (submitting) return;
@@ -156,8 +202,7 @@ export function AddProductForm() {
     try {
       const toUpload = images.filter((s) => s.status === 'queued' || s.status === 'failed');
       const uploaded = await Promise.all(toUpload.map((s) => uploadOne(s)));
-      const failed = uploaded.filter((id) => id === null).length;
-      if (failed > 0 && uploaded.every((id) => id === null) && toUpload.length > 0) {
+      if (toUpload.length > 0 && uploaded.every((id) => id === null)) {
         setError('all image uploads failed — try again');
         setSubmitting(false);
         return;
@@ -175,11 +220,8 @@ export function AddProductForm() {
         body: JSON.stringify({
           name,
           notes: description.trim() || undefined,
-          tags: tagsRaw
-            .split(',')
-            .map((t) => t.trim())
-            .filter(Boolean),
-          status: 'draft',
+          tags,
+          status: 'live',
           imageAssetIds: dedup,
         }),
       });
@@ -189,7 +231,7 @@ export function AddProductForm() {
         setSubmitting(false);
         return;
       }
-      router.push('/brand/catalog');
+      router.push(redirectTo);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'submit failed');
@@ -197,121 +239,233 @@ export function AddProductForm() {
     }
   }
 
-  const capReached = images.length >= MAX_IMAGES;
-
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div>
-        <FieldLabel htmlFor="prod-name">product name</FieldLabel>
-        <Input
-          id="prod-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="lumen golden serum"
-          required
-        />
-      </div>
-
-      <div>
-        <FieldLabel htmlFor="prod-description">description</FieldLabel>
-        <Textarea
-          id="prod-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={4}
-          placeholder="15ml amber dropper · turmeric + bakuchiol · warm honey palette"
-        />
-      </div>
-
-      <div>
-        <FieldLabel htmlFor="prod-tags">tags</FieldLabel>
-        <Input
-          id="prod-tags"
-          value={tagsRaw}
-          onChange={(e) => setTagsRaw(e.target.value)}
-          placeholder="hero, serum, gift"
-        />
-      </div>
-
-      <div>
-        <FieldLabel htmlFor={fileInputId}>product images ({images.length}/{MAX_IMAGES})</FieldLabel>
+    <form onSubmit={onSubmit} className="flex flex-col gap-6">
+      <div
+        onClick={() => !capReached && inputRef.current?.click()}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!capReached) setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+        role="button"
+        tabIndex={0}
+        aria-disabled={capReached}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && !capReached) {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        className={cn(
+          'flex flex-col items-center gap-3 rounded-[14px] border border-dashed bg-bg-2/60 px-6 py-10 text-center transition-colors duration-fast ease-out',
+          capReached
+            ? 'cursor-not-allowed border-line opacity-60'
+            : 'cursor-pointer',
+          !capReached && dragOver
+            ? 'border-volt bg-volt-soft text-fg-0'
+            : !capReached && 'border-line hover:border-line-volt hover:bg-bg-2',
+        )}
+      >
+        <span
+          className="grid h-12 w-12 place-items-center rounded-[12px] border border-line-volt"
+          style={{ background: 'rgba(0,255,157,0.18)' }}
+        >
+          <Upload size={22} strokeWidth={1.75} />
+        </span>
+        <div>
+          <h3 className="font-display text-[18px] font-semibold tracking-[-0.015em] text-fg-0">
+            {capReached
+              ? `max ${MAX_IMAGES} images reached`
+              : 'drop product images here, or click to choose'}
+          </h3>
+          <p className="mt-1 text-[12.5px] text-fg-2">
+            jpg · png · webp — up to 20 mb each · first image is the hero · max {MAX_IMAGES}
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={capReached}
+          onClick={(e) => {
+            e.stopPropagation();
+            inputRef.current?.click();
+          }}
+          leadingIcon={<Upload size={14} strokeWidth={1.75} />}
+        >
+          browse
+        </Button>
         <input
           ref={inputRef}
-          id={fileInputId}
           type="file"
-          accept="image/*"
           multiple
-          className="sr-only"
-          onChange={(e) => pickFiles(e.target.files)}
+          accept="image/*"
+          className="hidden"
+          onChange={onPick}
         />
-        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-          {images.map((s) => (
-            <div
-              key={s.localId}
-              className={cn(
-                'relative aspect-square overflow-hidden rounded-md border border-fg-3 bg-bg-2',
-                s.status === 'failed' && 'border-danger',
-              )}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={s.previewUrl}
-                alt={s.file.name}
-                className="h-full w-full object-cover"
-              />
-              {s.status === 'uploading' && (
-                <div className="absolute inset-x-0 bottom-0 h-1 bg-bg-3">
-                  <div
-                    className="h-full bg-volt transition-all"
-                    style={{ width: `${s.progress}%` }}
-                  />
-                </div>
-              )}
-              {s.status === 'failed' && (
-                <span className="absolute inset-x-0 bottom-0 bg-danger/80 px-1 py-0.5 text-center font-mono text-[10px] text-bg-1">
-                  {s.error}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => removeImage(s.localId)}
-                className="absolute right-1 top-1 rounded-full bg-bg-1/80 p-1 text-fg-1 hover:bg-bg-1"
-                aria-label={`remove ${s.file.name}`}
-              >
-                <Trash2 size={12} strokeWidth={1.75} />
-              </button>
-            </div>
-          ))}
-          {!capReached && (
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="flex aspect-square items-center justify-center rounded-md border border-dashed border-fg-3 bg-bg-2 text-fg-2 hover:border-volt hover:text-volt"
-            >
-              <span className="flex flex-col items-center gap-1 font-mono text-[11px]">
-                <ImagePlus size={18} strokeWidth={1.5} />
-                add image
-              </span>
-            </button>
-          )}
-        </div>
-        <p className="mt-1 font-mono text-[11px] text-fg-2">
-          first image becomes the hero. max {MAX_BYTES / 1024 / 1024}MB per file.
-        </p>
       </div>
 
-      <div className="flex items-center justify-between pt-2">
-        {error && <span className="font-mono text-[11.5px] text-danger">{error}</span>}
-        <span className="flex-1" />
-        <Button
-          type="submit"
-          variant="primary"
-          disabled={submitting || name.trim().length === 0}
-          leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
-        >
-          {submitting ? 'saving…' : 'add to catalog'}
-        </Button>
+      {images.length > 0 && (
+        <div>
+          <FieldLabel>
+            {images.length} of {MAX_IMAGES} staged
+          </FieldLabel>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+            {images.map((s, i) => (
+              <ThumbCard
+                key={s.localId}
+                item={s}
+                isHero={i === 0}
+                onRemove={() => removeImage(s.localId)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4 rounded-[14px] border border-line-subtle bg-bg-2 p-4">
+        <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-3">
+          product details
+        </span>
+
+        <div>
+          <FieldLabel htmlFor={nameId}>product name</FieldLabel>
+          <Input
+            id={nameId}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="lumen golden serum"
+            required
+          />
+        </div>
+
+        <div>
+          <FieldLabel htmlFor={descriptionId}>
+            description <span className="text-fg-3">· optional</span>
+          </FieldLabel>
+          <Textarea
+            id={descriptionId}
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="15ml amber dropper · turmeric + bakuchiol · warm honey palette"
+          />
+        </div>
+
+        <div>
+          <FieldLabel htmlFor={tagsId}>
+            tags <span className="text-fg-3">· optional</span>
+          </FieldLabel>
+          <Input
+            id={tagsId}
+            value={tagsRaw}
+            onChange={(e) => setTagsRaw(e.target.value)}
+            placeholder="hero, serum, gift"
+          />
+          {tags.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {tags.map((t) => (
+                <Chip key={t}>{t}</Chip>
+              ))}
+              <Chip>
+                <Plus size={11} /> add
+              </Chip>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between border-t border-line-subtle pt-4">
+        <span className="font-mono text-[12px] text-fg-2">
+          {doneCount} of {images.length} uploaded
+          {error ? <span className="ml-3 text-danger">· {error}</span> : null}
+        </span>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            onClick={() => router.push(redirectTo)}
+            disabled={submitting}
+          >
+            cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            size="md"
+            disabled={submitting || name.trim().length === 0}
+            leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
+          >
+            {submitting ? 'saving…' : 'add to catalog'}
+          </Button>
+        </div>
       </div>
     </form>
+  );
+}
+
+function ThumbCard({
+  item,
+  isHero,
+  onRemove,
+}: {
+  item: StagedImage;
+  isHero: boolean;
+  onRemove: () => void;
+}) {
+  const showProgress = item.status === 'uploading' || item.status === 'saving';
+  return (
+    <div
+      className={cn(
+        'group relative aspect-square overflow-hidden rounded-[10px] border bg-bg-2',
+        item.status === 'failed' ? 'border-danger' : 'border-line-subtle',
+      )}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={item.previewUrl}
+        alt={item.file.name}
+        className="h-full w-full object-cover"
+      />
+      {isHero && (
+        <span className="absolute left-1.5 top-1.5 rounded-pill border border-line/40 bg-black/55 px-[8px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.08em] text-fg-0 backdrop-blur-md">
+          hero
+        </span>
+      )}
+      {item.status === 'done' && (
+        <span className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-pill border border-line-volt bg-black/55 text-volt backdrop-blur-md">
+          <Check size={11} strokeWidth={3} />
+        </span>
+      )}
+      {showProgress && (
+        <div className="absolute inset-x-0 bottom-0 h-1 bg-bg-3">
+          <div
+            className="h-full bg-volt transition-[width] duration-fast ease-out"
+            style={{ width: `${item.progress}%` }}
+          />
+        </div>
+      )}
+      {item.status === 'failed' && item.error && (
+        <span className="absolute inset-x-0 bottom-0 bg-danger/80 px-1 py-0.5 text-center font-mono text-[10px] text-bg-1">
+          {item.error}
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`remove ${item.file.name}`}
+        className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-pill border border-line/40 bg-black/55 text-fg-0 opacity-0 backdrop-blur-md transition-opacity duration-fast ease-out hover:bg-bg-3 group-hover:opacity-100 aria-[label]:focus:opacity-100"
+        style={item.status === 'done' ? { right: '32px' } : undefined}
+      >
+        {item.status === 'failed' ? (
+          <Trash2 size={11} strokeWidth={1.75} />
+        ) : (
+          <X size={11} strokeWidth={1.75} />
+        )}
+      </button>
+    </div>
   );
 }

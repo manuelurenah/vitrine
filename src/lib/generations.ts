@@ -6,7 +6,7 @@ import {
   type Generation as GenerationRow,
   type NewGeneration,
 } from '@/lib/db/schema';
-import type { GenerateInput, WorkflowSnapshot } from '@/lib/civitai';
+import type { WorkflowSnapshot } from '@/lib/civitai';
 import { getWorkflowSnapshot, isTerminal } from '@/lib/civitai';
 import type { Session } from '@/lib/session';
 
@@ -62,7 +62,7 @@ export type RecordGenerationInput = {
   parentImageIndex?: number | null;
   mediaType?: GenerationMediaType;
   prompt?: string;
-  input: GenerateInput | Record<string, unknown>;
+  input: Record<string, unknown>;
   estimatedBuzz?: number;
 };
 

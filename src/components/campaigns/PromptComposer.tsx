@@ -1,6 +1,6 @@
 'use client';
 
-import { ImageIcon, Mic, ShoppingBag, Sparkles } from 'lucide-react';
+import { ImageIcon, ShoppingBag, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, type KeyboardEvent } from 'react';
 import { Button, Chip, Modal } from '@/components/ui';
@@ -8,14 +8,12 @@ import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
 
 type Props = {
   placeholder?: string;
-  briefCostBuzz?: number;
 };
 
 type PickerTab = 'products' | 'assets';
 
 export function PromptComposer({
   placeholder = 'describe the campaign you want to cook',
-  briefCostBuzz = 8,
 }: Props) {
   const router = useRouter();
   const [value, setValue] = useState('');
@@ -76,13 +74,6 @@ export function PromptComposer({
             rows={2}
             className="min-h-[60px] flex-1 resize-none bg-transparent text-[14px] leading-[1.5] text-fg-0 outline-none placeholder:text-fg-3"
           />
-          <button
-            type="button"
-            aria-label="voice input"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border border-line-subtle bg-bg-3 text-fg-1 transition-colors duration-fast ease-out hover:text-fg-0"
-          >
-            <Mic size={14} strokeWidth={1.75} />
-          </button>
         </div>
         <div className="relative mt-4 flex flex-wrap items-center gap-2">
           <button
@@ -120,7 +111,6 @@ export function PromptComposer({
             leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
           >
             generate brief
-            <span className="ml-1 font-mono text-[11px] opacity-70">· {briefCostBuzz} buzz</span>
           </Button>
         </div>
       </div>

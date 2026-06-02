@@ -52,6 +52,7 @@
     "@civitai/app-sdk": "file:../civitai-app-starters/packages/civitai-app-sdk",
     "@t3-oss/env-nextjs": "^0.13.0",
     "drizzle-orm": "^0.45.2",
+    "jszip": "^3.10.1",
     "lucide-react": "^1.17.0",
     "next": "^16.2.6",
     "pg": "^8.21.0",

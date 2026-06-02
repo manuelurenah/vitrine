@@ -224,6 +224,5 @@ export {
   extractImageUrls,
   isTerminal,
   OrchestratorError,
-  type GenerateInput,
   type WorkflowSnapshot,
 } from "@civitai/app-sdk/orchestrator";

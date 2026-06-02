@@ -122,3 +122,39 @@ export async function presignGet(
   const command = new GetObjectCommand({ Bucket: bucket, Key: key });
   return getSignedUrl(client, command, { expiresIn: ttlSeconds });
 }
+
+/**
+ * True when our configured S3 public/endpoint URL points at the local machine
+ * (MinIO dev mode). Orchestrator runs off-box and cannot fetch from
+ * `http://localhost`, so callers handing URLs to it must inline the bytes
+ * (see {@link getObjectAsDataUrl}) when this returns true.
+ */
+export function isLocalObjectStorage(): boolean {
+  const base = env.S3_PUBLIC_URL ?? env.S3_ENDPOINT ?? '';
+  if (!base) return false;
+  try {
+    const host = new URL(base).hostname.toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fetch an object's bytes via the S3 client and return a `data:<mime>;base64,...`
+ * URL. Used for handing references to the orchestrator when our object storage
+ * is not reachable from outside (local MinIO dev mode).
+ */
+export async function getObjectAsDataUrl(opts: {
+  key: string;
+  bucketKind: 'upload' | 'asset';
+}): Promise<string> {
+  const bucket = bucketFor(opts.bucketKind);
+  const client = getClient();
+  const out = await client.send(new GetObjectCommand({ Bucket: bucket, Key: opts.key }));
+  if (!out.Body) throw new Error(`s3 get returned empty body for ${bucket}/${opts.key}`);
+  const bytes = await out.Body.transformToByteArray();
+  const contentType = out.ContentType || 'application/octet-stream';
+  const base64 = Buffer.from(bytes).toString('base64');
+  return `data:${contentType};base64,${base64}`;
+}

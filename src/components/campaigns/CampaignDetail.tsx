@@ -49,7 +49,7 @@ export function CampaignDetail({ campaign }: Props) {
               presetId={tile.presetId}
               initialStatus={tile.status}
               quantity={tile.quantity}
-              regenerate={{ campaignId: campaign.id, tileId: tile.id }}
+              regenerate={{ kind: 'campaign', id: campaign.id, tileId: tile.id }}
             />
           ))}
         </div>

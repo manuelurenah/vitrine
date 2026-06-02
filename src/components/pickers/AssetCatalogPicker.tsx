@@ -46,6 +46,24 @@ export function computeNextSelection(
 }
 
 /**
+ * Pure helper: campaigns target a single product, so the products tab is
+ * radio-style. Clicking the currently-selected product deselects it; clicking
+ * a different product swaps (asset selections are preserved). Adding a brand
+ * new product respects the overall cap.
+ */
+export function computeNextProductSelection(
+  current: string[],
+  productId: string,
+  max: number,
+): string[] {
+  const hadThis = current.includes(productId);
+  const withoutProducts = current.filter((id) => !id.startsWith('product:'));
+  if (hadThis) return withoutProducts;
+  if (withoutProducts.length >= max) return current;
+  return [productId, ...withoutProducts];
+}
+
+/**
  * Tabbed picker that lets users select reference items from their catalog
  * (products) and uploaded assets. Controlled via `value` + `onChange`.
  *
@@ -136,6 +154,15 @@ export function AssetCatalogPicker({
     [value, max, onChange],
   );
 
+  const toggleProduct = useCallback(
+    (id: string) => {
+      const next = computeNextProductSelection(value, id, max);
+      if (next === value) return;
+      onChange(next);
+    },
+    [value, max, onChange],
+  );
+
   return (
     <div className={cn('flex flex-col gap-4', className)} data-testid="asset-catalog-picker">
       <div
@@ -168,7 +195,7 @@ export function AssetCatalogPicker({
           selected={selected}
           atCap={atCap}
           max={max}
-          onToggle={toggle}
+          onToggle={toggleProduct}
         />
       ) : (
         <AssetsTab state={assets} selected={selected} atCap={atCap} max={max} onToggle={toggle} />
@@ -237,12 +264,18 @@ export function ProductsTab({
     );
   }
 
+  // Single-select for products (campaign targets one product). A different
+  // product swaps the current selection rather than adding — only block when
+  // no product currently selected AND assets already filled the cap.
+  let hasProductSelected = false;
+  for (const id of selected) if (id.startsWith('product:')) hasProductSelected = true;
+
   return (
     <Grid>
       {items.map((p) => {
         const id = `product:${p.id}`;
         const isSelected = selected.has(id);
-        const disabled = !isSelected && atCap;
+        const disabled = !isSelected && atCap && !hasProductSelected;
         return (
           <PickerCard
             key={id}
@@ -253,9 +286,19 @@ export function ProductsTab({
             disabledHint={disabled ? `max ${max} references reached` : undefined}
             onClick={() => onToggle(id)}
           >
-            <span className="grid h-full w-full place-items-center text-fg-2">
-              <Box size={26} strokeWidth={1.5} />
-            </span>
+            {p.heroUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={p.heroUrl}
+                alt={p.name}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <span className="grid h-full w-full place-items-center text-fg-2">
+                <Box size={26} strokeWidth={1.5} />
+              </span>
+            )}
           </PickerCard>
         );
       })}

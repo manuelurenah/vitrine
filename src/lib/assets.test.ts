@@ -82,13 +82,19 @@ vi.mock('@/lib/env', () => ({
   },
 }));
 
-const { presignGetMock } = vi.hoisted(() => ({
+const { presignGetMock, getObjectAsDataUrlMock, isLocalObjectStorageMock } = vi.hoisted(() => ({
   presignGetMock: vi.fn(async (key: string, ttl: number, bucketKind: string) => {
     return `https://presigned.test/${bucketKind}/${key}?ttl=${ttl}`;
   }),
+  getObjectAsDataUrlMock: vi.fn(async ({ key, bucketKind }: { key: string; bucketKind: string }) => {
+    return `data:image/png;base64,DATA_${bucketKind}_${key}`;
+  }),
+  isLocalObjectStorageMock: vi.fn(() => false),
 }));
 vi.mock('@/lib/s3', () => ({
   presignGet: presignGetMock,
+  getObjectAsDataUrl: getObjectAsDataUrlMock,
+  isLocalObjectStorage: isLocalObjectStorageMock,
 }));
 
 vi.mock('@/lib/civitai', () => ({
@@ -103,6 +109,9 @@ beforeEach(() => {
   fakeRows.length = 0;
   capturedIds.length = 0;
   presignGetMock.mockClear();
+  getObjectAsDataUrlMock.mockClear();
+  isLocalObjectStorageMock.mockReset();
+  isLocalObjectStorageMock.mockReturnValue(false);
 });
 
 describe('getPublicUrls', () => {
@@ -180,5 +189,18 @@ describe('getPublicUrls', () => {
     const urls = await getPublicUrls(USER, []);
     expect(urls).toEqual([]);
     expect(capturedIds).toHaveLength(0);
+  });
+
+  it('inlines bytes as data URLs when object storage is local (orchestrator-unreachable)', async () => {
+    isLocalObjectStorageMock.mockReturnValue(true);
+    fakeRows.push(
+      { id: 'a1', bucket: 'assets', storageKey: 'a/1.png', publicUrl: 'http://localhost:9000/assets/a/1.png' },
+      { id: 'u1', bucket: 'uploads', storageKey: 'u/2.png', publicUrl: null },
+    );
+    const urls = await getPublicUrls(USER, ['a1', 'u1']);
+    expect(urls[0]).toBe('data:image/png;base64,DATA_asset_a/1.png');
+    expect(urls[1]).toBe('data:image/png;base64,DATA_upload_u/2.png');
+    expect(getObjectAsDataUrlMock).toHaveBeenCalledTimes(2);
+    expect(presignGetMock).not.toHaveBeenCalled();
   });
 });

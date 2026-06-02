@@ -1,5 +1,3 @@
-import type { GenerateInput } from './civitai';
-
 export type PhotoshootTemplateId =
   | 'studio-clean'
   | 'studio-dark'
@@ -10,13 +8,6 @@ export type PhotoshootTemplateId =
   | 'hero-wide';
 
 export type PhotoshootRatio = '1:1' | '4:5' | '9:16' | '16:9';
-
-const SIZES: Record<PhotoshootRatio, { width: number; height: number }> = {
-  '1:1': { width: 1024, height: 1024 },
-  '4:5': { width: 832, height: 1024 },
-  '9:16': { width: 576, height: 1024 },
-  '16:9': { width: 1024, height: 576 },
-};
 
 export type PhotoshootTemplate = {
   id: PhotoshootTemplateId;
@@ -90,26 +81,3 @@ export type PhotoshootBrief = {
   templateIds: PhotoshootTemplateId[];
 };
 
-export function buildPhotoshootInput(
-  brief: PhotoshootBrief,
-  template: PhotoshootTemplate,
-): GenerateInput {
-  const size = SIZES[brief.ratio];
-  const prompt = [
-    brief.productName ? `product: ${brief.productName}.` : '',
-    brief.productNotes,
-    template.styleNotes,
-    'no overlay text, product accurate, photo-real',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  return {
-    prompt,
-    width: size.width,
-    height: size.height,
-    steps: 30,
-    cfgScale: 4.0,
-    quantity: 1,
-  };
-}

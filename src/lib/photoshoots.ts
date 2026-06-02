@@ -1,7 +1,10 @@
 import 'server-only';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
 import {
+  assets as assetsTable,
+  generations as generationsTable,
   photoshoots as photoshootsTable,
   photoshootTiles as photoshootTilesTable,
   type Photoshoot as PhotoshootRow,
@@ -34,6 +37,12 @@ export type Photoshoot = {
   tiles: PhotoshootTile[];
   estimatedBuzz: number;
   createdAt: number;
+  /**
+   * Resolved thumbnail URLs from completed tiles (in tile order). Populated by
+   * `listPhotoshoots` for the grid view; empty for `getPhotoshoot` since the
+   * detail page renders live tile cards instead.
+   */
+  thumbUrls: string[];
 };
 
 function toTile(row: PhotoshootTileRow): PhotoshootTile {
@@ -48,7 +57,11 @@ function toTile(row: PhotoshootTileRow): PhotoshootTile {
   };
 }
 
-function toPhotoshoot(row: PhotoshootRow, tiles: PhotoshootTileRow[]): Photoshoot {
+function toPhotoshoot(
+  row: PhotoshootRow,
+  tiles: PhotoshootTileRow[],
+  thumbUrls: string[] = [],
+): Photoshoot {
   return {
     id: row.id,
     userId: row.userId,
@@ -58,6 +71,7 @@ function toPhotoshoot(row: PhotoshootRow, tiles: PhotoshootTileRow[]): Photoshoo
     enhancedPrompts: (row.enhancedPrompts as Record<string, unknown> | null) ?? null,
     tiles: tiles.map(toTile),
     estimatedBuzz: row.estimatedBuzz,
+    thumbUrls,
     createdAt: row.createdAt.getTime(),
   };
 }
@@ -132,6 +146,38 @@ export async function getPhotoshoot(userId: string, id: string): Promise<Photosh
   return toPhotoshoot(row, tiles);
 }
 
+export async function swapPhotoshootTileWorkflow(
+  userId: string,
+  photoshootId: string,
+  tileId: string,
+  newWorkflowId: string,
+): Promise<PhotoshootTile | null> {
+  const owner = await db
+    .select({ id: photoshootsTable.id })
+    .from(photoshootsTable)
+    .where(
+      and(eq(photoshootsTable.id, photoshootId), eq(photoshootsTable.userId, userId)),
+    )
+    .limit(1);
+  if (owner.length === 0) return null;
+
+  const [row] = await db
+    .update(photoshootTilesTable)
+    .set({
+      workflowId: newWorkflowId,
+      status: 'cooking' as TileStatus,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(photoshootTilesTable.id, tileId),
+        eq(photoshootTilesTable.photoshootId, photoshootId),
+      ),
+    )
+    .returning();
+  return row ? toTile(row) : null;
+}
+
 export async function listPhotoshoots(userId: string): Promise<Photoshoot[]> {
   const rows = await db
     .select()
@@ -141,17 +187,46 @@ export async function listPhotoshoots(userId: string): Promise<Photoshoot[]> {
   if (rows.length === 0) return [];
 
   const ids = rows.map((r) => r.id);
-  const tiles = await db
-    .select()
+  // Pull tiles + their resolved thumbnail URL in one query. We try two
+  // sources: the linked `assets.publicUrl` (set by `syncAssetsFromSnapshot`
+  // when wired) and a fallback extracted from the cached `generations.snapshot`.
+  // The second covers tiles that finished before the asset-linking step ran.
+  const tileRows = await db
+    .select({
+      tile: photoshootTilesTable,
+      assetPublicUrl: assetsTable.publicUrl,
+      snapshot: generationsTable.snapshot,
+    })
     .from(photoshootTilesTable)
+    .leftJoin(assetsTable, eq(assetsTable.id, photoshootTilesTable.assetId))
+    .leftJoin(generationsTable, eq(generationsTable.workflowId, photoshootTilesTable.workflowId))
     .where(inArray(photoshootTilesTable.photoshootId, ids))
     .orderBy(photoshootTilesTable.createdAt);
 
-  const byShoot = new Map<string, PhotoshootTileRow[]>();
-  for (const t of tiles) {
-    const bucket = byShoot.get(t.photoshootId) ?? [];
-    bucket.push(t);
-    byShoot.set(t.photoshootId, bucket);
+  const tilesByShoot = new Map<string, PhotoshootTileRow[]>();
+  const thumbsByShoot = new Map<string, string[]>();
+  for (const { tile, assetPublicUrl, snapshot } of tileRows) {
+    const tileBucket = tilesByShoot.get(tile.photoshootId) ?? [];
+    tileBucket.push(tile);
+    tilesByShoot.set(tile.photoshootId, tileBucket);
+    const thumb = assetPublicUrl ?? firstSnapshotImage(snapshot);
+    if (thumb) {
+      const thumbBucket = thumbsByShoot.get(tile.photoshootId) ?? [];
+      if (thumbBucket.length < 4) thumbBucket.push(thumb);
+      thumbsByShoot.set(tile.photoshootId, thumbBucket);
+    }
   }
-  return rows.map((r) => toPhotoshoot(r, byShoot.get(r.id) ?? []));
+  return rows.map((r) =>
+    toPhotoshoot(r, tilesByShoot.get(r.id) ?? [], thumbsByShoot.get(r.id) ?? []),
+  );
+}
+
+function firstSnapshotImage(snapshot: unknown): string | null {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  try {
+    const urls = extractImageUrls(snapshot as WorkflowSnapshot);
+    return urls[0] ?? null;
+  } catch {
+    return null;
+  }
 }

@@ -2,6 +2,7 @@ import { CampaignWizard } from '@/components/campaigns/CampaignWizard';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
 import { getDefaultBrand } from '@/lib/brand';
+import { getBuzzAccount } from '@/lib/civitai';
 import { listProducts } from '@/lib/catalog';
 import { listAssets } from '@/lib/assets';
 
@@ -57,10 +58,11 @@ export default async function NewCampaignPage({
   }
 
   const userKey = await getUserKey(session);
-  const [brand, products, assets] = await Promise.all([
+  const [brand, products, assets, buzz] = await Promise.all([
     getDefaultBrand(userKey),
     listProducts(userKey),
     listAssets(userKey),
+    getBuzzAccount(session).catch(() => null),
   ]);
 
   return (
@@ -81,6 +83,7 @@ export default async function NewCampaignPage({
           brandName: brand?.name ?? null,
           productCount: products.length,
           assetCount: assets.length,
+          buzzBalance: buzz?.balance ?? null,
           ...(defaultBrief ? { defaultBrief } : {}),
           ...(refsParam.length > 0 ? { defaultReferenceAssetIds: refsParam } : {}),
         }}

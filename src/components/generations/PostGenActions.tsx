@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Check, Download, Wand2, X } from 'lucide-react';
+import { ArrowUpRight, Check, Download, MoreHorizontal, Wand2, X } from 'lucide-react';
 import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
 import { cn } from '@/components/ui';
 
@@ -57,25 +57,28 @@ export function PostGenActions({
   className,
   sourceUrl,
 }: Props) {
-  const [open, setOpen] = useState(false);
   const [actions, setActions] = useState<Record<Action, ActionState>>({
     upscale: initialActionState,
     animate: initialActionState,
   });
   const [child, setChild] = useState<ChildState | null>(null);
-  const estimatedOnceRef = useRef(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // Pre-fetch estimates the first time the overlay opens. We POST the action
-  // route only on confirm, so the estimate is read from the snapshot the route
-  // returns. Until then, we show "estimating…" in the chip and let the user
-  // click anyway — the confirm UI surfaces the cost before submission.
+  const anyConfirming = actions.upscale.confirming || actions.animate.confirming;
+
+  // Click-outside to dismiss the action menu. Confirm panels stay open via
+  // `anyConfirming` regardless.
   useEffect(() => {
-    if (!open || estimatedOnceRef.current) return;
-    estimatedOnceRef.current = true;
-    // No-op for now: we surface "—" until the user confirms, at which point
-    // the route returns the real estimate. A future refinement could add a
-    // dedicated `GET /estimate` endpoint to surface cost earlier.
-  }, [open]);
+    if (!menuOpen) return;
+    function onDocClick(e: MouseEvent) {
+      if (!menuRef.current) return;
+      if (e.target instanceof Node && menuRef.current.contains(e.target)) return;
+      setMenuOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [menuOpen]);
 
   function setAction(kind: Action, patch: Partial<ActionState>) {
     setActions((prev) => ({ ...prev, [kind]: { ...prev[kind], ...patch } }));
@@ -137,48 +140,67 @@ export function PostGenActions({
   return (
     <div
       data-testid="post-gen-actions"
-      className={cn('absolute inset-0 z-card', className)}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
+      className={cn('pointer-events-none absolute inset-0 z-card', className)}
     >
-      <div
-        className={cn(
-          'pointer-events-none absolute inset-0 flex items-end justify-center bg-gradient-to-t from-black/60 via-black/0 to-transparent p-2 opacity-0 transition-opacity duration-fast ease-out group-hover:opacity-100',
-          open && 'opacity-100',
-        )}
-      >
-        <div className="pointer-events-auto flex w-full max-w-[260px] flex-col gap-1 rounded-[10px] border border-line/40 bg-black/65 p-1 backdrop-blur-md">
-          <ActionChip
-            label="Upscale 2×"
-            icon={<ArrowUpRight size={12} strokeWidth={1.75} />}
-            buzz={actions.upscale.estimatedBuzz}
-            state={actions.upscale}
-            onClick={() => startConfirm('upscale')}
-            disabled={false}
-          />
-          <ActionChip
-            label="Animate"
-            icon={<Wand2 size={12} strokeWidth={1.75} />}
-            buzz={actions.animate.estimatedBuzz}
-            state={actions.animate}
-            onClick={() => startConfirm('animate')}
-            disabled={isVideo}
-            disabledHint={isVideo ? 'already a video' : undefined}
-          />
-          {sourceUrl && (
-            <a
-              href={sourceUrl}
-              download
-              data-testid="post-gen-download"
-              className="flex items-center justify-between rounded-[7px] px-2 py-[6px] text-[11.5px] text-fg-0 transition-colors duration-fast ease-out hover:bg-white/10"
-            >
-              <span className="inline-flex items-center gap-2">
-                <Download size={12} strokeWidth={1.75} /> Download
-              </span>
-            </a>
+      <div ref={menuRef} className="pointer-events-auto absolute right-2 top-2">
+        <button
+          type="button"
+          aria-label="image actions"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setMenuOpen((v) => !v);
+          }}
+          className="grid h-7 w-7 place-items-center rounded-pill border border-line/40 bg-black/65 text-fg-0 backdrop-blur-md transition-colors duration-fast ease-out hover:bg-black/80"
+        >
+          <MoreHorizontal size={14} strokeWidth={1.75} />
+        </button>
+        <div
+          role="menu"
+          aria-hidden={!menuOpen || anyConfirming}
+          className={cn(
+            'absolute right-0 top-9 flex w-[200px] flex-col gap-1 rounded-[10px] border border-line/40 bg-black/80 p-1 backdrop-blur-md',
+            (!menuOpen || anyConfirming) && 'hidden',
           )}
-          {/* Regenerate is intentionally a no-op here — CreativeCard has its own
-              regenerate button on the tile footer for the full tile. */}
+        >
+            <ActionChip
+              label="Upscale 2×"
+              icon={<ArrowUpRight size={12} strokeWidth={1.75} />}
+              buzz={actions.upscale.estimatedBuzz}
+              state={actions.upscale}
+              onClick={() => {
+                setMenuOpen(false);
+                startConfirm('upscale');
+              }}
+              disabled={false}
+            />
+            <ActionChip
+              label="Animate"
+              icon={<Wand2 size={12} strokeWidth={1.75} />}
+              buzz={actions.animate.estimatedBuzz}
+              state={actions.animate}
+              onClick={() => {
+                setMenuOpen(false);
+                startConfirm('animate');
+              }}
+              disabled={isVideo}
+              disabledHint={isVideo ? 'already a video' : undefined}
+            />
+            {sourceUrl && (
+              <a
+                href={sourceUrl}
+                download
+                data-testid="post-gen-download"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center justify-between rounded-[7px] px-2 py-[6px] text-[11.5px] text-fg-0 transition-colors duration-fast ease-out hover:bg-white/10"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Download size={12} strokeWidth={1.75} /> Download
+                </span>
+              </a>
+            )}
         </div>
       </div>
 

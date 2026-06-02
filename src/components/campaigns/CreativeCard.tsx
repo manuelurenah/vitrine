@@ -1,14 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Download, MoreHorizontal, RefreshCw, Sparkles, Wand2 } from 'lucide-react';
+import { Download, RefreshCw, Sparkles } from 'lucide-react';
 import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
 import { Badge, cn } from '@/components/ui';
 import { PRESETS, type PresetId } from '@/lib/presets';
 import { PostGenActions } from '@/components/generations/PostGenActions';
+import { downloadImagesAsZip } from '@/lib/downloadZip';
 
 type RegenerateContext = {
-  campaignId: string;
+  kind?: 'campaign' | 'photoshoot';
+  id: string;
   tileId: string;
 };
 
@@ -54,6 +56,27 @@ export function CreativeCard({
   const [imgUrls, setImgUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [zipping, setZipping] = useState(false);
+
+  async function downloadAll() {
+    if (imgUrls.length === 0 || zipping) return;
+    if (imgUrls.length === 1) {
+      const link = document.createElement('a');
+      link.href = imgUrls[0]!;
+      link.download = `${preset.id}-v1`;
+      link.rel = 'noopener noreferrer';
+      link.click();
+      return;
+    }
+    setZipping(true);
+    try {
+      await downloadImagesAsZip(imgUrls, `${preset.id}-variants`);
+    } catch (err) {
+      console.error('[creative-card] zip download failed', err);
+    } finally {
+      setZipping(false);
+    }
+  }
 
   const safeQuantity = Math.max(1, quantity);
   const isMulti = safeQuantity > 1;
@@ -65,8 +88,10 @@ export function CreativeCard({
     setImgUrls([]);
     setStatus('cooking');
     try {
+      const base =
+        regenerate.kind === 'photoshoot' ? '/api/photoshoot' : '/api/campaigns';
       const res = await fetch(
-        `/api/campaigns/${regenerate.campaignId}/tiles/${regenerate.tileId}/regenerate`,
+        `${base}/${regenerate.id}/tiles/${regenerate.tileId}/regenerate`,
         { method: 'POST' },
       );
       const body = await res.json().catch(() => ({}));
@@ -146,6 +171,7 @@ export function CreativeCard({
           {status === 'done' ? 'ready' : status === 'failed' ? 'failed' : status}
         </Badge>
         <span className="font-mono text-[10.5px] text-fg-3">v1</span>
+        <PresetBadge preset={preset} inline />
         <span className="flex-1" />
         {regenerate && (
           <button
@@ -165,24 +191,19 @@ export function CreativeCard({
         )}
         <button
           type="button"
-          aria-label="animate"
-          disabled={status !== 'done'}
-          className="inline-flex h-7 items-center gap-[4px] rounded-[7px] px-[6px] text-[11.5px] text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0 disabled:opacity-40"
-        >
-          <Wand2 size={12} strokeWidth={1.75} /> animate
-        </button>
-        <a
-          href={firstUrl ?? '#'}
-          download
-          aria-label="download"
-          aria-disabled={status !== 'done'}
+          aria-label={imgUrls.length > 1 ? 'download all as zip' : 'download'}
+          disabled={status !== 'done' || imgUrls.length === 0 || zipping}
+          onClick={() => downloadAll()}
           className={cn(
-            'inline-flex h-7 w-7 items-center justify-center rounded-[7px] text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0',
-            status !== 'done' && 'pointer-events-none opacity-40',
+            'inline-flex h-7 w-7 items-center justify-center rounded-[7px] text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0 disabled:pointer-events-none disabled:opacity-40',
           )}
         >
-          <Download size={12} strokeWidth={1.75} />
-        </a>
+          {zipping ? (
+            <Sparkles size={12} strokeWidth={1.75} className="animate-pulse" />
+          ) : (
+            <Download size={12} strokeWidth={1.75} />
+          )}
+        </button>
       </footer>
     </article>
   );
@@ -216,7 +237,15 @@ function SingleImage({
     >
       {url ? (
         <div data-image-overlay className="absolute inset-0">
-          <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="open full-size image"
+            className="absolute inset-0 cursor-zoom-in"
+          >
+            <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          </a>
           {status === 'done' && (
             <PostGenActions workflowId={workflowId} imageIndex={0} sourceUrl={url} />
           )}
@@ -224,9 +253,6 @@ function SingleImage({
       ) : (
         <PlaceholderGlow />
       )}
-
-      <PresetBadge preset={preset} />
-      <MoreButton />
 
       {status !== 'done' && <StatusOverlay status={status} error={error} />}
     </div>
@@ -248,13 +274,6 @@ function MultiImageGrid({
 
   return (
     <div className="relative">
-      <div className="absolute left-2 top-2 z-card flex gap-[4px]">
-        <PresetBadge preset={preset} inline />
-      </div>
-      <div className="absolute right-2 top-2 z-card">
-        <MoreButton inline />
-      </div>
-
       {useStrip ? (
         <div className="flex gap-2 overflow-x-auto rounded-[10px] border border-line bg-bg-3 p-2">
           {slots.map((_, i) => (
@@ -318,7 +337,15 @@ function ImageSlot({
     >
       {url ? (
         <>
-          <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="open full-size image"
+            className="absolute inset-0 cursor-zoom-in"
+          >
+            <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          </a>
           <PostGenActions
             workflowId={workflowId}
             imageIndex={imageIndex}
@@ -360,21 +387,6 @@ function PresetBadge({ preset, inline }: { preset: PresetForRender; inline?: boo
     >
       {preset.label} · {preset.ratio}
     </span>
-  );
-}
-
-function MoreButton({ inline }: { inline?: boolean }) {
-  return (
-    <button
-      type="button"
-      aria-label="more"
-      className={cn(
-        'grid h-7 w-7 place-items-center rounded-pill border border-line/40 bg-black/55 text-fg-0 backdrop-blur-md transition-colors duration-fast ease-out hover:bg-bg-3',
-        inline ? '' : 'absolute right-2 top-2',
-      )}
-    >
-      <MoreHorizontal size={14} strokeWidth={1.75} />
-    </button>
   );
 }
 

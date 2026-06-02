@@ -4,14 +4,15 @@ export const metadata = { title: 'new product · vitrine' };
 
 export default function NewProductPage() {
   return (
-    <div className="mx-auto max-w-[640px]">
-      <header className="mb-6">
-        <span className="t-eyebrow">// new</span>
-        <h1 className="mt-1 t-h2 text-fg-0">add a product.</h1>
-        <p className="mt-1 text-[14px] text-fg-2">
-          just name + notes for now. photos land when uploads hit r2.
+    <div className="mx-auto flex max-w-[760px] flex-col gap-6">
+      <header className="flex flex-col gap-1.5">
+        <span className="t-eyebrow">brand DNA · new</span>
+        <h1 className="t-h2 text-fg-0">add a product.</h1>
+        <p className="text-[13.5px] text-fg-2">
+          drop product photos — first one is the hero.
         </p>
       </header>
+
       <AddProductForm />
     </div>
   );

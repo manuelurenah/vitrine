@@ -93,7 +93,13 @@ export type Brief = {
   templateIds: PhotoshootTemplateId[];
 };
 
-export function PhotoshootWizard() {
+export type PhotoshootWizardProps = {
+  buzzBalance?: number | null;
+};
+
+export function PhotoshootWizard({
+  buzzBalance = null,
+}: PhotoshootWizardProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawStep = searchParams?.get('step');
@@ -316,6 +322,7 @@ export function PhotoshootWizard() {
           submitError={submitError}
           onBack={() => goStep('brief')}
           onCook={onCook}
+          buzzBalance={buzzBalance}
         />
       )}
 
@@ -553,6 +560,7 @@ type ReviewStepProps = {
   submitError: string | null;
   onBack: () => void;
   onCook: () => void;
+  buzzBalance?: number | null;
 };
 
 function ReviewStep(props: ReviewStepProps) {
@@ -567,7 +575,10 @@ function ReviewStep(props: ReviewStepProps) {
     submitError,
     onBack,
     onCook,
+    buzzBalance,
   } = props;
+  const insufficientBuzz =
+    typeof buzzBalance === 'number' && totalBuzz > buzzBalance;
 
   return (
     <div className="mx-auto mt-10 w-full max-w-[960px]" data-testid="review-step">
@@ -651,12 +662,28 @@ function ReviewStep(props: ReviewStepProps) {
               re-estimating…
             </span>
           )}
+          {insufficientBuzz && (
+            <span
+              className="font-mono text-[11.5px] text-danger"
+              data-testid="insufficient-buzz"
+            >
+              insufficient buzz · {' '}
+              <a
+                href="https://civitai.com/purchase/buzz"
+                target="_blank"
+                rel="noreferrer"
+                className="underline hover:text-fg-0"
+              >
+                top up
+              </a>
+            </span>
+          )}
           <Button
             type="button"
             variant="primary"
             size="lg"
             onClick={onCook}
-            disabled={previewing || !preview || totalBuzz <= 0}
+            disabled={previewing || !preview || totalBuzz <= 0 || insufficientBuzz}
             leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
             data-testid="cook-button"
           >

@@ -7,6 +7,7 @@ import {
   AssetsTab,
   ProductsTab,
   computeNextSelection,
+  computeNextProductSelection,
 } from './AssetCatalogPicker';
 
 /* -------------------------------------------------------------------------- */
@@ -134,7 +135,7 @@ describe('ProductsTab rendering', () => {
     expect(html.match(/aria-selected="false"/g)?.length ?? 0).toBe(1);
   });
 
-  it('disables unselected cards when at cap and exposes the hint via title', () => {
+  it('allows swapping between products when one is already selected even at cap', () => {
     const products = [
       makeProduct({ id: 'p1', name: 'Alpha' }),
       makeProduct({ id: 'p2', name: 'Beta' }),
@@ -148,9 +149,69 @@ describe('ProductsTab rendering', () => {
         onToggle={() => {}}
       />,
     );
-    // selected p1 stays enabled; unselected p2 becomes disabled
+    // Single-product invariant: clicking a different product swaps, so both
+    // cards stay enabled at cap.
+    expect(html).not.toContain('disabled=""');
+    expect(html).not.toContain('max 2 references reached');
+  });
+
+  it('disables unselected products when at cap and no product currently selected', () => {
+    const products = [
+      makeProduct({ id: 'p1', name: 'Alpha' }),
+      makeProduct({ id: 'p2', name: 'Beta' }),
+    ];
+    const html = renderToStaticMarkup(
+      <ProductsTab
+        state={{ data: products, loading: false, error: null }}
+        selected={new Set(['asset:a1', 'asset:a2'])}
+        atCap
+        max={2}
+        onToggle={() => {}}
+      />,
+    );
+    // No product selected; cap reached via assets — block adding any product.
     expect(html).toContain('disabled=""');
     expect(html).toContain('title="max 2 references reached"');
+  });
+});
+
+describe('computeNextProductSelection', () => {
+  it('adds product when none currently selected (under cap)', () => {
+    expect(computeNextProductSelection([], 'product:p1', 4)).toEqual([
+      'product:p1',
+    ]);
+    expect(
+      computeNextProductSelection(['asset:a1'], 'product:p1', 4),
+    ).toEqual(['product:p1', 'asset:a1']);
+  });
+
+  it('deselects the product when clicked twice', () => {
+    expect(
+      computeNextProductSelection(['product:p1', 'asset:a1'], 'product:p1', 4),
+    ).toEqual(['asset:a1']);
+  });
+
+  it('swaps products when a different one is picked, keeping assets', () => {
+    expect(
+      computeNextProductSelection(
+        ['product:p1', 'asset:a1', 'asset:a2'],
+        'product:p2',
+        4,
+      ),
+    ).toEqual(['product:p2', 'asset:a1', 'asset:a2']);
+  });
+
+  it('refuses to add a product when no product selected and cap reached', () => {
+    const current = ['asset:a1', 'asset:a2', 'asset:a3', 'asset:a4'];
+    const result = computeNextProductSelection(current, 'product:p1', 4);
+    expect(result).toBe(current);
+  });
+
+  it('allows swap even when total is at cap', () => {
+    const current = ['product:p1', 'asset:a1', 'asset:a2', 'asset:a3'];
+    expect(
+      computeNextProductSelection(current, 'product:p2', 4),
+    ).toEqual(['product:p2', 'asset:a1', 'asset:a2', 'asset:a3']);
   });
 });
 

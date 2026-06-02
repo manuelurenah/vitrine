@@ -12,7 +12,7 @@ import {
 } from '@/lib/db/schema';
 import { env } from '@/lib/env';
 import { extractImageUrls, type WorkflowSnapshot } from '@/lib/civitai';
-import { presignGet } from '@/lib/s3';
+import { getObjectAsDataUrl, isLocalObjectStorage, presignGet } from '@/lib/s3';
 
 export type AssetKind = NewAsset['kind'];
 
@@ -333,11 +333,18 @@ export async function getPublicUrls(
 
   const ttl = opts.presignTtlSeconds ?? 3600;
   const uploadsBucket = env.S3_BUCKET_UPLOADS ?? 'uploads';
+  // Local MinIO dev: orchestrator can't fetch `http://localhost`, so inline
+  // every reference as a data URL. Prod buckets (R2, public CDN) stay as
+  // public/presigned URLs.
+  const inlineForOrchestrator = isLocalObjectStorage();
   return Promise.all(
     resolvedAssetIds.map(async (id) => {
       const row = byId.get(id)!;
-      if (row.publicUrl) return row.publicUrl;
       const bucketKind: 'upload' | 'asset' = row.bucket === uploadsBucket ? 'upload' : 'asset';
+      if (inlineForOrchestrator) {
+        return getObjectAsDataUrl({ key: row.storageKey, bucketKind });
+      }
+      if (row.publicUrl) return row.publicUrl;
       return presignGet(row.storageKey, ttl, bucketKind);
     }),
   );
