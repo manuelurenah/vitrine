@@ -48,6 +48,7 @@ export function CampaignDetail({ campaign }: Props) {
               workflowId={tile.workflowId}
               presetId={tile.presetId}
               initialStatus={tile.status}
+              quantity={tile.quantity}
               regenerate={{ campaignId: campaign.id, tileId: tile.id }}
             />
           ))}

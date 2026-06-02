@@ -1,6 +1,11 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { S3Client, DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '@/lib/env';
 
@@ -72,4 +77,48 @@ export async function presignUpload(opts: {
 export async function deleteObject(bucket: string, key: string): Promise<void> {
   const client = getClient();
   await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+}
+
+/**
+ * Upload a buffer to the given bucket kind. Used for server-side mirroring of
+ * orchestrator-produced images into our own storage (see {@link mirrorOrchestratorImage}).
+ *
+ * Returns the bucket + key + public URL so callers can persist them on the
+ * `assets` row without re-deriving them.
+ */
+export async function putObject(opts: {
+  key: string;
+  bucketKind: 'upload' | 'asset';
+  body: Uint8Array | Buffer;
+  contentType?: string;
+  contentLength?: number;
+}): Promise<{ bucket: string; key: string; publicUrl: string }> {
+  const bucket = bucketFor(opts.bucketKind);
+  const client = getClient();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: opts.key,
+      Body: opts.body,
+      ContentType: opts.contentType ?? 'application/octet-stream',
+      ...(opts.contentLength != null ? { ContentLength: opts.contentLength } : {}),
+    }),
+  );
+  return { bucket, key: opts.key, publicUrl: publicUrlFor(bucket, opts.key) };
+}
+
+/**
+ * Generate a presigned GET URL for an object. Used when the bucket is not
+ * public-read and we need to hand a fetchable URL to the orchestrator (or
+ * surface it in the UI). Default TTL is 24h.
+ */
+export async function presignGet(
+  key: string,
+  ttlSeconds = 86400,
+  bucketKind: 'upload' | 'asset' = 'asset',
+): Promise<string> {
+  const bucket = bucketFor(bucketKind);
+  const client = getClient();
+  const command = new GetObjectCommand({ Bucket: bucket, Key: key });
+  return getSignedUrl(client, command, { expiresIn: ttlSeconds });
 }

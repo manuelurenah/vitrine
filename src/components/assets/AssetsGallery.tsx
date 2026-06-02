@@ -1,10 +1,29 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
-import { FileText, Image as ImageIcon, Upload, Video } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { FileText, Image as ImageIcon, Sparkles, Upload, Video } from 'lucide-react';
 import { cn } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
+import { AdHocGenerationModal } from './AdHocGenerationModal';
 
 export function AssetsGallery({ assets }: { assets: Asset[] }) {
-  if (assets.length === 0) return <EmptyState />;
+  const router = useRouter();
+  const [genOpen, setGenOpen] = useState(false);
+
+  if (assets.length === 0) {
+    return (
+      <>
+        <EmptyState onGenerate={() => setGenOpen(true)} />
+        <AdHocGenerationModal
+          open={genOpen}
+          onClose={() => setGenOpen(false)}
+          onSaved={() => router.refresh()}
+        />
+      </>
+    );
+  }
 
   const sections: Array<{ key: string; title: string; items: Asset[] }> = [];
   const byCollection = new Map<string, Asset[]>();
@@ -32,6 +51,14 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
           </span>
         ))}
         <span className="flex-1" />
+        <button
+          type="button"
+          onClick={() => setGenOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-[9px] border border-line-volt bg-volt-soft px-3 py-[7px] font-mono text-[11px] uppercase tracking-[0.1em] text-volt hover:bg-volt/15"
+          data-testid="open-generate-modal"
+        >
+          <Sparkles size={13} strokeWidth={1.75} /> generate
+        </button>
         <Link
           href="/brand/assets/new"
           className="inline-flex items-center gap-1.5 rounded-[9px] border border-line-volt bg-volt-soft px-3 py-[7px] font-mono text-[11px] uppercase tracking-[0.1em] text-volt hover:bg-volt/15"
@@ -55,6 +82,12 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
           </div>
         </section>
       ))}
+
+      <AdHocGenerationModal
+        open={genOpen}
+        onClose={() => setGenOpen(false)}
+        onSaved={() => router.refresh()}
+      />
     </div>
   );
 }
@@ -97,7 +130,7 @@ function AssetTile({ item }: { item: Asset }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ onGenerate }: { onGenerate: () => void }) {
   return (
     <div className="flex flex-col items-center gap-4 rounded-[14px] border border-dashed border-line bg-bg-2/60 px-6 py-14 text-center">
       <span
@@ -114,12 +147,22 @@ function EmptyState() {
           drop a file, or pick a collection to start. assets are loose — name + tags are all we need.
         </p>
       </div>
-      <Link
-        href="/brand/assets/new"
-        className="inline-flex items-center gap-2 rounded-[10px] border border-line-volt bg-volt-soft px-4 py-2 font-mono text-[11.5px] uppercase tracking-[0.1em] text-volt hover:bg-volt/15"
-      >
-        <Upload size={14} strokeWidth={1.75} /> choose files
-      </Link>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={onGenerate}
+          className="inline-flex items-center gap-2 rounded-[10px] border border-line-volt bg-volt-soft px-4 py-2 font-mono text-[11.5px] uppercase tracking-[0.1em] text-volt hover:bg-volt/15"
+          data-testid="open-generate-modal-empty"
+        >
+          <Sparkles size={14} strokeWidth={1.75} /> generate
+        </button>
+        <Link
+          href="/brand/assets/new"
+          className="inline-flex items-center gap-2 rounded-[10px] border border-line-volt bg-volt-soft px-4 py-2 font-mono text-[11.5px] uppercase tracking-[0.1em] text-volt hover:bg-volt/15"
+        >
+          <Upload size={14} strokeWidth={1.75} /> choose files
+        </Link>
+      </div>
     </div>
   );
 }

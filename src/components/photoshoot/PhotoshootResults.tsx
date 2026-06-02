@@ -67,6 +67,7 @@ export function PhotoshootResults({ shoot }: Props) {
                   workflowId={tile.workflowId}
                   presetId={presetId}
                   initialStatus={tile.status}
+                  quantity={tile.quantity}
                 />
               ))}
             </div>

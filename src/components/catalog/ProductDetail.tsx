@@ -5,9 +5,21 @@ import { GradientThumb } from '@/components/campaigns';
 import { DeleteProductButton } from './DeleteProductButton';
 import type { Product } from '@/lib/catalog';
 
-type Props = { product: Product };
+export type ProductDetailImage = {
+  id: string;
+  publicUrl: string | null;
+  name: string;
+};
 
-export function ProductDetail({ product }: Props) {
+type Props = {
+  product: Product;
+  images?: ProductDetailImage[];
+};
+
+export function ProductDetail({ product, images = [] }: Props) {
+  const hero = images[0];
+  const rest = images.slice(1);
+
   return (
     <div className="relative">
       <header className="flex items-center gap-3">
@@ -25,10 +37,36 @@ export function ProductDetail({ product }: Props) {
       </header>
 
       <section className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[440px_1fr]">
-        <GradientThumb tone="volt" className="aspect-square w-full" />
+        <div className="flex flex-col gap-2">
+          {hero && hero.publicUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={hero.publicUrl}
+              alt={product.name}
+              className="aspect-square w-full rounded-[14px] border border-line-subtle object-cover"
+            />
+          ) : (
+            <GradientThumb tone="volt" className="aspect-square w-full" />
+          )}
+          {rest.length > 0 && (
+            <div className="grid grid-cols-4 gap-2">
+              {rest.map((img) =>
+                img.publicUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={img.id}
+                    src={img.publicUrl}
+                    alt={img.name}
+                    className="aspect-square w-full rounded-md border border-line-subtle object-cover"
+                  />
+                ) : null,
+              )}
+            </div>
+          )}
+        </div>
         <div className="flex flex-col gap-4">
           <div>
-            <span className="t-eyebrow">// {product.sku || 'sku not set'}</span>
+            <span className="t-eyebrow">// product</span>
             <h1 className="mt-1 t-h2 text-fg-0">{product.name}</h1>
           </div>
           {product.tags.length > 0 && (
@@ -42,7 +80,7 @@ export function ProductDetail({ product }: Props) {
           )}
           {product.notes && (
             <div className="rounded-[14px] border border-line-subtle bg-bg-2 p-4">
-              <span className="t-eyebrow">// notes</span>
+              <span className="t-eyebrow">// description</span>
               <p className="mt-2 whitespace-pre-wrap text-[13.5px] leading-[1.5] text-fg-1">
                 {product.notes}
               </p>

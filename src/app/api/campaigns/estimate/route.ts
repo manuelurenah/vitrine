@@ -1,8 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { estimateGenerationCost, OrchestratorError } from '@/lib/civitai';
+import {
+  estimateImageGen,
+  OrchestratorError,
+  type VitrineImageGenInput,
+} from '@/lib/civitai';
 import { briefSchema } from '@/lib/briefSchema';
-import { buildGenerateInput, PRESETS } from '@/lib/presets';
+import { PRESETS } from '@/lib/presets';
 import { getSession } from '@/lib/session';
+import { getUserKey } from '@/lib/userKey';
+import { getDefaultBrand } from '@/lib/brand';
+import { buildCampaignPrompt, resolveFinalPrompt } from '@/lib/promptBuilder';
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -16,13 +23,21 @@ export async function POST(req: NextRequest) {
     );
   }
   const brief = parsed.data;
+  const userKey = await getUserKey(session);
+  const brand = await getDefaultBrand(userKey);
 
   try {
     const tiles = await Promise.all(
       brief.presetIds.map(async (id) => {
         const preset = PRESETS[id];
-        const input = buildGenerateInput(brief, preset);
-        const snap = await estimateGenerationCost(session, input);
+        const enhanced = buildCampaignPrompt({ brief, brand, preset });
+        const input: VitrineImageGenInput = {
+          prompt: resolveFinalPrompt(enhanced),
+          aspectRatio: enhanced.aspectRatio,
+          numImages: 1,
+          ...(enhanced.negativePrompt ? { negativePrompt: enhanced.negativePrompt } : {}),
+        };
+        const snap = await estimateImageGen(session, input);
         return {
           presetId: id,
           label: preset.label,

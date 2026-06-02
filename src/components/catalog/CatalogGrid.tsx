@@ -65,8 +65,7 @@ export function CatalogGrid({ products }: Props) {
                   </Badge>
                 </div>
                 <div className="font-mono text-[10.5px] text-fg-3">
-                  {p.sku ? `${p.sku} · ` : ''}
-                  {p.tags.length} tags
+                  {p.tags.length} tag{p.tags.length === 1 ? '' : 's'}
                 </div>
               </div>
             </Link>

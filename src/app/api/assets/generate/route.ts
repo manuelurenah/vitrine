@@ -1,0 +1,103 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import { z } from 'zod';
+import {
+  OrchestratorError,
+  submitImageGen,
+  type VitrineImageGenInput,
+} from '@/lib/civitai';
+import { getSession } from '@/lib/session';
+import { getUserKey } from '@/lib/userKey';
+import { getPublicUrls, MissingReferenceError } from '@/lib/assets';
+import { recordGeneration } from '@/lib/generations';
+import { recordBuzzEvent } from '@/lib/buzz';
+
+const MAX_PROMPT_CHARS = 4000;
+
+const generateSchema = z.object({
+  prompt: z.string().min(1).max(MAX_PROMPT_CHARS),
+  negativePrompt: z.string().max(MAX_PROMPT_CHARS).optional(),
+  aspectRatio: z.enum(['1:1', '4:5', '9:16', '16:9']),
+  numImages: z.number().int().min(1).max(4),
+  resolution: z.enum(['1K', '2K']).optional(),
+  referenceAssetIds: z.array(z.string()).max(4).default([]),
+});
+
+export async function POST(req: NextRequest) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: 'not_authenticated' }, { status: 401 });
+  }
+
+  const parsed = generateSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'invalid_body', issues: parsed.error.flatten() },
+      { status: 400 },
+    );
+  }
+  const { prompt, negativePrompt, aspectRatio, numImages, resolution, referenceAssetIds } =
+    parsed.data;
+
+  const userKey = await getUserKey(session);
+
+  let refUrls: string[] = [];
+  if (referenceAssetIds.length > 0) {
+    try {
+      refUrls = await getPublicUrls(userKey, referenceAssetIds);
+    } catch (err) {
+      if (err instanceof MissingReferenceError) {
+        return NextResponse.json(
+          { error: 'invalid_reference_assets', missing: err.count, kind: err.kind },
+          { status: 400 },
+        );
+      }
+      throw err;
+    }
+  }
+
+  const input: VitrineImageGenInput = {
+    prompt,
+    aspectRatio,
+    numImages,
+    ...(negativePrompt ? { negativePrompt } : {}),
+    ...(resolution ? { resolution } : {}),
+    ...(refUrls.length > 0 ? { images: refUrls } : {}),
+  };
+
+  let submit;
+  try {
+    submit = await submitImageGen(session, input);
+  } catch (err) {
+    if (err instanceof OrchestratorError) {
+      return NextResponse.json(
+        { error: 'orchestrator_error' },
+        { status: err.status >= 400 ? err.status : 502 },
+      );
+    }
+    throw err;
+  }
+
+  const estimatedBuzz = submit.cost?.total ?? 0;
+
+  await Promise.all([
+    recordGeneration({
+      workflowId: submit.id,
+      userId: userKey,
+      source: 'adhoc',
+      sourceId: null,
+      tileId: null,
+      prompt,
+      input: input as unknown as Record<string, unknown>,
+      estimatedBuzz,
+    }),
+    recordBuzzEvent({
+      userId: userKey,
+      workflowId: submit.id,
+      kind: 'estimate',
+      estimated: estimatedBuzz,
+      note: 'adhoc',
+    }),
+  ]);
+
+  return NextResponse.json({ workflowId: submit.id, estimatedBuzz });
+}

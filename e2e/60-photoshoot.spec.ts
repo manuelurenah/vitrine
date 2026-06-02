@@ -2,7 +2,7 @@ import { expect, test } from './fixtures';
 import { markOnboardingComplete, resetUserData } from './helpers/db';
 import { signInToApp } from './helpers/auth';
 
-test.describe('Photoshoot list + new', () => {
+test.describe('Photoshoot list + wizard', () => {
   test.beforeAll(async () => {
     await resetUserData();
     await markOnboardingComplete();
@@ -14,14 +14,15 @@ test.describe('Photoshoot list + new', () => {
     await expect(page.getByRole('heading', { name: /photoshoot\./i })).toBeVisible();
   });
 
-  test('new builder page renders', async ({ page, baseURL }) => {
+  test('new wizard renders the brief step', async ({ page, baseURL }) => {
     await signInToApp(page, baseURL!);
     await page.goto(`${baseURL}/photoshoot/new`);
-    await expect(page.getByRole('heading', { name: /photoshoot\./i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /generate/i })).toBeVisible();
+    await expect(page.getByTestId('photoshoot-wizard')).toBeVisible();
+    await expect(page.getByTestId('brief-step')).toBeVisible();
+    await expect(page.getByRole('button', { name: /preview & review/i })).toBeVisible();
   });
 
-  test('submits a brief, MSW mocks orchestrator, redirects to /photoshoot/[id]', async ({
+  test('brief → review → cook → /photoshoot/[id] with populated tiles', async ({
     page,
     baseURL,
   }) => {
@@ -29,11 +30,35 @@ test.describe('Photoshoot list + new', () => {
     await page.goto(`${baseURL}/photoshoot/new`);
 
     // Defaults: templates from defaultOn are pre-selected; variants=1; ratio=4:5.
-    const submit = page.getByRole('button', { name: /^generate/i });
-    await expect(submit).toBeEnabled();
-    await submit.click();
+    // Click "preview & review" — fires POST /api/photoshoot/preview.
+    await page.getByRole('button', { name: /preview & review/i }).click();
 
+    // Step 2: review — enhanced prompt + brand layer + cook button.
+    await expect(page.getByTestId('review-step')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByTestId('total-buzz')).toBeVisible();
+
+    const templateCards = page.locator('[data-testid="template-card"]');
+    await expect(templateCards.first()).toBeVisible();
+    const firstTemplateId = await templateCards.first().getAttribute('data-template-id');
+    expect(firstTemplateId).toBeTruthy();
+
+    // Open brand-layer disclosure on the first template card to verify the
+    // brand DNA layer surfaces in the review UI.
+    await templateCards.first().getByTestId('brand-toggle').click();
+    await expect(templateCards.first().getByText(/^brand$/i)).toBeVisible();
+
+    // Override the raw prompt — debounced re-preview happens server-side.
+    await templateCards.first().getByTestId('edit-toggle').click();
+    const override = page.getByTestId(`override-textarea-${firstTemplateId}`);
+    await expect(override).toBeVisible();
+    await override.fill('hand-tuned photoshoot override — e2e test');
+
+    // Cook for X buzz → POST /api/photoshoot/cook → redirect.
+    await page.getByTestId('cook-button').click();
     await page.waitForURL(/\/photoshoot\/[\w-]+$/, { timeout: 30_000 });
     await expect(page.locator('h1, h2').first()).toBeVisible();
+
+    // Tiles populate after the MSW polling progression completes.
+    await expect(page.locator('img').first()).toBeVisible({ timeout: 30_000 });
   });
 });

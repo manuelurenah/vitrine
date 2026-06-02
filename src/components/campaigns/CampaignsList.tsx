@@ -1,36 +1,9 @@
 import Link from 'next/link';
-import { Dna, RefreshCw } from 'lucide-react';
 import type { BadgeKind } from '@/components/ui';
 import { GradientThumb, type ThumbTone } from './GradientThumb';
 import { PastRow } from './PastRow';
 import { PromptComposer } from './PromptComposer';
 import { SectionHead } from './SectionHead';
-import { SuggestionCard } from './SuggestionCard';
-
-const SUGGESTIONS: Array<{ t: string; s: string; tone: ThumbTone }> = [
-  {
-    t: 'summer heat sampler',
-    s: 'lean into seasonal cravings — bright, citrus-forward photography for the four-piece launch.',
-    tone: 'buzz',
-  },
-  {
-    t: "founder's table",
-    s: 'behind-the-scenes feel. how the oil gets made. warm, intimate, market-shot.',
-    tone: 'flux',
-  },
-  {
-    t: 'pair with everything',
-    s: 'use-case montage — eggs, pizza, pasta, popcorn. quick cuts, hungry energy. great for reels.',
-    tone: 'volt',
-  },
-];
-
-const PAST: PastCampaign[] = [
-  { id: '', name: "spring sampler '26", date: '2 days ago', count: '12 creatives', status: 'live', tone: 'volt' },
-  { id: '', name: "valentine's bundle", date: '12 feb', count: '8 creatives', status: 'live', tone: 'flux' },
-  { id: '', name: "founder's table v1", date: '8 feb', count: '6 creatives', status: 'draft', tone: 'ultraviolet' },
-  { id: '', name: 'holiday gift box', date: '20 dec', count: '14 creatives', status: 'archived', tone: 'ion' },
-];
 
 type PastCampaign = {
   id: string;
@@ -60,7 +33,7 @@ function relativeDate(ts: number): string {
 export { relativeDate };
 
 export function CampaignsList({ past }: Props) {
-  const pastItems: PastCampaign[] = past?.length ? past : PAST;
+  const pastItems: PastCampaign[] = past ?? [];
   const hasPast = pastItems.length > 0;
   return (
     <div className="relative">
@@ -78,7 +51,7 @@ export function CampaignsList({ past }: Props) {
           <span className="t-eyebrow">// step 1 · brief</span>
           <h1 className="mt-[6px] t-h1 text-fg-0">campaigns.</h1>
           <p className="mx-auto mt-[6px] max-w-[540px] text-[15px] leading-[1.5] text-fg-2">
-            start from a suggestion or describe what you want — we&apos;ll cook the brief, then the assets.
+            describe the campaign you want — we&apos;ll cook the brief, then the assets.
           </p>
         </div>
 
@@ -89,41 +62,22 @@ export function CampaignsList({ past }: Props) {
           </p>
         </div>
 
-        <section className="mt-9">
-          <SectionHead
-            icon={<Dna size={15} strokeWidth={1.75} />}
-            title="suggestions from your brand dna"
-            count="refreshed today"
-            action={
-              <a className="inline-flex items-center gap-1">
-                <RefreshCw size={12} strokeWidth={1.75} /> refresh
-              </a>
-            }
-          />
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {SUGGESTIONS.map((x) => (
-              <SuggestionCard key={x.t} title={x.t} sub={x.s} tone={x.tone} />
-            ))}
-          </div>
-        </section>
-
         {hasPast ? (
-          <section className="mt-8">
+          <section className="mt-9">
             <SectionHead
               title="past campaigns"
               count={String(pastItems.length)}
-              action={<a>view all →</a>}
             />
             <div className="overflow-hidden rounded-[14px] border border-line-subtle bg-bg-2">
               {pastItems.map((p, i) => (
-                <Link key={p.id ?? p.name} href={p.id ? `/campaigns/${p.id}` : '#'}>
+                <Link key={p.id || p.name} href={p.id ? `/campaigns/${p.id}` : '#'}>
                   <PastRow {...p} last={i === pastItems.length - 1} />
                 </Link>
               ))}
             </div>
           </section>
         ) : (
-          <section className="mt-8 flex flex-col items-center gap-[10px] rounded-[18px] border border-dashed border-line bg-bg-1 p-8 text-center">
+          <section className="mt-9 flex flex-col items-center gap-[10px] rounded-[18px] border border-dashed border-line bg-bg-1 p-8 text-center">
             <GradientThumb tone="volt" className="grid h-11 w-11 place-items-center rounded-pill">
               <span className="font-display text-xl text-volt">+</span>
             </GradientThumb>
@@ -131,8 +85,7 @@ export function CampaignsList({ past }: Props) {
               no campaigns yet.
             </div>
             <div className="max-w-[400px] text-[13.5px] text-fg-2">
-              pick a suggestion above or type your own prompt. first campaign runs end-to-end for{' '}
-              <span className="font-mono text-[12.5px] text-buzz">60 buzz</span>.
+              type a prompt above to cook your first campaign.
             </div>
           </section>
         )}

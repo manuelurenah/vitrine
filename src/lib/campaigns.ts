@@ -18,6 +18,7 @@ export type CampaignTile = {
   workflowId: string;
   status: TileStatus;
   prompt: string;
+  quantity: number;
 };
 
 export type Campaign = {
@@ -26,6 +27,9 @@ export type Campaign = {
   title: string;
   brief: BriefForPresets;
   presetIds: PresetId[];
+  referenceAssetIds: string[];
+  variantsPerPreset: number;
+  enhancedPrompts: Record<string, unknown> | null;
   tiles: CampaignTile[];
   estimatedBuzz: number;
   audience: string | null;
@@ -40,6 +44,7 @@ function toTile(row: CampaignTileRow): CampaignTile {
     workflowId: row.workflowId,
     status: row.status,
     prompt: row.prompt,
+    quantity: row.quantity,
   };
 }
 
@@ -50,6 +55,9 @@ function toCampaign(row: CampaignRow, tiles: CampaignTileRow[]): Campaign {
     title: row.title,
     brief: row.brief as BriefForPresets,
     presetIds: row.presetIds as PresetId[],
+    referenceAssetIds: row.referenceAssetIds,
+    variantsPerPreset: row.variantsPerPreset,
+    enhancedPrompts: (row.enhancedPrompts as Record<string, unknown> | null) ?? null,
     tiles: tiles.map(toTile),
     estimatedBuzz: row.estimatedBuzz,
     audience: row.audience,
@@ -63,10 +71,13 @@ export type CreateCampaignInput = {
   title: string;
   brief: BriefForPresets;
   presetIds: PresetId[];
-  tiles: Array<{ presetId: PresetId; workflowId: string; prompt: string }>;
+  tiles: Array<{ presetId: PresetId; workflowId: string; prompt: string; quantity?: number }>;
   estimatedBuzz: number;
   audience?: string | null;
   aesthetics?: string | null;
+  referenceAssetIds?: string[];
+  variantsPerPreset?: number;
+  enhancedPrompts?: Record<string, unknown> | null;
 };
 
 export async function createCampaign(input: CreateCampaignInput): Promise<Campaign> {
@@ -78,6 +89,9 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Campai
         title: input.title,
         brief: input.brief,
         presetIds: input.presetIds,
+        referenceAssetIds: input.referenceAssetIds ?? [],
+        variantsPerPreset: input.variantsPerPreset ?? 1,
+        enhancedPrompts: input.enhancedPrompts ?? null,
         estimatedBuzz: input.estimatedBuzz,
         audience: input.audience ?? null,
         aesthetics: input.aesthetics ?? null,
@@ -94,6 +108,7 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Campai
               presetId: t.presetId,
               workflowId: t.workflowId,
               prompt: t.prompt,
+              quantity: t.quantity ?? 1,
               status: 'cooking' as TileStatus,
             })),
           )

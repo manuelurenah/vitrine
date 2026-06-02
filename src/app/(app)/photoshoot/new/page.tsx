@@ -1,7 +1,7 @@
-import { PhotoshootBuilder } from '@/components/photoshoot';
+import { PhotoshootWizard } from '@/components/photoshoot/PhotoshootWizard';
 
 export const metadata = { title: 'new photoshoot · vitrine' };
 
 export default function NewPhotoshootPage() {
-  return <PhotoshootBuilder />;
+  return <PhotoshootWizard />;
 }

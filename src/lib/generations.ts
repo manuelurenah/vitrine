@@ -7,10 +7,12 @@ import {
   type NewGeneration,
 } from '@/lib/db/schema';
 import type { GenerateInput, WorkflowSnapshot } from '@/lib/civitai';
-import { isTerminal } from '@/lib/civitai';
+import { getWorkflowSnapshot, isTerminal } from '@/lib/civitai';
+import type { Session } from '@/lib/session';
 
 export type GenerationSource = NewGeneration['source'];
 export type WorkflowDbStatus = NewGeneration['status'];
+export type GenerationMediaType = NewGeneration['mediaType'];
 
 export type Generation = {
   workflowId: string;
@@ -18,6 +20,9 @@ export type Generation = {
   source: GenerationSource;
   sourceId: string | null;
   tileId: string | null;
+  parentWorkflowId: string | null;
+  parentImageIndex: number | null;
+  mediaType: GenerationMediaType;
   status: WorkflowDbStatus;
   prompt: string | null;
   estimatedBuzz: number;
@@ -34,6 +39,9 @@ function toGeneration(row: GenerationRow): Generation {
     source: row.source,
     sourceId: row.sourceId,
     tileId: row.tileId,
+    parentWorkflowId: row.parentWorkflowId,
+    parentImageIndex: row.parentImageIndex,
+    mediaType: row.mediaType,
     status: row.status,
     prompt: row.prompt,
     estimatedBuzz: row.estimatedBuzz,
@@ -50,12 +58,20 @@ export type RecordGenerationInput = {
   source: GenerationSource;
   sourceId?: string | null;
   tileId?: string | null;
+  parentWorkflowId?: string | null;
+  parentImageIndex?: number | null;
+  mediaType?: GenerationMediaType;
   prompt?: string;
-  input: GenerateInput;
+  input: GenerateInput | Record<string, unknown>;
   estimatedBuzz?: number;
 };
 
 export async function recordGeneration(input: RecordGenerationInput): Promise<Generation> {
+  const promptValue =
+    input.prompt ??
+    (typeof (input.input as { prompt?: unknown }).prompt === 'string'
+      ? ((input.input as { prompt: string }).prompt)
+      : null);
   const [row] = await db
     .insert(generations)
     .values({
@@ -64,8 +80,11 @@ export async function recordGeneration(input: RecordGenerationInput): Promise<Ge
       source: input.source,
       sourceId: input.sourceId ?? null,
       tileId: input.tileId ?? null,
+      parentWorkflowId: input.parentWorkflowId ?? null,
+      parentImageIndex: input.parentImageIndex ?? null,
+      mediaType: input.mediaType ?? 'image',
       status: 'queued',
-      prompt: input.prompt ?? input.input.prompt,
+      prompt: promptValue,
       input: input.input,
       estimatedBuzz: input.estimatedBuzz ?? 0,
     })
@@ -74,6 +93,9 @@ export async function recordGeneration(input: RecordGenerationInput): Promise<Ge
       set: {
         sourceId: input.sourceId ?? null,
         tileId: input.tileId ?? null,
+        parentWorkflowId: input.parentWorkflowId ?? null,
+        parentImageIndex: input.parentImageIndex ?? null,
+        mediaType: input.mediaType ?? 'image',
         estimatedBuzz: input.estimatedBuzz ?? 0,
         updatedAt: new Date(),
       },
@@ -114,6 +136,23 @@ export async function updateGenerationFromSnapshot(
     .where(eq(generations.workflowId, workflowId))
     .returning();
   return row ? toGeneration(row) : null;
+}
+
+/**
+ * Re-fetch the workflow snapshot from the orchestrator and persist the fresh
+ * copy into `generations.snapshot`. Useful when the cached snapshot contains
+ * images with `available: false` (orchestrator garbage-collected the blob)
+ * but the workflow itself is still resolvable.
+ *
+ * Returns the updated row, or `null` if no `generations` row exists for the
+ * given `workflowId`.
+ */
+export async function refreshGenerationSnapshot(
+  workflowId: string,
+  session: Session,
+): Promise<Generation | null> {
+  const snapshot = await getWorkflowSnapshot(session, workflowId);
+  return updateGenerationFromSnapshot(workflowId, snapshot);
 }
 
 export async function getGeneration(workflowId: string): Promise<Generation | null> {

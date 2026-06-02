@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { ProductDetail } from '@/components/catalog';
 import { getProduct } from '@/lib/catalog';
+import { listAssetsForProduct } from '@/lib/assets';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
 
@@ -13,7 +14,13 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
   if (!session) notFound();
   const userKey = await getUserKey(session);
   const { id } = await params;
-  const product = await getProduct(userKey, id);
+  const [product, attached] = await Promise.all([
+    getProduct(userKey, id),
+    listAssetsForProduct(id),
+  ]);
   if (!product) notFound();
-  return <ProductDetail product={product} />;
+  const images = attached
+    .filter((a) => (a.contentType ?? '').startsWith('image/') || !a.contentType)
+    .map((a) => ({ id: a.id, publicUrl: a.publicUrl ?? null, name: a.storageKey }));
+  return <ProductDetail product={product} images={images} />;
 }

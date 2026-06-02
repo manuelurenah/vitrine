@@ -21,6 +21,7 @@ export type PhotoshootTile = {
   workflowId: string;
   status: TileStatus;
   prompt: string;
+  quantity: number;
 };
 
 export type Photoshoot = {
@@ -28,6 +29,8 @@ export type Photoshoot = {
   userId: string;
   title: string;
   brief: PhotoshootBrief;
+  referenceAssetIds: string[];
+  enhancedPrompts: Record<string, unknown> | null;
   tiles: PhotoshootTile[];
   estimatedBuzz: number;
   createdAt: number;
@@ -41,6 +44,7 @@ function toTile(row: PhotoshootTileRow): PhotoshootTile {
     workflowId: row.workflowId,
     status: row.status,
     prompt: row.prompt,
+    quantity: row.quantity,
   };
 }
 
@@ -50,6 +54,8 @@ function toPhotoshoot(row: PhotoshootRow, tiles: PhotoshootTileRow[]): Photoshoo
     userId: row.userId,
     title: row.title,
     brief: row.brief as PhotoshootBrief,
+    referenceAssetIds: row.referenceAssetIds,
+    enhancedPrompts: (row.enhancedPrompts as Record<string, unknown> | null) ?? null,
     tiles: tiles.map(toTile),
     estimatedBuzz: row.estimatedBuzz,
     createdAt: row.createdAt.getTime(),
@@ -65,8 +71,11 @@ export type CreatePhotoshootInput = {
     variantIndex: number;
     workflowId: string;
     prompt: string;
+    quantity?: number;
   }>;
   estimatedBuzz: number;
+  referenceAssetIds?: string[];
+  enhancedPrompts?: Record<string, unknown> | null;
 };
 
 export async function createPhotoshoot(input: CreatePhotoshootInput): Promise<Photoshoot> {
@@ -80,6 +89,8 @@ export async function createPhotoshoot(input: CreatePhotoshootInput): Promise<Ph
         ratio: input.brief.ratio satisfies PhotoshootRatio,
         variantsPerTemplate: input.brief.variantsPerTemplate,
         templateIds: input.brief.templateIds,
+        referenceAssetIds: input.referenceAssetIds ?? [],
+        enhancedPrompts: input.enhancedPrompts ?? null,
         estimatedBuzz: input.estimatedBuzz,
       })
       .returning();
@@ -95,6 +106,7 @@ export async function createPhotoshoot(input: CreatePhotoshootInput): Promise<Ph
               variantIndex: t.variantIndex,
               workflowId: t.workflowId,
               prompt: t.prompt,
+              quantity: t.quantity ?? 1,
               status: 'cooking' as TileStatus,
             })),
           )

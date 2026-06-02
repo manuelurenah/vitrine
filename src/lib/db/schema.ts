@@ -26,7 +26,14 @@ export const onboardingStep = pgEnum('onboarding_step', [
 export const assetKind = pgEnum('asset_kind', ['upload', 'generated', 'reference']);
 export const assetOwner = pgEnum('asset_owner', ['user', 'brand', 'product', 'tile']);
 export const buzzEventKind = pgEnum('buzz_event_kind', ['estimate', 'submit', 'refund']);
-export const generationSource = pgEnum('generation_source', ['campaign', 'photoshoot', 'adhoc']);
+export const generationSource = pgEnum('generation_source', [
+  'campaign',
+  'photoshoot',
+  'adhoc',
+  'upscale',
+  'animate',
+]);
+export const generationMediaType = pgEnum('generation_media_type', ['image', 'video']);
 export const workflowStatus = pgEnum('workflow_status', [
   'queued',
   'cooking',
@@ -189,6 +196,12 @@ export const campaigns = pgTable(
       .array()
       .default(sql`ARRAY[]::text[]`)
       .notNull(),
+    referenceAssetIds: text('reference_asset_ids')
+      .array()
+      .default(sql`ARRAY[]::text[]`)
+      .notNull(),
+    variantsPerPreset: integer('variants_per_preset').default(1).notNull(),
+    enhancedPrompts: jsonb('enhanced_prompts'),
     audience: text('audience'),
     aesthetics: text('aesthetics'),
     industry: text('industry'),
@@ -215,6 +228,7 @@ export const campaignTiles = pgTable(
     workflowId: text('workflow_id').notNull(),
     prompt: text('prompt').notNull(),
     seed: text('seed'),
+    quantity: integer('quantity').default(1).notNull(),
     status: tileStatus('status').default('cooking').notNull(),
     estimatedBuzz: integer('estimated_buzz').default(0).notNull(),
     actualBuzz: integer('actual_buzz').default(0).notNull(),
@@ -245,6 +259,11 @@ export const photoshoots = pgTable(
       .array()
       .default(sql`ARRAY[]::text[]`)
       .notNull(),
+    referenceAssetIds: text('reference_asset_ids')
+      .array()
+      .default(sql`ARRAY[]::text[]`)
+      .notNull(),
+    enhancedPrompts: jsonb('enhanced_prompts'),
     estimatedBuzz: integer('estimated_buzz').default(0).notNull(),
     actualBuzz: integer('actual_buzz').default(0).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -267,6 +286,7 @@ export const photoshootTiles = pgTable(
     workflowId: text('workflow_id').notNull(),
     prompt: text('prompt').notNull(),
     seed: text('seed'),
+    quantity: integer('quantity').default(1).notNull(),
     status: tileStatus('status').default('cooking').notNull(),
     estimatedBuzz: integer('estimated_buzz').default(0).notNull(),
     actualBuzz: integer('actual_buzz').default(0).notNull(),
@@ -291,6 +311,9 @@ export const generations = pgTable(
     source: generationSource('source').notNull(),
     sourceId: uuid('source_id'),
     tileId: uuid('tile_id'),
+    parentWorkflowId: text('parent_workflow_id'),
+    parentImageIndex: integer('parent_image_index'),
+    mediaType: generationMediaType('media_type').default('image').notNull(),
     status: workflowStatus('status').default('queued').notNull(),
     prompt: text('prompt'),
     input: jsonb('input').notNull(),
@@ -305,6 +328,7 @@ export const generations = pgTable(
   (t) => ({
     userIdx: index('generations_user_idx').on(t.userId, t.submittedAt),
     sourceIdx: index('generations_source_idx').on(t.source, t.sourceId),
+    parentIdx: index('generations_parent_idx').on(t.parentWorkflowId),
   }),
 );
 

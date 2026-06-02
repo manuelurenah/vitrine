@@ -1,18 +1,27 @@
 import 'server-only';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   assets,
   campaignTiles,
   photoshootTiles,
   productAssets,
+  products,
   type Asset as AssetRow,
   type NewAsset,
 } from '@/lib/db/schema';
 import { env } from '@/lib/env';
 import { extractImageUrls, type WorkflowSnapshot } from '@/lib/civitai';
+import { presignGet } from '@/lib/s3';
 
 export type AssetKind = NewAsset['kind'];
+
+export type AssetMetadata = {
+  collection?: string;
+  tags?: string[];
+  description?: string;
+  [key: string]: unknown;
+};
 
 export type Asset = {
   id: string;
@@ -30,6 +39,7 @@ export type Asset = {
   dominantColor: string | null;
   workflowId: string | null;
   sourceTileId: string | null;
+  metadata: AssetMetadata;
   createdAt: number;
 };
 
@@ -50,13 +60,17 @@ function toAsset(row: AssetRow): Asset {
     dominantColor: row.dominantColor,
     workflowId: row.workflowId,
     sourceTileId: row.sourceTileId,
+    metadata: (row.metadata ?? {}) as AssetMetadata,
     createdAt: row.createdAt.getTime(),
   };
 }
 
+export type AssetOwnerType = NonNullable<NewAsset['ownerType']>;
+
 export type CreateAssetInput = {
   userId: string;
   kind: AssetKind;
+  ownerType?: AssetOwnerType | null;
   bucket: string;
   storageKey: string;
   publicUrl?: string | null;
@@ -79,6 +93,7 @@ export async function createAsset(input: CreateAssetInput): Promise<Asset> {
     .values({
       userId: input.userId,
       kind: input.kind,
+      ownerType: input.ownerType ?? null,
       bucket: input.bucket,
       storageKey: input.storageKey,
       publicUrl: input.publicUrl ?? null,
@@ -217,6 +232,132 @@ export async function syncAssetsFromSnapshot(
     }
   }
   return inserted;
+}
+
+/**
+ * Resolve a list of picker IDs to orchestrator-fetchable URLs, preserving input
+ * order. SECURITY: every DB lookup is scoped to `userId`. Callers must pass
+ * the requesting user's key — bare IDs from a request body are never trusted
+ * cross-tenant. A picker ID that belongs to another user is treated as missing.
+ *
+ * Accepts:
+ *   - `asset:<uuid>` resolves directly via the `assets` table.
+ *   - `product:<uuid>` resolves to the product's hero asset (or first attached
+ *     `product_assets` row, scoped to that product's user).
+ *   - A bare UUID is treated as `asset:<uuid>`.
+ *
+ * If the asset row has a `publicUrl`, it's used directly; otherwise we mint a
+ * presigned GET URL (1h TTL by default — short enough that leaked URLs expire
+ * before they're useful). Throws if any id is missing or not owned by the user.
+ */
+export async function getPublicUrls(
+  userId: string,
+  pickerIds: string[],
+  opts: { presignTtlSeconds?: number } = {},
+): Promise<string[]> {
+  if (pickerIds.length === 0) return [];
+
+  const parsed = pickerIds.map((id) => {
+    const colonIdx = id.indexOf(':');
+    if (colonIdx === -1) return { kind: 'asset' as const, ref: id, original: id };
+    const kind = id.slice(0, colonIdx);
+    const ref = id.slice(colonIdx + 1);
+    if (kind === 'asset' || kind === 'product') {
+      return { kind, ref, original: id };
+    }
+    return { kind: 'asset' as const, ref: id, original: id };
+  });
+
+  const productIds = parsed.filter((p) => p.kind === 'product').map((p) => p.ref);
+  const productHeroByProductId = new Map<string, string>();
+  if (productIds.length > 0) {
+    const productRows = await db
+      .select({ id: products.id, heroAssetId: products.heroAssetId })
+      .from(products)
+      .where(and(inArray(products.id, productIds), eq(products.userId, userId)));
+    for (const row of productRows) {
+      if (row.heroAssetId) productHeroByProductId.set(row.id, row.heroAssetId);
+    }
+    const stillMissing = productIds.filter((pid) => !productHeroByProductId.has(pid));
+    if (stillMissing.length > 0) {
+      const fallbackRows = await db
+        .select({
+          productId: productAssets.productId,
+          assetId: productAssets.assetId,
+          position: productAssets.position,
+        })
+        .from(productAssets)
+        .innerJoin(products, eq(products.id, productAssets.productId))
+        .where(
+          and(inArray(productAssets.productId, stillMissing), eq(products.userId, userId)),
+        )
+        .orderBy(productAssets.position);
+      for (const row of fallbackRows) {
+        if (!productHeroByProductId.has(row.productId)) {
+          productHeroByProductId.set(row.productId, row.assetId);
+        }
+      }
+    }
+    const missingProducts = productIds.filter((pid) => !productHeroByProductId.has(pid));
+    if (missingProducts.length > 0) {
+      throw new MissingReferenceError(missingProducts.length, 'products');
+    }
+  }
+
+  const resolvedAssetIds = parsed.map((p) =>
+    p.kind === 'product' ? productHeroByProductId.get(p.ref)! : p.ref,
+  );
+  const uniqueAssetIds = Array.from(new Set(resolvedAssetIds));
+
+  const rows = await db
+    .select({
+      id: assets.id,
+      bucket: assets.bucket,
+      storageKey: assets.storageKey,
+      publicUrl: assets.publicUrl,
+    })
+    .from(assets)
+    .where(
+      and(
+        inArray(assets.id, uniqueAssetIds),
+        eq(assets.userId, userId),
+        isNull(assets.deletedAt),
+      ),
+    );
+
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const missing = uniqueAssetIds.filter((id) => !byId.has(id));
+  if (missing.length > 0) {
+    throw new MissingReferenceError(missing.length, 'assets');
+  }
+
+  const ttl = opts.presignTtlSeconds ?? 3600;
+  const uploadsBucket = env.S3_BUCKET_UPLOADS ?? 'uploads';
+  return Promise.all(
+    resolvedAssetIds.map(async (id) => {
+      const row = byId.get(id)!;
+      if (row.publicUrl) return row.publicUrl;
+      const bucketKind: 'upload' | 'asset' = row.bucket === uploadsBucket ? 'upload' : 'asset';
+      return presignGet(row.storageKey, ttl, bucketKind);
+    }),
+  );
+}
+
+/**
+ * Thrown by `getPublicUrls` when one or more picker IDs cannot be resolved
+ * (missing, not owned by the user, or product with no asset). The error
+ * message intentionally omits the raw IDs to avoid leaking ownership info
+ * through error reflection — the count and kind are enough for the UI.
+ */
+export class MissingReferenceError extends Error {
+  readonly count: number;
+  readonly kind: 'assets' | 'products';
+  constructor(count: number, kind: 'assets' | 'products') {
+    super(`${count} reference ${kind} not found or not accessible`);
+    this.name = 'MissingReferenceError';
+    this.count = count;
+    this.kind = kind;
+  }
 }
 
 export async function markTileFailed(workflowId: string, errorMsg: string): Promise<void> {
