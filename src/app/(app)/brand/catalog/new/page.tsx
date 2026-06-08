@@ -1,8 +1,43 @@
 import { AddProductForm } from '@/components/catalog';
+import { getSession } from '@/lib/session';
+import { getUserKey } from '@/lib/userKey';
+import { listAssets } from '@/lib/assets';
 
 export const metadata = { title: 'new product · vitrine' };
+export const dynamic = 'force-dynamic';
 
-export default function NewProductPage() {
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+function firstString(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
+function parseImageRefs(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => id.startsWith('asset:'))
+    .map((id) => id.slice('asset:'.length))
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
+export default async function NewProductPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const session = await getSession();
+  const sp = await searchParams;
+  const prefillIds = parseImageRefs(firstString(sp.images));
+
+  let assets: Awaited<ReturnType<typeof listAssets>> = [];
+  if (session) {
+    const userKey = await getUserKey(session);
+    assets = await listAssets(userKey);
+  }
+
   return (
     <div className="mx-auto flex max-w-[760px] flex-col gap-6">
       <header className="flex flex-col gap-1.5">
@@ -13,7 +48,7 @@ export default function NewProductPage() {
         </p>
       </header>
 
-      <AddProductForm />
+      <AddProductForm libraryAssets={assets} prefillAssetIds={prefillIds} />
     </div>
   );
 }

@@ -2,8 +2,10 @@
 
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import { Check, Library, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { Button, Chip, cn, FieldLabel, Input, Textarea } from '@/components/ui';
+import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
+import type { Asset } from '@/lib/assets';
 
 const MAX_BYTES = 20 * 1024 * 1024;
 const MAX_IMAGES = 8;
@@ -44,22 +46,71 @@ function putWithProgress(
 
 export type AddProductFormProps = {
   redirectTo?: string;
+  libraryAssets?: Asset[];
+  prefillAssetIds?: string[];
 };
 
-export function AddProductForm({ redirectTo = '/brand/catalog' }: AddProductFormProps = {}) {
+/**
+ * Pure helper: merge uploaded asset ids with library-picked ids, dedupe, and
+ * cap at MAX_IMAGES. Exported for unit testing.
+ */
+export function mergeImageAssetIds(
+  uploads: ReadonlyArray<string | null | undefined>,
+  library: ReadonlyArray<string>,
+  cap: number = MAX_IMAGES,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of uploads) {
+    if (typeof id === 'string' && id && !seen.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  for (const id of library) {
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  return out.slice(0, cap);
+}
+
+export function AddProductForm({
+  redirectTo = '/brand/catalog',
+  libraryAssets,
+  prefillAssetIds,
+}: AddProductFormProps = {}) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const nameId = useId();
   const descriptionId = useId();
   const tagsId = useId();
 
+  const hasLibrary = (libraryAssets?.length ?? 0) > 0;
+  const validPrefillIds = useMemo(() => {
+    if (!prefillAssetIds?.length || !libraryAssets?.length) return [] as string[];
+    const known = new Set(libraryAssets.map((a) => a.id));
+    return prefillAssetIds.filter((id) => known.has(id));
+  }, [prefillAssetIds, libraryAssets]);
+
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [tagsRaw, setTagsRaw] = useState('');
   const [images, setImages] = useState<StagedImage[]>([]);
+  const [libraryPicked, setLibraryPicked] = useState<string[]>(validPrefillIds);
+  const [tab, setTab] = useState<'upload' | 'library'>(
+    validPrefillIds.length > 0 ? 'library' : 'upload',
+  );
   const [dragOver, setDragOver] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const libraryById = useMemo(() => {
+    const map = new Map<string, Asset>();
+    for (const a of libraryAssets ?? []) map.set(a.id, a);
+    return map;
+  }, [libraryAssets]);
 
   const tags = useMemo(
     () =>
@@ -71,8 +122,11 @@ export function AddProductForm({ redirectTo = '/brand/catalog' }: AddProductForm
     [tagsRaw],
   );
 
-  const doneCount = images.filter((s) => s.status === 'done').length;
-  const capReached = images.length >= MAX_IMAGES;
+  const totalCount = images.length + libraryPicked.length;
+  const doneCount =
+    images.filter((s) => s.status === 'done').length + libraryPicked.length;
+  const capReached = totalCount >= MAX_IMAGES;
+  const remainingSlots = Math.max(0, MAX_IMAGES - totalCount);
 
   function patch(localId: string, p: Partial<StagedImage>) {
     setImages((prev) => prev.map((s) => (s.localId === localId ? { ...s, ...p } : s)));
@@ -83,7 +137,7 @@ export function AddProductForm({ redirectTo = '/brand/catalog' }: AddProductForm
       setError(null);
       const list = Array.from(files);
       setImages((prev) => {
-        const remaining = MAX_IMAGES - prev.length;
+        const remaining = MAX_IMAGES - prev.length - libraryPicked.length;
         if (remaining <= 0) return prev;
         const next: StagedImage[] = [...prev];
         for (const file of list.slice(0, remaining)) {
@@ -109,7 +163,7 @@ export function AddProductForm({ redirectTo = '/brand/catalog' }: AddProductForm
         return next;
       });
     },
-    [],
+    [libraryPicked.length],
   );
 
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -129,6 +183,17 @@ export function AddProductForm({ redirectTo = '/brand/catalog' }: AddProductForm
       if (target) URL.revokeObjectURL(target.previewUrl);
       return prev.filter((s) => s.localId !== localId);
     });
+  }
+
+  function removeLibraryPick(assetId: string) {
+    setLibraryPicked((prev) => prev.filter((id) => id !== assetId));
+  }
+
+  function onPickerChange(ids: string[]) {
+    const next = ids
+      .filter((s) => s.startsWith('asset:'))
+      .map((s) => s.slice('asset:'.length));
+    setLibraryPicked(next);
   }
 
   async function uploadOne(s: StagedImage): Promise<string | null> {
@@ -208,11 +273,16 @@ export function AddProductForm({ redirectTo = '/brand/catalog' }: AddProductForm
         return;
       }
 
-      const imageAssetIds = images
+      const allUploadIds = images
         .map((s) => s.assetId)
-        .concat(uploaded.filter((id): id is string => Boolean(id)))
-        .filter((id): id is string => Boolean(id));
-      const dedup = Array.from(new Set(imageAssetIds));
+        .concat(uploaded.filter((id): id is string => Boolean(id)));
+      const dedup = mergeImageAssetIds(allUploadIds, libraryPicked);
+
+      if (dedup.length === 0) {
+        setError('add at least one image — upload or pick from library');
+        setSubmitting(false);
+        return;
+      }
 
       const res = await fetch('/api/catalog/products', {
         method: 'POST',
@@ -241,6 +311,44 @@ export function AddProductForm({ redirectTo = '/brand/catalog' }: AddProductForm
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-6">
+      {hasLibrary && (
+        <div
+          role="tablist"
+          aria-label="image source"
+          className="inline-flex gap-1 self-start rounded-[10px] border border-line bg-bg-2 p-1"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'upload'}
+            onClick={() => setTab('upload')}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-fast ease-out',
+              tab === 'upload'
+                ? 'bg-bg-3 text-fg-0'
+                : 'text-fg-2 hover:text-fg-1',
+            )}
+          >
+            <Upload size={12} strokeWidth={1.75} /> upload
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'library'}
+            onClick={() => setTab('library')}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-fast ease-out',
+              tab === 'library'
+                ? 'bg-bg-3 text-fg-0'
+                : 'text-fg-2 hover:text-fg-1',
+            )}
+          >
+            <Library size={12} strokeWidth={1.75} /> pick from library
+          </button>
+        </div>
+      )}
+
+      {(!hasLibrary || tab === 'upload') && (
       <div
         onClick={() => !capReached && inputRef.current?.click()}
         onDragOver={(e) => {
@@ -306,11 +414,31 @@ export function AddProductForm({ redirectTo = '/brand/catalog' }: AddProductForm
           onChange={onPick}
         />
       </div>
+      )}
 
-      {images.length > 0 && (
+      {hasLibrary && tab === 'library' && (
+        <div className="flex flex-col gap-3 rounded-[14px] border border-line-subtle bg-bg-2/60 p-4">
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-3">
+              pick existing assets
+            </span>
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-fg-3">
+              {libraryPicked.length} picked · {remainingSlots} slots left
+            </span>
+          </div>
+          <AssetCatalogPicker
+            value={libraryPicked.map((id) => `asset:${id}`)}
+            onChange={onPickerChange}
+            max={Math.max(libraryPicked.length, MAX_IMAGES - images.length)}
+            initialTab="assets"
+          />
+        </div>
+      )}
+
+      {totalCount > 0 && (
         <div>
           <FieldLabel>
-            {images.length} of {MAX_IMAGES} staged
+            {totalCount} of {MAX_IMAGES} staged
           </FieldLabel>
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
             {images.map((s, i) => (
@@ -321,6 +449,19 @@ export function AddProductForm({ redirectTo = '/brand/catalog' }: AddProductForm
                 onRemove={() => removeImage(s.localId)}
               />
             ))}
+            {libraryPicked.map((id, i) => {
+              const asset = libraryById.get(id);
+              if (!asset) return null;
+              const isHero = images.length === 0 && i === 0;
+              return (
+                <LibraryThumbCard
+                  key={id}
+                  asset={asset}
+                  isHero={isHero}
+                  onRemove={() => removeLibraryPick(id)}
+                />
+              );
+            })}
           </div>
         </div>
       )}
@@ -379,7 +520,7 @@ export function AddProductForm({ redirectTo = '/brand/catalog' }: AddProductForm
 
       <div className="flex items-center justify-between border-t border-line-subtle pt-4">
         <span className="font-mono text-[12px] text-fg-2">
-          {doneCount} of {images.length} uploaded
+          {doneCount} of {totalCount} ready
           {error ? <span className="ml-3 text-danger">· {error}</span> : null}
         </span>
         <div className="flex items-center gap-2">
@@ -465,6 +606,52 @@ function ThumbCard({
         ) : (
           <X size={11} strokeWidth={1.75} />
         )}
+      </button>
+    </div>
+  );
+}
+
+function LibraryThumbCard({
+  asset,
+  isHero,
+  onRemove,
+}: {
+  asset: Asset;
+  isHero: boolean;
+  onRemove: () => void;
+}) {
+  const filename = asset.storageKey.split('/').pop() ?? asset.id;
+  const isImage = asset.contentType?.startsWith('image/') ?? false;
+  return (
+    <div className="group relative aspect-square overflow-hidden rounded-[10px] border border-line-subtle bg-bg-3">
+      {isImage && asset.publicUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={asset.publicUrl}
+          alt={filename}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <span className="grid h-full w-full place-items-center text-fg-2">
+          <Library size={22} strokeWidth={1.5} />
+        </span>
+      )}
+      {isHero && (
+        <span className="absolute left-1.5 top-1.5 rounded-pill border border-line/40 bg-black/55 px-[8px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.08em] text-fg-0 backdrop-blur-md">
+          hero
+        </span>
+      )}
+      <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-pill border border-line/40 bg-black/55 px-[8px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.08em] text-fg-1 backdrop-blur-md">
+        <Library size={9} strokeWidth={2} /> from library
+      </span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`remove ${filename}`}
+        className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-pill border border-line/40 bg-black/55 text-fg-0 opacity-0 backdrop-blur-md transition-opacity duration-fast ease-out hover:bg-bg-3 group-hover:opacity-100"
+      >
+        <X size={11} strokeWidth={1.75} />
       </button>
     </div>
   );
