@@ -250,6 +250,7 @@ export function PhotoshootWizard({
         return;
       }
       router.replace(`/photoshoot/${id}`);
+      router.refresh();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'submit failed');
       setSubmitting(false);

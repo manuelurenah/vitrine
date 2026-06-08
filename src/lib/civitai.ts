@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { fetchBuzzAccount, fetchMe, type BuzzAccount } from "@civitai/app-sdk";
+import { fetchMe } from "@civitai/app-sdk";
 import {
   buildImageGenBody,
   buildWorkflowBody,
@@ -54,7 +54,9 @@ function buildVitrineImageGenBody(input: VitrineImageGenInput): unknown {
       model: input.model ?? DEFAULT_IMAGE_MODEL,
       prompt: input.prompt,
       ...(input.negativePrompt ? { negativePrompt: input.negativePrompt } : {}),
-      ...(input.images && input.images.length > 0 ? { images: input.images } : {}),
+      ...(input.images && input.images.length > 0
+        ? { images: input.images }
+        : {}),
       aspectRatio: input.aspectRatio,
       numImages: input.numImages,
       resolution: input.resolution ?? "1K",
@@ -94,18 +96,70 @@ export function getMe(session: Session): Promise<MeResponse> {
 }
 
 /**
- * Fetch the user's yellow-Buzz balance via the SDK's `fetchBuzzAccount`
- * (wraps Civitai's `buzz.getUserAccount` tRPC). Requires the `BuzzRead`
- * OAuth scope. `/api/v1/me` does NOT include balance.
+ * Aggregate Buzz balance across pools. `yellow` is the spendable balance
+ * everyone sees; `blue`/`green` are reserved/promotional. We expose
+ * `balance` as `yellow` for the shell pill and surface raw pools for any
+ * future per-pool UI.
+ */
+export type BuzzBalance = {
+  /** Spendable balance (yellow pool). */
+  balance: number;
+  blue: number;
+  green: number;
+  yellow: number;
+};
+
+/**
+ * Fetch the user's Buzz balance via Civitai's `buzz.getBuzzAccount` tRPC.
+ * Requires the `BuzzRead` OAuth scope; `/api/v1/me` does NOT include
+ * balance.
+ *
+ * Bypasses the SDK's `fetchBuzzAccount` helper (targets the wrong procedure
+ * `buzz.getUserAccount` and returns the wrong shape). Opts out of caching:
+ * `cache: 'no-store'` keeps Next's data cache off, and a `t=${Date.now()}`
+ * query bypasses any upstream/edge cache that ignores Authorization.
+ * Balance must reflect the latest Buzz spend immediately after a
+ * cook/regenerate.
  */
 const fetchBuzzAccountCached = cache(
-  async (accessToken: string): Promise<BuzzAccount | null> => {
+  async (accessToken: string): Promise<BuzzBalance | null> => {
     try {
-      const accounts = await fetchBuzzAccount({
-        baseUrl: env.CIVITAI_BASE_URL,
-        accessToken,
+      const url = `${env.CIVITAI_BASE_URL}/api/trpc/buzz.getBuzzAccount?t=${Date.now()}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
       });
-      return accounts[0] ?? null;
+      if (!res.ok) {
+        console.warn(
+          "[civitai] buzz.getBuzzAccount failed:",
+          res.status,
+          await res.text().catch(() => ""),
+        );
+        return null;
+      }
+      // tRPC envelope variants:
+      //   { result: { data: { json: { yellow, blue, green } } } }   (superjson)
+      //   { result: { data: { yellow, blue, green } } }             (no transformer)
+      //   { yellow, blue, green }                                   (raw — defensive)
+      type Pools = { yellow?: number; blue?: number; green?: number };
+      const body = (await res.json()) as
+        | Pools
+        | { result?: { data?: Pools | { json?: Pools } } };
+      const inner =
+        "result" in body
+          ? (() => {
+              const d = body.result?.data;
+              if (!d) return null;
+              return "json" in d ? (d.json ?? null) : (d as Pools);
+            })()
+          : (body as Pools);
+      if (!inner) return null;
+      return {
+        balance: inner.yellow ?? 0,
+        yellow: inner.yellow ?? 0,
+        blue: inner.blue ?? 0,
+        green: inner.green ?? 0,
+      };
     } catch (err) {
       console.warn("[civitai] fetchBuzzAccount failed:", err);
       return null;
@@ -113,7 +167,7 @@ const fetchBuzzAccountCached = cache(
   },
 );
 
-export function getBuzzAccount(session: Session): Promise<BuzzAccount | null> {
+export function getBuzzAccount(session: Session): Promise<BuzzBalance | null> {
   return fetchBuzzAccountCached(session.tokens.access_token);
 }
 
@@ -176,7 +230,10 @@ export function submitUpscale(
 }
 
 // TODO: confirm videoGen engine/model with smoke test
-function buildVideoAnimateBody(sourceImageUrl: string, prompt?: string): unknown {
+function buildVideoAnimateBody(
+  sourceImageUrl: string,
+  prompt?: string,
+): unknown {
   return buildWorkflowBody(
     {
       $type: "videoGen",

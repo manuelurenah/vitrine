@@ -98,7 +98,7 @@ describe('buildCampaignPrompt', () => {
       preset: PRESETS['ig-feed'],
       referenceCount: 1,
     });
-    expect(out.finalPrompt).toContain('composition reference provided');
+    expect(out.finalPrompt).toContain('attached reference image');
   });
 
   it('uses plural reference layer when referenceCount>=2', () => {
@@ -108,7 +108,7 @@ describe('buildCampaignPrompt', () => {
       preset: PRESETS['ig-feed'],
       referenceCount: 3,
     });
-    expect(out.finalPrompt).toContain('composition references provided (3 images)');
+    expect(out.finalPrompt).toContain('attached 3 reference images');
   });
 
   it('omits reference layer when referenceCount=0', () => {

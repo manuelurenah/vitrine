@@ -212,7 +212,13 @@ describe('POST /api/campaigns/[id]/tiles/[tileId]/regenerate', () => {
   it('calls swapTileWorkflow with the new workflow id', async () => {
     getCampaignMock.mockResolvedValueOnce(makeCampaign());
     await POST(makeRequest() as never, makeParams());
-    expect(swapTileWorkflowMock).toHaveBeenCalledWith('user_1', 'c1', 't1', 'wf_new');
+    expect(swapTileWorkflowMock).toHaveBeenCalledWith(
+      'user_1',
+      'c1',
+      't1',
+      'wf_new',
+      expect.objectContaining({ prompt: expect.stringContaining('variation') }),
+    );
   });
 
   it('records generation and a submit buzz event with note=regenerate', async () => {

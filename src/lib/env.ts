@@ -29,6 +29,19 @@ export const env = createEnv({
     S3_BUCKET_ASSETS: z.string().optional(),
     S3_PUBLIC_URL: z.string().url().optional(),
     REDIS_URL: z.string().optional(),
+    OPENROUTER_API_KEY: z.string().optional(),
+    OPENROUTER_MODEL: z.string().default('stepfun/step-3.5-flash'),
+    /**
+     * Comma-separated fallback chain. We try each model in order until one
+     * returns a usable response. Free OpenRouter models share upstream
+     * quotas, so a single 429 on the first pick is common; the chain
+     * routes around it transparently.
+     *
+     * If unset, we derive the chain from OPENROUTER_MODEL + a built-in tail
+     * of known-reliable free fallbacks. Set this explicitly to override.
+     */
+    OPENROUTER_MODELS: z.string().optional(),
+    OPENROUTER_BASE_URL: z.string().url().default('https://openrouter.ai/api/v1'),
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url(),
@@ -48,6 +61,10 @@ export const env = createEnv({
     S3_BUCKET_ASSETS: process.env.S3_BUCKET_ASSETS,
     S3_PUBLIC_URL: process.env.S3_PUBLIC_URL,
     REDIS_URL: process.env.REDIS_URL,
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+    OPENROUTER_MODEL: process.env.OPENROUTER_MODEL,
+    OPENROUTER_MODELS: process.env.OPENROUTER_MODELS,
+    OPENROUTER_BASE_URL: process.env.OPENROUTER_BASE_URL,
   },
   emptyStringAsUndefined: true,
   // CI runs `next build` without real env. Setting SKIP_ENV_VALIDATION=1 in

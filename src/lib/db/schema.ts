@@ -233,6 +233,7 @@ export const campaignTiles = pgTable(
     estimatedBuzz: integer('estimated_buzz').default(0).notNull(),
     actualBuzz: integer('actual_buzz').default(0).notNull(),
     assetId: uuid('asset_id').references(() => assets.id, { onDelete: 'set null' }),
+    adCopy: jsonb('ad_copy'),
     error: text('error'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

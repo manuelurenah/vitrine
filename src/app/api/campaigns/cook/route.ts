@@ -19,6 +19,7 @@ import {
   resolveFinalPrompt,
   type EnhancedPrompt,
 } from '@/lib/promptBuilder';
+import { generateAdCopyForPresets, type AdCopy } from '@/lib/adCopy';
 
 const MAX_PROMPT_CHARS = 4000;
 
@@ -32,10 +33,17 @@ const enhancedPromptSchema = z.object({
   userOverride: z.string().max(MAX_PROMPT_CHARS).optional(),
 });
 
+const adCopySchema = z.object({
+  headline: z.string().min(1).max(120),
+  subhead: z.string().min(1).max(240),
+  cta: z.string().max(48).optional(),
+});
+
 const cookSchema = briefSchema.extend({
   referenceAssetIds: z.array(z.string()).max(8).default([]),
   variantsPerPreset: z.number().int().min(1).max(8).default(1),
   enhancedPrompts: z.record(z.string(), enhancedPromptSchema).optional(),
+  adCopy: z.record(z.string(), adCopySchema).optional(),
 });
 
 type SubmittedTile = {
@@ -45,6 +53,7 @@ type SubmittedTile = {
   estimatedCost: number;
   input: VitrineImageGenInput;
   enhanced: EnhancedPrompt;
+  adCopy: AdCopy | null;
 };
 
 export async function POST(req: NextRequest) {
@@ -59,10 +68,28 @@ export async function POST(req: NextRequest) {
     );
   }
   const body = parsed.data;
-  const { referenceAssetIds, variantsPerPreset, enhancedPrompts: clientEnhanced, ...brief } = body;
+  const {
+    referenceAssetIds,
+    variantsPerPreset,
+    enhancedPrompts: clientEnhanced,
+    adCopy: clientAdCopy,
+    ...brief
+  } = body;
 
   const userKey = await getUserKey(session);
   const brand = await getDefaultBrand(userKey);
+
+  // Prefer the ad copy already prepared by the wizard (draft step). Only call
+  // the LLM here when the wizard didn't supply it — keeps the cook path fast
+  // and avoids a redundant second LLM call.
+  const hasClientCopy = !!clientAdCopy && brief.presetIds.every((id) => clientAdCopy[id]);
+  const adCopyMap = hasClientCopy
+    ? (clientAdCopy as Record<PresetId, AdCopy>)
+    : await generateAdCopyForPresets({
+        brief,
+        brand,
+        presetIds: brief.presetIds,
+      });
 
   let refUrls: string[];
   try {
@@ -84,6 +111,7 @@ export async function POST(req: NextRequest) {
   const settled = await Promise.allSettled(
     brief.presetIds.map(async (id): Promise<SubmittedTile> => {
       const preset = PRESETS[id];
+      const adCopy = adCopyMap[id] ?? null;
       const provided = clientEnhanced?.[id];
       const enhanced: EnhancedPrompt = provided
         ? {
@@ -100,6 +128,7 @@ export async function POST(req: NextRequest) {
             brand,
             preset,
             referenceCount: refUrls.length,
+            adCopy,
           });
       const finalPrompt = resolveFinalPrompt(enhanced);
       const input: VitrineImageGenInput = {
@@ -117,6 +146,7 @@ export async function POST(req: NextRequest) {
         estimatedCost: submit.cost?.total ?? 0,
         input,
         enhanced,
+        adCopy,
       };
     }),
   );
@@ -162,6 +192,7 @@ export async function POST(req: NextRequest) {
       workflowId: r.workflowId,
       prompt: r.prompt,
       quantity: variantsPerPreset,
+      adCopy: r.adCopy,
     })),
     estimatedBuzz,
     audience: brief.audience?.trim() || null,

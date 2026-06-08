@@ -11,6 +11,7 @@ const { submitImageGenMock } = vi.hoisted(() => ({ submitImageGenMock: vi.fn() }
 const { createCampaignMock } = vi.hoisted(() => ({ createCampaignMock: vi.fn() }));
 const { recordGenerationMock } = vi.hoisted(() => ({ recordGenerationMock: vi.fn() }));
 const { recordBuzzEventMock } = vi.hoisted(() => ({ recordBuzzEventMock: vi.fn() }));
+const { generateAdCopyForPresetsMock } = vi.hoisted(() => ({ generateAdCopyForPresetsMock: vi.fn() }));
 
 const { FakeOrchestratorError } = vi.hoisted(() => {
   class FakeOrchestratorError extends Error {
@@ -37,6 +38,7 @@ vi.mock('@/lib/civitai', () => ({
 vi.mock('@/lib/campaigns', () => ({ createCampaign: createCampaignMock }));
 vi.mock('@/lib/generations', () => ({ recordGeneration: recordGenerationMock }));
 vi.mock('@/lib/buzz', () => ({ recordBuzzEvent: recordBuzzEventMock }));
+vi.mock('@/lib/adCopy', () => ({ generateAdCopyForPresets: generateAdCopyForPresetsMock }));
 
 import { POST } from './route';
 
@@ -77,6 +79,11 @@ beforeEach(() => {
   });
   getUserKeyMock.mockResolvedValue('user_1');
   getDefaultBrandMock.mockResolvedValue(null);
+  generateAdCopyForPresetsMock.mockImplementation(async ({ presetIds }: { presetIds: string[] }) => {
+    const out: Record<string, { headline: string; subhead: string; cta?: string }> = {};
+    for (const id of presetIds) out[id] = { headline: `H ${id}`, subhead: `S ${id}`, cta: 'Buy' };
+    return out;
+  });
   getPublicUrlsMock.mockImplementation(async (_userId: string, ids: string[]) =>
     ids.map((id) => `https://cdn.test/${id}`),
   );

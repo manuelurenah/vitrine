@@ -5,7 +5,7 @@ import { HttpResponse, http } from 'msw';
  *
  * Targets (in priority order):
  *   - /api/v1/me                          — profile
- *   - /api/trpc/buzz.getUserAccount       — Buzz balance
+ *   - /api/trpc/buzz.getBuzzAccount       — Buzz balance
  *   - /v2/consumer/workflows?whatif=true  — estimate
  *   - /v2/consumer/workflows              — submit
  *   - /v2/consumer/workflows/:id          — getWorkflow / pollWorkflow
@@ -231,18 +231,11 @@ export const handlers = [
     }),
   ),
 
-  http.get('*/api/trpc/buzz.getUserAccount', () =>
+  http.get('*/api/trpc/buzz.getBuzzAccount', () =>
     HttpResponse.json({
       result: {
         data: {
-          json: [
-            {
-              accountType: 'user',
-              type: 'yellow',
-              balance: 100_000,
-              lifetimeBalance: 100_000,
-            },
-          ],
+          json: { yellow: 100_000, blue: 0, green: 0 },
         },
       },
     }),

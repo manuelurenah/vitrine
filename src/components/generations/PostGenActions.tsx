@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ArrowUpRight, Check, Download, MoreHorizontal, Wand2, X } from 'lucide-react';
 import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
 import { cn } from '@/components/ui';
@@ -57,6 +58,7 @@ export function PostGenActions({
   className,
   sourceUrl,
 }: Props) {
+  const router = useRouter();
   const [actions, setActions] = useState<Record<Action, ActionState>>({
     upscale: initialActionState,
     animate: initialActionState,
@@ -128,6 +130,7 @@ export function PostGenActions({
         videoUrl: null,
         error: null,
       });
+      router.refresh();
     } catch (err) {
       setAction(kind, {
         submitting: false,

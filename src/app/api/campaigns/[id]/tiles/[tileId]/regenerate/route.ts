@@ -56,15 +56,26 @@ export async function POST(_: NextRequest, ctx: { params: Params }) {
     throw err;
   }
 
+  // When the tile has ad copy, rebuild from the brief so the render directives
+  // (which live inside finalPrompt) stay current with the stored copy.
+  // Otherwise reuse the original persisted enhanced prompt for stable variation.
   const persisted = campaign.enhancedPrompts?.[tile.presetId];
-  const enhanced: EnhancedPrompt = isEnhancedPrompt(persisted)
-    ? persisted
-    : buildCampaignPrompt({
+  const enhanced: EnhancedPrompt = tile.adCopy
+    ? buildCampaignPrompt({
         brief: campaign.brief,
         brand,
         preset,
         referenceCount: refUrls.length,
-      });
+        adCopy: tile.adCopy,
+      })
+    : isEnhancedPrompt(persisted)
+      ? persisted
+      : buildCampaignPrompt({
+          brief: campaign.brief,
+          brand,
+          preset,
+          referenceCount: refUrls.length,
+        });
 
   const variation = Math.floor(Math.random() * 1000);
   const basePrompt = resolveFinalPrompt(enhanced);
@@ -82,7 +93,9 @@ export async function POST(_: NextRequest, ctx: { params: Params }) {
 
   try {
     const snap = await submitImageGen(session, input);
-    const updated = await swapTileWorkflow(userKey, id, tileId, snap.id);
+    const updated = await swapTileWorkflow(userKey, id, tileId, snap.id, {
+      prompt: promptWithVariation,
+    });
     await recordGeneration({
       workflowId: snap.id,
       userId: userKey,

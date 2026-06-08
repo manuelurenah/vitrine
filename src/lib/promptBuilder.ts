@@ -1,6 +1,7 @@
 import type { BriefForPresets, PresetDef } from './presets';
 import type { PhotoshootBrief, PhotoshootRatio, PhotoshootTemplate } from './photoshootTemplates';
 import type { BrandProfile } from './brand';
+import type { AdCopy } from './adCopy';
 
 export type AspectRatio = '1:1' | '4:5' | '9:16' | '16:9';
 
@@ -15,6 +16,7 @@ export type EnhancedPrompt = {
 };
 
 const DEFAULT_NEGATIVE = 'low quality, watermark, text overlay, distorted product, extra fingers, blurry';
+const CAMPAIGN_TEXT_NEGATIVE = 'low quality, watermark, distorted product, extra fingers, blurry, gibberish text, misspelled text, duplicate text';
 
 const RATIO_FALLBACK: Record<string, AspectRatio> = {
   '1:1': '1:1',
@@ -53,9 +55,9 @@ function brandLayer(brand: BrandProfile | null | undefined): string {
 function referenceLayer(count: number): string {
   if (count <= 0) return '';
   if (count === 1) {
-    return 'composition reference provided — preserve product fidelity, silhouette, and label legibility';
+    return 'use the attached reference image as the visual basis for the product hero — preserve product fidelity, silhouette, label legibility, and material accuracy';
   }
-  return `composition references provided (${count} images) — preserve product fidelity, silhouette, and label legibility across the set`;
+  return `use the attached ${count} reference images as the visual basis for the product hero — preserve product fidelity, silhouette, label legibility, and material accuracy across the set`;
 }
 
 function assemble(parts: Array<string | undefined>): string {
@@ -72,10 +74,41 @@ export type BuildCampaignPromptInput = {
   preset: PresetDef;
   referenceCount?: number;
   userOverride?: string;
+  adCopy?: AdCopy | null;
 };
 
+function copyPlacement(preset: PresetDef): string {
+  const r = preset.width / preset.height;
+  if (r > 1.4) return 'left third of the frame';
+  if (r < 0.7) return 'upper third with negative space below for the subject';
+  return 'upper half with the subject anchoring the lower half';
+}
+
+function copyLayer(preset: PresetDef, adCopy: AdCopy): string {
+  const placement = copyPlacement(preset);
+  const parts: string[] = [];
+  parts.push(
+    `this is a finished social advertising creative — composition, lighting, and layout must support the overlaid sales message`,
+  );
+  parts.push(
+    `render the headline "${adCopy.headline}" in the ${placement}, large bold sans-serif uppercase, clean kerning, high-contrast over a subtle dark gradient or solid shape for legibility, no typos`,
+  );
+  parts.push(
+    `directly beneath, set the subhead "${adCopy.subhead}" in a smaller medium-weight sans-serif, sentence case, two lines max`,
+  );
+  if (adCopy.cta) {
+    parts.push(
+      `near the lower-right corner, render a solid rounded-pill button containing the text "${adCopy.cta}" in bold sans-serif, clearly readable, brand-accent fill`,
+    );
+  }
+  parts.push(
+    'all rendered text must be perfectly spelled, sharp, evenly kerned, and grammatically intact; absolutely no extra, garbled, or duplicate words; no lorem ipsum',
+  );
+  return parts.join('. ');
+}
+
 export function buildCampaignPrompt(input: BuildCampaignPromptInput): EnhancedPrompt {
-  const { brief, brand, preset, referenceCount = 0, userOverride } = input;
+  const { brief, brand, preset, referenceCount = 0, userOverride, adCopy } = input;
 
   const baseDescription = (brief.description?.trim() || brief.prompt?.trim() || '').replace(/\s+/g, ' ');
   const base = assemble([
@@ -88,16 +121,23 @@ export function buildCampaignPrompt(input: BuildCampaignPromptInput): EnhancedPr
 
   const brandStr = brandLayer(brand ?? null);
   const refStr = referenceLayer(referenceCount);
-  const styleStr = `${preset.styleNotes}. on-brand, product-forward, no text overlay, high quality`;
+  const hasCopy = !!adCopy && !!adCopy.headline && !!adCopy.subhead;
+  const intentStr = hasCopy
+    ? `social advertising creative for a ${preset.label} ${preset.ratio} placement, designed to be posted as-is — the product is the hero subject and the overlaid headline, subhead, and CTA carry the sales message`
+    : `social media creative for a ${preset.label} ${preset.ratio} placement — the product is the hero subject`;
+  const styleStr = hasCopy
+    ? `${preset.styleNotes}. on-brand, product-forward, polished ad creative, high quality, commercial-grade composition`
+    : `${preset.styleNotes}. on-brand, product-forward, no text overlay, high quality`;
+  const copyStr = hasCopy ? copyLayer(preset, adCopy) : '';
 
-  const finalPrompt = assemble([base, brandStr, refStr, styleStr]);
+  const finalPrompt = assemble([intentStr, base, brandStr, refStr, styleStr, copyStr]);
 
   return {
     base,
     brandLayer: brandStr,
     styleLayer: styleStr,
     finalPrompt,
-    negativePrompt: DEFAULT_NEGATIVE,
+    negativePrompt: hasCopy ? CAMPAIGN_TEXT_NEGATIVE : DEFAULT_NEGATIVE,
     aspectRatio: presetAspect(preset),
     userOverride: userOverride && userOverride.trim() ? userOverride.trim() : undefined,
   };

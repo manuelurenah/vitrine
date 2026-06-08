@@ -6,12 +6,11 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
-  ImageIcon,
   Loader2,
   Minus,
   Pencil,
   Plus,
-  ShoppingBag,
+  RefreshCw,
   Sparkles,
 } from 'lucide-react';
 import {
@@ -35,6 +34,17 @@ import {
   type PreviewBrief,
 } from '@/hooks/useCampaignPreview';
 
+type AdCopyShape = { headline: string; subhead: string; cta?: string };
+type DraftShape = {
+  title: string;
+  description: string;
+  goal: string;
+  offer: string;
+  audience: string;
+  aesthetics: string;
+  adCopy: Record<string, AdCopyShape>;
+};
+
 export type CampaignWizardInitial = {
   brandName?: string | null;
   productCount?: number;
@@ -50,13 +60,13 @@ type Props = {
   fetcher?: typeof fetch;
 };
 
-type Step = 'brief' | 'review' | 'submit';
+type Step = 'prompt' | 'brief' | 'submit';
 
-const STEP_ORDER: Step[] = ['brief', 'review', 'submit'];
+const STEP_ORDER: Step[] = ['prompt', 'brief', 'submit'];
 
 function parseStep(raw: string | null): Step {
-  if (raw === 'review' || raw === 'submit') return raw;
-  return 'brief';
+  if (raw === 'brief' || raw === 'submit') return raw;
+  return 'prompt';
 }
 
 const DEFAULT_BRIEF: PreviewBrief = {
@@ -72,9 +82,10 @@ const DEFAULT_BRIEF: PreviewBrief = {
 const DEFAULT_PRESETS = ['ig-feed', 'ig-story', 'li'];
 
 /**
- * 3-step campaign wizard. Step state lives in the URL (`?step=...`) so
- * refresh-safe, browser-back-friendly. Form state is lifted into this
- * component and persists across step changes within the same session.
+ * 3-step campaign wizard. Step state lives in the URL (`?step=...`) so the
+ * flow is refresh-safe and browser-back-friendly. The wizard runs an LLM
+ * draft pass between prompt → brief so the brief step lands pre-filled with
+ * campaign fields + per-placement ad copy ready for the user to review.
  */
 export function CampaignWizard({ initial, fetcher }: Props) {
   const router = useRouter();
@@ -93,12 +104,16 @@ export function CampaignWizard({ initial, fetcher }: Props) {
     () => initial?.defaultReferenceAssetIds ?? [],
   );
   const [variantsPerPreset, setVariantsPerPreset] = useState<number>(1);
+  const [adCopy, setAdCopy] = useState<Record<string, AdCopyShape>>({});
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [draftWarning, setDraftWarning] = useState<string | null>(null);
 
   /* ---------------------------------------------------------------- step 2 */
-  const { preview, loading, error, run, schedule, setPreview } =
-    useCampaignPreview({ fetcher });
+  const { preview, loading, error, schedule } = useCampaignPreview({ fetcher });
   const [userOverrides, setUserOverrides] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<Record<string, boolean>>({});
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [showBrandLayer, setShowBrandLayer] = useState<Record<string, boolean>>({});
   const [perPresetLoading, setPerPresetLoading] = useState<Record<string, boolean>>({});
 
@@ -110,7 +125,7 @@ export function CampaignWizard({ initial, fetcher }: Props) {
   const goToStep = useCallback(
     (next: Step) => {
       const sp = new URLSearchParams(searchParams.toString());
-      if (next === 'brief') sp.delete('step');
+      if (next === 'prompt') sp.delete('step');
       else sp.set('step', next);
       const qs = sp.toString();
       router.replace(qs ? `/campaigns/new?${qs}` : `/campaigns/new`);
@@ -123,11 +138,6 @@ export function CampaignWizard({ initial, fetcher }: Props) {
   useEffect(() => {
     if (step !== 'submit') return;
     if (submitInFlightRef.current) return;
-    if (!preview) {
-      // Cannot submit without a preview baseline. Bounce back to review.
-      goToStep('review');
-      return;
-    }
     submitInFlightRef.current = true;
     void doCook();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,70 +148,120 @@ export function CampaignWizard({ initial, fetcher }: Props) {
     [brief, presetIds, variantsPerPreset, referenceAssetIds],
   );
 
-  /* ---------------------------------------------------------- brief → review */
-  const [briefError, setBriefError] = useState<string | null>(null);
-  async function handleContinueToReview(e: React.FormEvent) {
+  /* ----------------------------------------- prompt → draft → brief transition */
+  const runDraft = useCallback(
+    async ({ navigate }: { navigate: boolean }) => {
+      setDraftError(null);
+      if (!brief.prompt.trim()) {
+        setDraftError('write a prompt first');
+        return;
+      }
+      if (presetIds.length === 0) {
+        setDraftError('pick at least one preset');
+        return;
+      }
+      setDrafting(true);
+      try {
+        const f = fetcher ?? fetch;
+        const res = await f('/api/campaigns/draft', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            prompt: brief.prompt,
+            presetIds,
+            referenceAssetIds,
+          }),
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          draft?: DraftShape;
+          meta?: {
+            llm?: 'ok' | 'fallback';
+            model?: string;
+            attempts?: string[];
+            reason?: string;
+          };
+          error?: string;
+        };
+        if (!res.ok || !json.draft) {
+          setDraftError(json.error ?? `http ${res.status}`);
+          setDrafting(false);
+          return;
+        }
+        const next: PreviewBrief = {
+          prompt: brief.prompt,
+          title: json.draft.title,
+          description: json.draft.description,
+          goal: json.draft.goal,
+          offer: json.draft.offer,
+          audience: json.draft.audience,
+          aesthetics: json.draft.aesthetics,
+        };
+        setBrief(next);
+        setAdCopy(json.draft.adCopy ?? {});
+        setUserOverrides({});
+        setEditing({});
+        setDraftWarning(
+          json.meta?.llm === 'fallback'
+            ? `LLM draft unavailable — tried ${(json.meta?.attempts ?? []).join(', ') || 'no models'} · reason: ${json.meta?.reason ?? 'unknown'} · showing template brief`
+            : null,
+        );
+        // Kick off the buzz preview so the brief step lands with an estimate.
+        schedule({ brief: next, presetIds, variantsPerPreset, referenceAssetIds });
+        if (navigate) goToStep('brief');
+      } catch (err) {
+        setDraftError(err instanceof Error ? err.message : 'draft failed');
+      } finally {
+        setDrafting(false);
+      }
+    },
+    [brief.prompt, presetIds, referenceAssetIds, variantsPerPreset, fetcher, goToStep, schedule],
+  );
+
+  async function handleGenerateDraft(e: React.FormEvent) {
     e.preventDefault();
-    setBriefError(null);
-    if (presetIds.length === 0) {
-      setBriefError('pick at least one preset');
-      return;
-    }
-    if (!brief.title.trim() || !brief.description.trim()) {
-      setBriefError('title and description are required');
-      return;
-    }
-    const res = await run(formArgs);
-    if (!res) return;
-    // Reset overrides whenever a fresh preview lands from step 1.
-    setUserOverrides({});
-    setEditing({});
-    goToStep('review');
+    await runDraft({ navigate: true });
   }
+  async function handleRegenerateDraft() {
+    await runDraft({ navigate: false });
+  }
+
+  /* -------------------------- re-preview whenever brief inputs change in step 2 */
+  useEffect(() => {
+    if (step !== 'brief') return;
+    if (!brief.title.trim() || !brief.description.trim()) return;
+    schedule(formArgs);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, brief, presetIds, variantsPerPreset, referenceAssetIds]);
 
   /* ----------------------------- per-preset re-preview when override changes */
   function handleOverrideChange(presetId: string, value: string) {
     setUserOverrides((prev) => ({ ...prev, [presetId]: value }));
     setPerPresetLoading((prev) => ({ ...prev, [presetId]: true }));
-
-    // Re-preview the entire batch (route is parallel; cheap enough). We pass
-    // the current overrides so the server sees them as `userOverride` on each
-    // preset's enhanced prompt. The route doesn't yet accept overrides on
-    // preview, so we re-run with the same args and then merge our override
-    // back into the response (which is what the UI displays anyway). The
-    // estimate from the server is for the non-overridden prompt, which is a
-    // reasonable upper bound — when the user submits we re-estimate against
-    // the override on the cook side.
     schedule(formArgs);
   }
 
-  // Clear per-preset loading flags when a new preview lands.
   useEffect(() => {
     if (!loading) setPerPresetLoading({});
   }, [loading, preview]);
 
-  /* -------------------------------------------------------------- review → submit */
+  /* -------------------------------------------------------------- brief → submit */
   async function handleCook() {
     setSubmitError(null);
     goToStep('submit');
   }
 
   async function doCook() {
-    if (!preview) {
-      setSubmitError('preview missing');
-      goToStep('review');
-      submitInFlightRef.current = false;
-      return;
-    }
     setSubmitting(true);
     try {
-      // Apply user overrides onto the preview's enhanced prompts.
+      // Apply user overrides onto the preview's enhanced prompts when present.
       const enhancedPrompts: Record<string, EnhancedPrompt> = {};
-      for (const id of presetIds) {
-        const ep = preview.enhancedPrompts[id];
-        if (!ep) continue;
-        const override = userOverrides[id]?.trim();
-        enhancedPrompts[id] = { ...ep, userOverride: override || undefined };
+      if (preview) {
+        for (const id of presetIds) {
+          const ep = preview.enhancedPrompts[id];
+          if (!ep) continue;
+          const override = userOverrides[id]?.trim();
+          enhancedPrompts[id] = { ...ep, userOverride: override || undefined };
+        }
       }
       const body = {
         prompt: brief.prompt,
@@ -214,7 +274,8 @@ export function CampaignWizard({ initial, fetcher }: Props) {
         presetIds,
         referenceAssetIds,
         variantsPerPreset,
-        enhancedPrompts,
+        ...(Object.keys(enhancedPrompts).length > 0 ? { enhancedPrompts } : {}),
+        ...(Object.keys(adCopy).length > 0 ? { adCopy } : {}),
       };
       const f = fetcher ?? fetch;
       const res = await f('/api/campaigns/cook', {
@@ -230,22 +291,23 @@ export function CampaignWizard({ initial, fetcher }: Props) {
         setSubmitError(json.error ?? `http ${res.status}`);
         setSubmitting(false);
         submitInFlightRef.current = false;
-        goToStep('review');
+        goToStep('brief');
         return;
       }
       if (!json.campaignId) {
         setSubmitError('no campaign id returned');
         setSubmitting(false);
         submitInFlightRef.current = false;
-        goToStep('review');
+        goToStep('brief');
         return;
       }
       router.replace(`/campaigns/${json.campaignId}`);
+      router.refresh();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'cook failed');
       setSubmitting(false);
       submitInFlightRef.current = false;
-      goToStep('review');
+      goToStep('brief');
     }
   }
 
@@ -253,8 +315,8 @@ export function CampaignWizard({ initial, fetcher }: Props) {
   return (
     <div className="flex flex-col gap-6">
       <StepDots step={step} />
-      {step === 'brief' && (
-        <BriefStep
+      {step === 'prompt' && (
+        <PromptStep
           brief={brief}
           setBrief={setBrief}
           presetIds={presetIds}
@@ -263,16 +325,29 @@ export function CampaignWizard({ initial, fetcher }: Props) {
           setReferenceAssetIds={setReferenceAssetIds}
           variantsPerPreset={variantsPerPreset}
           setVariantsPerPreset={setVariantsPerPreset}
-          loading={loading}
-          error={briefError ?? error}
-          onContinue={handleContinueToReview}
+          drafting={drafting}
+          error={draftError}
+          onContinue={handleGenerateDraft}
         />
       )}
-      {step === 'review' && (
-        <ReviewStep
-          preview={preview}
+      {step === 'brief' && (
+        <BriefStep
+          brief={brief}
+          setBrief={setBrief}
+          adCopy={adCopy}
+          setAdCopy={setAdCopy}
           presetIds={presetIds}
           variantsPerPreset={variantsPerPreset}
+          setVariantsPerPreset={setVariantsPerPreset}
+          preview={preview}
+          previewLoading={loading}
+          previewError={error}
+          draftWarning={draftWarning}
+          drafting={drafting}
+          draftError={draftError}
+          onRegenerate={handleRegenerateDraft}
+          showAdvanced={showAdvanced}
+          setShowAdvanced={setShowAdvanced}
           editing={editing}
           setEditing={setEditing}
           userOverrides={userOverrides}
@@ -280,9 +355,8 @@ export function CampaignWizard({ initial, fetcher }: Props) {
           setShowBrandLayer={setShowBrandLayer}
           perPresetLoading={perPresetLoading}
           onOverrideChange={handleOverrideChange}
-          onBack={() => goToStep('brief')}
+          onBack={() => goToStep('prompt')}
           onCook={handleCook}
-          error={error}
           buzzBalance={initial?.buzzBalance ?? null}
         />
       )}
@@ -334,10 +408,10 @@ function StepDots({ step }: { step: Step }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* step 1: brief                                                               */
+/* step 1: prompt                                                              */
 /* -------------------------------------------------------------------------- */
 
-type BriefStepProps = {
+type PromptStepProps = {
   brief: PreviewBrief;
   setBrief: (next: PreviewBrief) => void;
   presetIds: string[];
@@ -346,12 +420,12 @@ type BriefStepProps = {
   setReferenceAssetIds: (ids: string[]) => void;
   variantsPerPreset: number;
   setVariantsPerPreset: (n: number) => void;
-  loading: boolean;
+  drafting: boolean;
   error: string | null;
   onContinue: (e: React.FormEvent) => void;
 };
 
-function BriefStep({
+function PromptStep({
   brief,
   setBrief,
   presetIds,
@@ -360,33 +434,309 @@ function BriefStep({
   setReferenceAssetIds,
   variantsPerPreset,
   setVariantsPerPreset,
-  loading,
+  drafting,
   error,
   onContinue,
-}: BriefStepProps) {
-  function update<K extends keyof PreviewBrief>(key: K, value: PreviewBrief[K]) {
-    setBrief({ ...brief, [key]: value });
-  }
+}: PromptStepProps) {
   const totalCreatives = presetIds.length * variantsPerPreset;
 
   return (
     <form
       className="flex flex-col gap-6"
       onSubmit={onContinue}
-      data-testid="brief-step"
+      data-testid="prompt-step"
     >
-      <section className="rounded-[14px] border border-line-subtle bg-bg-2 p-4">
-        <span className="t-eyebrow">// you wrote</span>
-        <p className="mt-2 text-[14.5px] leading-[1.5] text-fg-0">{brief.prompt}</p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Chip leadingIcon={<ShoppingBag size={12} strokeWidth={1.75} />}>
-            chili oil · catalog
-          </Chip>
-          <Chip leadingIcon={<ImageIcon size={12} strokeWidth={1.75} />}>
-            {totalCreatives} creative{totalCreatives === 1 ? '' : 's'}
-          </Chip>
+      {drafting && <DraftingOverlay />}
+
+      <div>
+        <FieldLabel htmlFor="prompt-input">your prompt</FieldLabel>
+        <Textarea
+          id="prompt-input"
+          rows={4}
+          value={brief.prompt}
+          onChange={(e) => setBrief({ ...brief, prompt: e.target.value })}
+          placeholder="describe the campaign you want — product, vibe, time of year, audience. we'll fill in the rest."
+          data-testid="prompt-input"
+        />
+        <p className="mt-1 font-mono text-[10.5px] text-fg-3">
+          we&rsquo;ll use this + your brand DNA to draft a full brief with copy
+          for each placement.
+        </p>
+      </div>
+
+      <section>
+        <FieldLabel>references</FieldLabel>
+        <AssetCatalogPicker
+          value={referenceAssetIds}
+          onChange={setReferenceAssetIds}
+          max={4}
+        />
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2">
+        <div>
+          <FieldLabel htmlFor="prompt-variants">variants per preset</FieldLabel>
+          <VariantsStepper
+            value={variantsPerPreset}
+            onChange={setVariantsPerPreset}
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <FieldLabel>total creatives</FieldLabel>
+          <div className="font-mono text-[15px] text-fg-0">
+            {presetIds.length} preset{presetIds.length === 1 ? '' : 's'} ×{' '}
+            {variantsPerPreset} = {totalCreatives}
+          </div>
         </div>
       </section>
+
+      <section>
+        <FieldLabel>output formats</FieldLabel>
+        <PresetGrid onChange={setPresetIds} />
+      </section>
+
+      <div className="flex flex-wrap items-center gap-4 border-t border-line-subtle pt-4">
+        <span className="text-[12.5px] text-fg-3">
+          a brief and per-placement copy will be drafted before you cook.
+        </span>
+        <span className="flex-1" />
+        {error && (
+          <span
+            className="font-mono text-[11.5px] text-danger"
+            data-testid="prompt-error"
+          >
+            {error}
+          </span>
+        )}
+        <Button
+          variant="primary"
+          size="lg"
+          type="submit"
+          disabled={drafting || presetIds.length === 0}
+          leadingIcon={
+            drafting ? (
+              <Loader2 size={14} strokeWidth={1.75} className="animate-spin" />
+            ) : (
+              <Sparkles size={14} strokeWidth={1.75} />
+            )
+          }
+          data-testid="prompt-continue"
+        >
+          {drafting ? 'drafting…' : 'draft brief'}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* drafting overlay                                                            */
+/* -------------------------------------------------------------------------- */
+
+function DraftingOverlay() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed inset-0 z-50 grid place-items-center bg-bg-0/80 backdrop-blur-sm"
+      data-testid="drafting-overlay"
+    >
+      <div className="flex flex-col items-center gap-3 rounded-[14px] border border-line-subtle bg-bg-2 px-8 py-6 text-center">
+        <Loader2 size={28} strokeWidth={1.75} className="animate-spin text-volt" />
+        <span className="font-mono text-[12px] uppercase tracking-[0.14em] text-fg-1">
+          drafting your brief
+        </span>
+        <span className="max-w-[280px] text-[12.5px] text-fg-3">
+          mixing your prompt with brand DNA and writing copy for each
+          placement.
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* variants stepper                                                            */
+/* -------------------------------------------------------------------------- */
+
+function VariantsStepper({
+  value,
+  onChange,
+  min = 1,
+  max = 8,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  min?: number;
+  max?: number;
+}) {
+  return (
+    <div
+      className="inline-flex items-center gap-2"
+      data-testid="variants-stepper"
+    >
+      <button
+        type="button"
+        aria-label="decrement variants"
+        onClick={() => onChange(Math.max(min, value - 1))}
+        disabled={value <= min}
+        className={cn(
+          'inline-flex h-9 w-9 items-center justify-center rounded-[9px] border border-line bg-bg-2 text-fg-1',
+          'hover:border-line-strong hover:text-fg-0 disabled:cursor-not-allowed disabled:opacity-50',
+        )}
+      >
+        <Minus size={14} strokeWidth={1.75} />
+      </button>
+      <span
+        className="min-w-[2.5ch] text-center font-mono text-[15px] text-fg-0"
+        data-testid="variants-value"
+      >
+        {value}
+      </span>
+      <button
+        type="button"
+        aria-label="increment variants"
+        onClick={() => onChange(Math.min(max, value + 1))}
+        disabled={value >= max}
+        className={cn(
+          'inline-flex h-9 w-9 items-center justify-center rounded-[9px] border border-line bg-bg-2 text-fg-1',
+          'hover:border-line-strong hover:text-fg-0 disabled:cursor-not-allowed disabled:opacity-50',
+        )}
+      >
+        <Plus size={14} strokeWidth={1.75} />
+      </button>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* step 2: brief                                                               */
+/* -------------------------------------------------------------------------- */
+
+type BriefStepProps = {
+  brief: PreviewBrief;
+  setBrief: (next: PreviewBrief) => void;
+  adCopy: Record<string, AdCopyShape>;
+  setAdCopy: (next: Record<string, AdCopyShape>) => void;
+  presetIds: string[];
+  variantsPerPreset: number;
+  setVariantsPerPreset: (n: number) => void;
+  preview: CampaignPreviewResponse | null;
+  previewLoading: boolean;
+  previewError: string | null;
+  draftWarning: string | null;
+  drafting: boolean;
+  draftError: string | null;
+  onRegenerate: () => void;
+  showAdvanced: boolean;
+  setShowAdvanced: (v: boolean) => void;
+  editing: Record<string, boolean>;
+  setEditing: (next: Record<string, boolean>) => void;
+  userOverrides: Record<string, string>;
+  showBrandLayer: Record<string, boolean>;
+  setShowBrandLayer: (next: Record<string, boolean>) => void;
+  perPresetLoading: Record<string, boolean>;
+  onOverrideChange: (presetId: string, value: string) => void;
+  onBack: () => void;
+  onCook: () => void;
+  buzzBalance?: number | null;
+};
+
+function BriefStep({
+  brief,
+  setBrief,
+  adCopy,
+  setAdCopy,
+  presetIds,
+  variantsPerPreset,
+  setVariantsPerPreset,
+  preview,
+  previewLoading,
+  previewError,
+  draftWarning,
+  drafting,
+  draftError,
+  onRegenerate,
+  showAdvanced,
+  setShowAdvanced,
+  editing,
+  setEditing,
+  userOverrides,
+  showBrandLayer,
+  setShowBrandLayer,
+  perPresetLoading,
+  onOverrideChange,
+  onBack,
+  onCook,
+  buzzBalance,
+}: BriefStepProps) {
+  function update<K extends keyof PreviewBrief>(key: K, value: PreviewBrief[K]) {
+    setBrief({ ...brief, [key]: value });
+  }
+  function updateAdCopy(id: string, field: keyof AdCopyShape, value: string) {
+    const current = adCopy[id] ?? { headline: '', subhead: '', cta: '' };
+    setAdCopy({ ...adCopy, [id]: { ...current, [field]: value } });
+  }
+  const total = preview?.totalBuzz ?? 0;
+  const insufficientBuzz =
+    typeof buzzBalance === 'number' && total > 0 && total > buzzBalance;
+
+  return (
+    <div className="flex flex-col gap-5" data-testid="brief-step">
+      {drafting && <DraftingOverlay />}
+      <header className="flex flex-wrap items-center gap-3 border-b border-line-subtle pb-4">
+        <span className="t-eyebrow">// review your brief</span>
+        <span className="flex-1" />
+        <button
+          type="button"
+          onClick={onRegenerate}
+          disabled={drafting}
+          className={cn(
+            'inline-flex h-8 items-center gap-[5px] rounded-[8px] border border-line-subtle bg-bg-2 px-2.5 font-mono text-[11px] uppercase tracking-[0.08em] text-fg-1',
+            'transition-colors duration-fast ease-out hover:border-line-strong hover:text-fg-0',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+          data-testid="regenerate-draft"
+          aria-label="regenerate brief with the same prompt"
+        >
+          <RefreshCw
+            size={12}
+            strokeWidth={1.75}
+            className={drafting ? 'animate-spin' : ''}
+          />
+          {drafting ? 'drafting…' : 'regenerate'}
+        </button>
+        {previewLoading && (
+          <span className="flex items-center gap-1 font-mono text-[11px] text-fg-3">
+            <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+            estimating…
+          </span>
+        )}
+        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-fg-3">
+          total
+        </span>
+        <BuzzPill amount={total} data-testid="total-buzz" />
+      </header>
+
+      {draftError && (
+        <div
+          role="alert"
+          className="rounded-[10px] border border-danger/40 bg-danger-soft px-3 py-2 font-mono text-[11.5px] text-danger"
+          data-testid="draft-error"
+        >
+          {draftError}
+        </div>
+      )}
+
+      {draftWarning && (
+        <div
+          role="alert"
+          className="rounded-[10px] border border-line-subtle bg-bg-3 px-3 py-2 font-mono text-[11.5px] text-fg-2"
+          data-testid="draft-warning"
+        >
+          {draftWarning}
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
@@ -449,15 +799,6 @@ function BriefStep({
         </div>
       </div>
 
-      <section>
-        <FieldLabel>references</FieldLabel>
-        <AssetCatalogPicker
-          value={referenceAssetIds}
-          onChange={setReferenceAssetIds}
-          max={4}
-        />
-      </section>
-
       <section className="grid gap-4 md:grid-cols-2">
         <div>
           <FieldLabel htmlFor="brief-variants">variants per preset</FieldLabel>
@@ -470,300 +811,211 @@ function BriefStep({
           <FieldLabel>total creatives</FieldLabel>
           <div className="font-mono text-[15px] text-fg-0">
             {presetIds.length} preset{presetIds.length === 1 ? '' : 's'} ×{' '}
-            {variantsPerPreset} = {totalCreatives}
+            {variantsPerPreset} = {presetIds.length * variantsPerPreset}
           </div>
         </div>
       </section>
 
       <section>
-        <FieldLabel>output formats</FieldLabel>
-        <PresetGrid onChange={setPresetIds} />
+        <FieldLabel>per-placement copy</FieldLabel>
+        <div className="grid gap-3 md:grid-cols-2">
+          {presetIds.map((id) => {
+            const c = adCopy[id] ?? { headline: '', subhead: '', cta: '' };
+            return (
+              <article
+                key={id}
+                className="rounded-[12px] border border-line-subtle bg-bg-2 p-3"
+                data-testid={`adcopy-card-${id}`}
+                data-preset-id={id}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[12px] text-fg-0">{id}</span>
+                  <span className="flex-1" />
+                  <Badge kind="gen">{variantsPerPreset}×</Badge>
+                </div>
+                <div className="mt-3 flex flex-col gap-2">
+                  <Input
+                    aria-label={`headline for ${id}`}
+                    value={c.headline}
+                    onChange={(e) => updateAdCopy(id, 'headline', e.target.value)}
+                    placeholder="headline"
+                    data-testid={`adcopy-headline-${id}`}
+                  />
+                  <Textarea
+                    aria-label={`subhead for ${id}`}
+                    value={c.subhead}
+                    onChange={(e) => updateAdCopy(id, 'subhead', e.target.value)}
+                    rows={2}
+                    placeholder="subhead"
+                    data-testid={`adcopy-subhead-${id}`}
+                  />
+                  <Input
+                    aria-label={`cta for ${id}`}
+                    value={c.cta ?? ''}
+                    onChange={(e) => updateAdCopy(id, 'cta', e.target.value)}
+                    placeholder="cta (optional)"
+                    data-testid={`adcopy-cta-${id}`}
+                  />
+                </div>
+              </article>
+            );
+          })}
+        </div>
       </section>
 
-      <div className="flex flex-wrap items-center gap-4 border-t border-line-subtle pt-4">
-        <span className="text-[12.5px] text-fg-3">
-          we&rsquo;ll preview the enhanced prompt + estimate per preset before you cook.
-        </span>
-        <span className="flex-1" />
-        {error && (
-          <span
-            className="font-mono text-[11.5px] text-danger"
-            data-testid="brief-error"
-          >
-            {error}
-          </span>
-        )}
-        <Button
-          variant="primary"
-          size="lg"
-          type="submit"
-          disabled={loading || presetIds.length === 0}
-          leadingIcon={
-            loading ? (
-              <Loader2 size={14} strokeWidth={1.75} className="animate-spin" />
-            ) : (
-              <Sparkles size={14} strokeWidth={1.75} />
-            )
-          }
-          data-testid="brief-continue"
+      <section>
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          aria-expanded={showAdvanced}
+          className="inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.1em] text-fg-2 hover:text-fg-0"
+          data-testid="toggle-advanced"
         >
-          {loading ? 'estimating…' : 'preview & review'}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* variants stepper                                                            */
-/* -------------------------------------------------------------------------- */
-
-function VariantsStepper({
-  value,
-  onChange,
-  min = 1,
-  max = 8,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-  min?: number;
-  max?: number;
-}) {
-  return (
-    <div
-      className="inline-flex items-center gap-2"
-      data-testid="variants-stepper"
-    >
-      <button
-        type="button"
-        aria-label="decrement variants"
-        onClick={() => onChange(Math.max(min, value - 1))}
-        disabled={value <= min}
-        className={cn(
-          'inline-flex h-9 w-9 items-center justify-center rounded-[9px] border border-line bg-bg-2 text-fg-1',
-          'hover:border-line-strong hover:text-fg-0 disabled:cursor-not-allowed disabled:opacity-50',
-        )}
-      >
-        <Minus size={14} strokeWidth={1.75} />
-      </button>
-      <span
-        className="min-w-[2.5ch] text-center font-mono text-[15px] text-fg-0"
-        data-testid="variants-value"
-      >
-        {value}
-      </span>
-      <button
-        type="button"
-        aria-label="increment variants"
-        onClick={() => onChange(Math.min(max, value + 1))}
-        disabled={value >= max}
-        className={cn(
-          'inline-flex h-9 w-9 items-center justify-center rounded-[9px] border border-line bg-bg-2 text-fg-1',
-          'hover:border-line-strong hover:text-fg-0 disabled:cursor-not-allowed disabled:opacity-50',
-        )}
-      >
-        <Plus size={14} strokeWidth={1.75} />
-      </button>
-    </div>
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* step 2: review                                                              */
-/* -------------------------------------------------------------------------- */
-
-type ReviewStepProps = {
-  preview: CampaignPreviewResponse | null;
-  presetIds: string[];
-  variantsPerPreset: number;
-  editing: Record<string, boolean>;
-  setEditing: (next: Record<string, boolean>) => void;
-  userOverrides: Record<string, string>;
-  showBrandLayer: Record<string, boolean>;
-  setShowBrandLayer: (next: Record<string, boolean>) => void;
-  perPresetLoading: Record<string, boolean>;
-  onOverrideChange: (presetId: string, value: string) => void;
-  onBack: () => void;
-  onCook: () => void;
-  error: string | null;
-  buzzBalance?: number | null;
-};
-
-function ReviewStep({
-  preview,
-  presetIds,
-  variantsPerPreset,
-  editing,
-  setEditing,
-  userOverrides,
-  showBrandLayer,
-  setShowBrandLayer,
-  perPresetLoading,
-  onOverrideChange,
-  onBack,
-  onCook,
-  error,
-  buzzBalance,
-}: ReviewStepProps) {
-  if (!preview) {
-    return (
-      <div
-        className="rounded-[14px] border border-line-subtle bg-bg-2 p-6 text-center text-[13.5px] text-fg-2"
-        data-testid="review-empty"
-      >
-        no preview yet. head back to the brief and continue.
-      </div>
-    );
-  }
-  const total = preview.totalBuzz;
-  const insufficientBuzz =
-    typeof buzzBalance === 'number' && total > buzzBalance;
-  return (
-    <div className="flex flex-col gap-5" data-testid="review-step">
-      <header className="flex flex-wrap items-center gap-3 border-b border-line-subtle pb-4">
-        <span className="t-eyebrow">// step 2 · review enhanced prompts</span>
-        <span className="flex-1" />
-        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-fg-3">
-          total estimate
-        </span>
-        <BuzzPill amount={total} data-testid="total-buzz" />
-      </header>
-
-      <div className="grid gap-4">
-        {presetIds.map((id) => {
-          const ep = preview.enhancedPrompts[id];
-          const estimate = preview.estimatePerPreset[id] ?? 0;
-          const errMsg = preview.errors?.[id];
-          const isEditing = !!editing[id];
-          const showBrand = !!showBrandLayer[id];
-          const isLoading = !!perPresetLoading[id];
-          const overrideValue = userOverrides[id] ?? '';
-          return (
-            <article
-              key={id}
-              className="rounded-[14px] border border-line-subtle bg-bg-2 p-4"
-              data-testid={`preset-card-${id}`}
-              data-preset-id={id}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-[13px] text-fg-0">{id}</span>
-                {ep && (
-                  <Chip ghost data-testid={`ratio-${id}`}>
-                    {ep.aspectRatio}
-                  </Chip>
-                )}
-                <Badge kind="gen">{variantsPerPreset}×</Badge>
-                <span className="flex-1" />
-                {isLoading && (
-                  <span
-                    className="flex items-center gap-1 font-mono text-[11px] text-fg-3"
-                    data-testid={`re-estimating-${id}`}
-                  >
-                    <Loader2 size={12} strokeWidth={2} className="animate-spin" />
-                    re-estimating…
-                  </span>
-                )}
-                <BuzzPill
-                  amount={estimate}
-                  size="compact"
-                  data-testid={`buzz-${id}`}
-                />
-              </div>
-
-              {errMsg && (
-                <p
-                  className="mt-2 font-mono text-[11.5px] text-danger"
-                  data-testid={`error-${id}`}
+          {showAdvanced ? (
+            <ChevronUp size={12} strokeWidth={2} />
+          ) : (
+            <ChevronDown size={12} strokeWidth={2} />
+          )}
+          advanced · per-preset enhanced prompt
+        </button>
+        {showAdvanced && preview && (
+          <div className="mt-3 grid gap-4">
+            {presetIds.map((id) => {
+              const ep = preview.enhancedPrompts[id];
+              const estimate = preview.estimatePerPreset[id] ?? 0;
+              const errMsg = preview.errors?.[id];
+              const isEditing = !!editing[id];
+              const showBrand = !!showBrandLayer[id];
+              const isLoading = !!perPresetLoading[id];
+              const overrideValue = userOverrides[id] ?? '';
+              return (
+                <article
+                  key={id}
+                  className="rounded-[14px] border border-line-subtle bg-bg-2 p-4"
+                  data-testid={`preset-card-${id}`}
+                  data-preset-id={id}
                 >
-                  {errMsg}
-                </p>
-              )}
-
-              {ep && (
-                <>
-                  <p
-                    className="mt-3 whitespace-pre-wrap text-[13.5px] leading-[1.55] text-fg-1"
-                    data-testid={`final-prompt-${id}`}
-                  >
-                    {overrideValue.trim() ? overrideValue : ep.finalPrompt}
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowBrandLayer({ ...showBrandLayer, [id]: !showBrand })
-                    }
-                    aria-expanded={showBrand}
-                    className="mt-3 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.1em] text-fg-2 hover:text-fg-0"
-                    data-testid={`toggle-brand-${id}`}
-                  >
-                    {showBrand ? (
-                      <ChevronUp size={12} strokeWidth={2} />
-                    ) : (
-                      <ChevronDown size={12} strokeWidth={2} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-[13px] text-fg-0">{id}</span>
+                    {ep && (
+                      <Chip ghost data-testid={`ratio-${id}`}>
+                        {ep.aspectRatio}
+                      </Chip>
                     )}
-                    what we added from your brand
-                  </button>
-                  {showBrand && (
-                    <div
-                      className="mt-2 rounded-[10px] border border-line-subtle bg-bg-3 p-3 text-[12.5px] leading-[1.5] text-fg-1"
-                      data-testid={`brand-layer-${id}`}
+                    <Badge kind="gen">{variantsPerPreset}×</Badge>
+                    <span className="flex-1" />
+                    {isLoading && (
+                      <span
+                        className="flex items-center gap-1 font-mono text-[11px] text-fg-3"
+                        data-testid={`re-estimating-${id}`}
+                      >
+                        <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+                        re-estimating…
+                      </span>
+                    )}
+                    <BuzzPill
+                      amount={estimate}
+                      size="compact"
+                      data-testid={`buzz-${id}`}
+                    />
+                  </div>
+
+                  {errMsg && (
+                    <p
+                      className="mt-2 font-mono text-[11.5px] text-danger"
+                      data-testid={`error-${id}`}
                     >
-                      <div>
-                        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-fg-3">
-                          brand layer
-                        </span>
-                        <p className="mt-1 whitespace-pre-wrap">
-                          {ep.brandLayer || '— (no brand DNA yet)'}
-                        </p>
-                      </div>
-                      <div className="mt-2">
-                        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-fg-3">
-                          style layer
-                        </span>
-                        <p className="mt-1 whitespace-pre-wrap">{ep.styleLayer}</p>
-                      </div>
-                    </div>
+                      {errMsg}
+                    </p>
                   )}
 
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setEditing({ ...editing, [id]: !isEditing })
-                      }
-                      aria-pressed={isEditing}
-                      className={cn(
-                        'inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.1em]',
-                        isEditing ? 'text-volt' : 'text-fg-2 hover:text-fg-0',
-                      )}
-                      data-testid={`toggle-edit-${id}`}
-                    >
-                      <Pencil size={12} strokeWidth={2} />
-                      {isEditing ? 'editing raw prompt' : 'edit raw prompt'}
-                    </button>
-                  </div>
-                  {isEditing && (
-                    <div className="mt-2">
-                      <Textarea
-                        rows={4}
-                        value={overrideValue || ep.finalPrompt}
-                        onChange={(e) => onOverrideChange(id, e.target.value)}
-                        data-testid={`override-input-${id}`}
-                        aria-label={`raw prompt override for ${id}`}
-                      />
-                      <p className="mt-1 font-mono text-[10.5px] text-fg-3">
-                        edits replace the assembled prompt sent to the
-                        orchestrator. re-estimates after a short pause.
+                  {ep && (
+                    <>
+                      <p
+                        className="mt-3 whitespace-pre-wrap text-[13.5px] leading-[1.55] text-fg-1"
+                        data-testid={`final-prompt-${id}`}
+                      >
+                        {overrideValue.trim() ? overrideValue : ep.finalPrompt}
                       </p>
-                    </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowBrandLayer({ ...showBrandLayer, [id]: !showBrand })
+                        }
+                        aria-expanded={showBrand}
+                        className="mt-3 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.1em] text-fg-2 hover:text-fg-0"
+                        data-testid={`toggle-brand-${id}`}
+                      >
+                        {showBrand ? (
+                          <ChevronUp size={12} strokeWidth={2} />
+                        ) : (
+                          <ChevronDown size={12} strokeWidth={2} />
+                        )}
+                        what we added from your brand
+                      </button>
+                      {showBrand && (
+                        <div
+                          className="mt-2 rounded-[10px] border border-line-subtle bg-bg-3 p-3 text-[12.5px] leading-[1.5] text-fg-1"
+                          data-testid={`brand-layer-${id}`}
+                        >
+                          <div>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-fg-3">
+                              brand layer
+                            </span>
+                            <p className="mt-1 whitespace-pre-wrap">
+                              {ep.brandLayer || '— (no brand DNA yet)'}
+                            </p>
+                          </div>
+                          <div className="mt-2">
+                            <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-fg-3">
+                              style layer
+                            </span>
+                            <p className="mt-1 whitespace-pre-wrap">{ep.styleLayer}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditing({ ...editing, [id]: !isEditing })
+                          }
+                          aria-pressed={isEditing}
+                          className={cn(
+                            'inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.1em]',
+                            isEditing ? 'text-volt' : 'text-fg-2 hover:text-fg-0',
+                          )}
+                          data-testid={`toggle-edit-${id}`}
+                        >
+                          <Pencil size={12} strokeWidth={2} />
+                          {isEditing ? 'editing raw prompt' : 'edit raw prompt'}
+                        </button>
+                      </div>
+                      {isEditing && (
+                        <div className="mt-2">
+                          <Textarea
+                            rows={4}
+                            value={overrideValue || ep.finalPrompt}
+                            onChange={(e) => onOverrideChange(id, e.target.value)}
+                            data-testid={`override-input-${id}`}
+                            aria-label={`raw prompt override for ${id}`}
+                          />
+                          <p className="mt-1 font-mono text-[10.5px] text-fg-3">
+                            edits replace the assembled prompt sent to the
+                            orchestrator. re-estimates after a short pause.
+                          </p>
+                        </div>
+                      )}
+                    </>
                   )}
-                </>
-              )}
-            </article>
-          );
-        })}
-      </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line-subtle pt-4">
         <Button
@@ -771,17 +1023,17 @@ function ReviewStep({
           size="md"
           onClick={onBack}
           leadingIcon={<ArrowLeft size={14} strokeWidth={1.75} />}
-          data-testid="review-back"
+          data-testid="brief-back"
         >
           back
         </Button>
         <span className="flex-1" />
-        {error && (
+        {previewError && (
           <span
             className="font-mono text-[11.5px] text-danger"
-            data-testid="review-error"
+            data-testid="brief-error"
           >
-            {error}
+            {previewError}
           </span>
         )}
         {insufficientBuzz && (
@@ -789,7 +1041,7 @@ function ReviewStep({
             className="font-mono text-[11.5px] text-danger"
             data-testid="insufficient-buzz"
           >
-            insufficient buzz · {' '}
+            insufficient buzz ·{' '}
             <a
               href="https://civitai.com/purchase/buzz"
               target="_blank"
@@ -806,7 +1058,7 @@ function ReviewStep({
           onClick={onCook}
           disabled={insufficientBuzz}
           leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
-          data-testid="review-cook"
+          data-testid="brief-cook"
         >
           cook for {total.toLocaleString()} buzz
         </Button>

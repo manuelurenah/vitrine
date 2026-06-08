@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Download, RefreshCw, Sparkles } from 'lucide-react';
 import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
 import { Badge, cn } from '@/components/ui';
@@ -14,6 +15,12 @@ type RegenerateContext = {
   tileId: string;
 };
 
+type AdCopy = {
+  headline: string;
+  subhead: string;
+  cta?: string;
+};
+
 type Props = {
   workflowId: string;
   presetId: PresetId;
@@ -25,6 +32,7 @@ type Props = {
    */
   quantity?: number;
   regenerate?: RegenerateContext;
+  adCopy?: AdCopy | null;
 };
 
 type CardStatus = 'queued' | 'cooking' | 'done' | 'failed';
@@ -48,7 +56,9 @@ export function CreativeCard({
   initialStatus = 'cooking',
   quantity = 1,
   regenerate,
+  adCopy,
 }: Props) {
+  const router = useRouter();
   const preset = PRESETS[presetId];
   const aspect = preset.width / preset.height;
   const [workflowId, setWorkflowId] = useState(initialWorkflowId);
@@ -100,6 +110,7 @@ export function CreativeCard({
         return;
       }
       if (body.workflowId) setWorkflowId(body.workflowId);
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'regenerate failed');
     } finally {
@@ -164,6 +175,24 @@ export function CreativeCard({
           error={error}
           workflowId={workflowId}
         />
+      )}
+
+      {adCopy && (adCopy.headline || adCopy.subhead) && (
+        <div className="flex flex-col gap-1 px-1 pt-1">
+          {adCopy.headline && (
+            <p className="text-[13.5px] font-semibold leading-[1.25] text-fg-0">
+              {adCopy.headline}
+            </p>
+          )}
+          {adCopy.subhead && (
+            <p className="text-[11.5px] leading-[1.35] text-fg-2">{adCopy.subhead}</p>
+          )}
+          {adCopy.cta && (
+            <span className="mt-1 inline-flex w-fit items-center rounded-pill border border-line-subtle bg-bg-3 px-2 py-[2px] font-mono text-[10px] uppercase tracking-[0.1em] text-fg-1">
+              {adCopy.cta}
+            </span>
+          )}
+        </div>
       )}
 
       <footer className="flex items-center gap-2 px-1">

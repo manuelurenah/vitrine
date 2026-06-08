@@ -9,6 +9,7 @@ import {
   type CampaignTile as CampaignTileRow,
 } from '@/lib/db/schema';
 import type { BriefForPresets, PresetId } from './presets';
+import type { AdCopy } from './adCopy';
 
 export type TileStatus = 'queued' | 'cooking' | 'done' | 'failed';
 
@@ -19,6 +20,7 @@ export type CampaignTile = {
   status: TileStatus;
   prompt: string;
   quantity: number;
+  adCopy: AdCopy | null;
 };
 
 export type Campaign = {
@@ -45,6 +47,7 @@ function toTile(row: CampaignTileRow): CampaignTile {
     status: row.status,
     prompt: row.prompt,
     quantity: row.quantity,
+    adCopy: (row.adCopy as AdCopy | null) ?? null,
   };
 }
 
@@ -71,7 +74,13 @@ export type CreateCampaignInput = {
   title: string;
   brief: BriefForPresets;
   presetIds: PresetId[];
-  tiles: Array<{ presetId: PresetId; workflowId: string; prompt: string; quantity?: number }>;
+  tiles: Array<{
+    presetId: PresetId;
+    workflowId: string;
+    prompt: string;
+    quantity?: number;
+    adCopy?: AdCopy | null;
+  }>;
   estimatedBuzz: number;
   audience?: string | null;
   aesthetics?: string | null;
@@ -110,6 +119,7 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Campai
               prompt: t.prompt,
               quantity: t.quantity ?? 1,
               status: 'cooking' as TileStatus,
+              adCopy: t.adCopy ?? null,
             })),
           )
           .returning()
@@ -218,6 +228,7 @@ export async function swapTileWorkflow(
   campaignId: string,
   tileId: string,
   newWorkflowId: string,
+  options?: { prompt?: string; adCopy?: AdCopy | null },
 ): Promise<CampaignTile | null> {
   // Make sure the campaign belongs to the user before mutating any tile.
   const owner = await db
@@ -227,13 +238,17 @@ export async function swapTileWorkflow(
     .limit(1);
   if (owner.length === 0) return null;
 
+  const update: Record<string, unknown> = {
+    workflowId: newWorkflowId,
+    status: 'cooking',
+    updatedAt: new Date(),
+  };
+  if (options?.prompt !== undefined) update.prompt = options.prompt;
+  if (options?.adCopy !== undefined) update.adCopy = options.adCopy;
+
   const [row] = await db
     .update(campaignTilesTable)
-    .set({
-      workflowId: newWorkflowId,
-      status: 'cooking',
-      updatedAt: new Date(),
-    })
+    .set(update)
     .where(and(eq(campaignTilesTable.id, tileId), eq(campaignTilesTable.campaignId, campaignId)))
     .returning();
   return row ? toTile(row) : null;

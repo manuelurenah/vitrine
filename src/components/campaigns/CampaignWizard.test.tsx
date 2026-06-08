@@ -127,19 +127,18 @@ describe('CampaignWizard — step routing via search param', () => {
     navMocks.replaceMock.mockClear();
   });
 
-  it('renders the brief step by default', () => {
+  it('renders the prompt step by default', () => {
     const html = renderToStaticMarkup(<CampaignWizard />);
-    expect(html).toContain('data-testid="brief-step"');
-    expect(html).not.toContain('data-testid="review-step"');
+    expect(html).toContain('data-testid="prompt-step"');
+    expect(html).not.toContain('data-testid="brief-step"');
     expect(html).not.toContain('data-testid="submit-step"');
   });
 
-  it('renders the review step when ?step=review', () => {
-    navMocks.state.step = 'review';
+  it('renders the brief step when ?step=brief', () => {
+    navMocks.state.step = 'brief';
     const html = renderToStaticMarkup(<CampaignWizard />);
-    // Without a preview we show the empty-state, not the brief.
-    expect(html).toContain('data-testid="review-empty"');
-    expect(html).not.toContain('data-testid="brief-step"');
+    expect(html).toContain('data-testid="brief-step"');
+    expect(html).not.toContain('data-testid="prompt-step"');
   });
 
   it('renders the submit step when ?step=submit', () => {
@@ -149,10 +148,10 @@ describe('CampaignWizard — step routing via search param', () => {
   });
 
   it('marks the current step in the step dots', () => {
-    navMocks.state.step = 'review';
+    navMocks.state.step = 'brief';
     const html = renderToStaticMarkup(<CampaignWizard />);
     // Step dots carry the active step on the root for easy assertion.
-    expect(html).toMatch(/data-step="review"/);
+    expect(html).toMatch(/data-step="brief"/);
     expect(html).toMatch(/data-state="done"[^>]*>\s*01/);
     expect(html).toMatch(/data-state="current"[^>]*>\s*02/);
     expect(html).toMatch(/data-state="upcoming"[^>]*>\s*03/);
@@ -311,35 +310,24 @@ describe('useCampaignPreview — debounced re-preview', () => {
 /* review step rendering — per-preset cards from preview response              */
 /* -------------------------------------------------------------------------- */
 
-describe('CampaignWizard — review step rendering', () => {
+describe('CampaignWizard — prompt step rendering', () => {
   beforeEach(() => {
     navMocks.state.step = null;
     navMocks.replaceMock.mockClear();
   });
 
-  it('renders one card per preset and a total buzz pill once a preview lands', () => {
-    // We can't easily get the wizard's internal state populated via SSR, but
-    // we *can* verify the review markup directly by rendering ReviewStep with
-    // a preview prop through the wizard's exported behavior surface. To keep
-    // the assertion simple, navigate to ?step=review with the wizard's empty
-    // state — that path is covered above. Here we cover the populated-state
-    // path by importing ReviewStep through a re-render after we mount the
-    // wizard at step=brief, manually invoke the form continue, and let the
-    // mocked fetch resolve. Since SSR doesn't run effects, we assert on the
-    // markup we *do* render: the brief step's continue button exists and
-    // wires to the preview endpoint via the exported helper.
+  it('renders the draft-brief CTA and the variants stepper', () => {
     const html = renderToStaticMarkup(<CampaignWizard />);
-    expect(html).toContain('data-testid="brief-continue"');
-    // Variants stepper is reachable from the brief step:
+    expect(html).toContain('data-testid="prompt-continue"');
     expect(html).toContain('data-testid="variants-stepper"');
     expect(html).toContain('data-testid="variants-value"');
   });
 
-  it('shows the cook CTA copy with the total buzz once review is reachable', () => {
-    // The empty-state path is the most stable assertion for SSR.
-    navMocks.state.step = 'review';
+  it('renders the brief step at ?step=brief with the cook CTA visible', () => {
+    navMocks.state.step = 'brief';
     const html = renderToStaticMarkup(<CampaignWizard />);
-    expect(html).toContain('no preview yet');
+    expect(html).toContain('data-testid="brief-step"');
+    expect(html).toContain('data-testid="brief-cook"');
   });
 });
 
@@ -369,6 +357,11 @@ describe('cook submission body', () => {
       const override = userOverrides[id]?.trim();
       enhancedPrompts[id] = { ...ep, userOverride: override || undefined };
     }
+    const adCopy = {
+      'ig-feed': { headline: 'H1', subhead: 'S1', cta: 'Buy' },
+      'ig-story': { headline: 'H2', subhead: 'S2', cta: 'Buy' },
+      li: { headline: 'H3', subhead: 'S3', cta: 'Buy' },
+    };
     const cookBody = {
       prompt: 'p',
       title: 't',
@@ -381,6 +374,7 @@ describe('cook submission body', () => {
       referenceAssetIds: ['product:p1'],
       variantsPerPreset: 2,
       enhancedPrompts,
+      adCopy,
     };
 
     const fetchSpy = vi.fn(
@@ -410,5 +404,7 @@ describe('cook submission body', () => {
     expect(parsed.enhancedPrompts['ig-story'].userOverride).toBeUndefined();
     expect(parsed.referenceAssetIds).toEqual(['product:p1']);
     expect(parsed.variantsPerPreset).toBe(2);
+    expect(parsed.adCopy['ig-feed'].headline).toBe('H1');
+    expect(parsed.adCopy['li'].cta).toBe('Buy');
   });
 });

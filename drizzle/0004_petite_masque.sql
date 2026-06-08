@@ -1,0 +1,1 @@
+ALTER TABLE "campaign_tiles" ADD COLUMN "ad_copy" jsonb;
