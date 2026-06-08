@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Check, ChevronLeft, ChevronRight, Download, Pencil, Sparkles, Trash2, X } from 'lucide-react';
 import { Button, Chip, FieldLabel, Input, Textarea } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
+import { buildCampaignNewHref } from '@/lib/campaignHref';
 
 type StripItem = {
   id: string;
@@ -124,10 +125,7 @@ export function AssetDetailView({
   const isImage = asset.contentType?.startsWith('image/') ?? false;
   const isVideo = asset.contentType?.startsWith('video/') ?? false;
 
-  const useInCampaignHref = useMemo(
-    () => `/campaigns/new?refs=${encodeURIComponent(`asset:${asset.id}`)}`,
-    [asset.id],
-  );
+  const useInCampaignHref = useMemo(() => buildCampaignNewHref([asset.id]), [asset.id]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronRight, ListChecks, Sparkles, X } from 'lucide-react';
@@ -8,6 +8,7 @@ import { Button, BuzzPill } from '@/components/ui';
 import { CreativeCard } from '@/components/campaigns';
 import { SectionHead } from '@/components/campaigns';
 import { ProductPickerDialog } from '@/components/catalog';
+import { buildCampaignNewHref } from '@/lib/campaignHref';
 import type { Product } from '@/lib/catalog';
 import { PHOTOSHOOT_TEMPLATES } from '@/lib/photoshootTemplates';
 import type { Photoshoot } from '@/lib/photoshoots';
@@ -27,12 +28,13 @@ function ratioToPresetId(ratio: string): 'li' | 'ig-feed' | 'ig-story' | 'yt' {
 
 /**
  * Pure helper: given the set of selected tile IDs and a map from tile ID to
- * its resolved asset ID, return only the asset IDs that are actually ready
- * (i.e. not null). Exported so unit tests can verify the logic.
+ * its resolved asset ID (only populated for tiles that are actually ready),
+ * return the asset IDs in iteration order. Exported so unit tests can verify
+ * the logic.
  */
 export function computeReadyAssetIds(
   selectedTileIds: Set<string>,
-  tileAssetById: Map<string, string | null>,
+  tileAssetById: Map<string, string>,
 ): string[] {
   const out: string[] = [];
   for (const id of selectedTileIds) {
@@ -49,25 +51,34 @@ export function PhotoshootResults({ shoot, products }: Props) {
   const [selectedTileIds, setSelectedTileIds] = useState<Set<string>>(() => new Set());
   const [dialogAssetIds, setDialogAssetIds] = useState<string[]>([]);
 
-  const tilesByTemplate = new Map<string, typeof shoot.tiles>();
-  for (const t of shoot.tiles) {
-    const arr = tilesByTemplate.get(t.templateId) ?? [];
-    arr.push(t);
-    tilesByTemplate.set(t.templateId, arr);
-  }
+  const tilesByTemplate = useMemo(() => {
+    const map = new Map<string, typeof shoot.tiles>();
+    for (const t of shoot.tiles) {
+      const arr = map.get(t.templateId) ?? [];
+      arr.push(t);
+      map.set(t.templateId, arr);
+    }
+    return map;
+  }, [shoot.tiles]);
 
-  // Map tile id → resolved asset id (or null if not done yet). Only tiles
-  // whose workflow finished AND whose asset link is set are eligible for
-  // bulk actions or the per-tile menu.
-  const tileAssetById = new Map<string, string | null>();
-  for (const t of shoot.tiles) {
-    tileAssetById.set(t.id, t.status === 'done' ? t.assetId : null);
-  }
+  // Map tile id → resolved asset id. Only populated for tiles whose workflow
+  // finished AND whose asset link is set; these are eligible for bulk actions
+  // or the per-tile menu.
+  const tileAssetById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const t of shoot.tiles) {
+      if (t.status === 'done' && t.assetId) map.set(t.id, t.assetId);
+    }
+    return map;
+  }, [shoot.tiles]);
 
   const presetId = ratioToPresetId(shoot.brief.ratio);
   const isCooking = shoot.tiles.some((t) => t.status === 'queued' || t.status === 'cooking');
 
-  const readyAssetIds = computeReadyAssetIds(selectedTileIds, tileAssetById);
+  const readyAssetIds = useMemo(
+    () => computeReadyAssetIds(selectedTileIds, tileAssetById),
+    [selectedTileIds, tileAssetById],
+  );
   const readyCount = readyAssetIds.length;
   const selectedCount = selectedTileIds.size;
   const showBulkBar = selecting && selectedCount > 0;
@@ -103,18 +114,19 @@ export function PhotoshootResults({ shoot, products }: Props) {
     setDialogAssetIds([]);
   }
 
-  function onDialogSuccess(productId: string) {
+  function onDialogSuccess(productId: string, addedCount: number) {
     setDialogAssetIds([]);
     setSelecting(false);
     setSelectedTileIds(new Set());
     router.push(`/brand/catalog/${productId}`);
     router.refresh();
+    // eslint-disable-next-line no-console
+    console.info(`added ${addedCount} image${addedCount === 1 ? '' : 's'} to product`);
   }
 
   function startCampaignWith(assetIds: string[]) {
     if (assetIds.length === 0) return;
-    const joined = assetIds.map((id) => `asset:${id}`).join(',');
-    router.push(`/campaigns/new?refs=${encodeURIComponent(joined)}`);
+    router.push(buildCampaignNewHref(assetIds));
   }
 
   return (
