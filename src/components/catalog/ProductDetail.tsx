@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Pencil } from 'lucide-react';
 import { Badge, Chip } from '@/components/ui';
 import { GradientThumb } from '@/components/campaigns';
 import { DeleteProductButton } from './DeleteProductButton';
@@ -33,6 +33,12 @@ export function ProductDetail({ product, images = [] }: Props) {
           {product.status}
         </Badge>
         <span className="flex-1" />
+        <Link
+          href={`/brand/catalog/${product.id}/edit`}
+          className="inline-flex items-center gap-2 rounded-pill border border-line-subtle bg-bg-2 px-[14px] py-[7px] text-[13px] font-medium text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0"
+        >
+          <Pencil size={13} strokeWidth={1.75} /> edit
+        </Link>
         <DeleteProductButton productId={product.id} />
       </header>
 

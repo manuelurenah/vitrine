@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Download, Sparkles, Trash2, X } from 'lucide-react';
-import { Button, Chip } from '@/components/ui';
+import { Check, ChevronLeft, ChevronRight, Download, Pencil, Sparkles, Trash2, X } from 'lucide-react';
+import { Button, Chip, FieldLabel, Input, Textarea } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
 
 type StripItem = {
@@ -39,6 +39,58 @@ export function AssetDetailView({
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const initialTags = asset.metadata.tags ?? [];
+  const initialDescription = asset.metadata.description ?? '';
+  const initialCollection =
+    typeof asset.metadata.collection === 'string' ? asset.metadata.collection : '';
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [editTagsRaw, setEditTagsRaw] = useState(initialTags.join(', '));
+  const [editDescription, setEditDescription] = useState(initialDescription);
+  const [editCollection, setEditCollection] = useState(initialCollection);
+
+  function cancelEdit() {
+    setEditing(false);
+    setSaveError(null);
+    setEditTagsRaw(initialTags.join(', '));
+    setEditDescription(initialDescription);
+    setEditCollection(initialCollection);
+  }
+
+  async function saveEdit() {
+    if (saving) return;
+    setSaving(true);
+    setSaveError(null);
+    const tags = editTagsRaw
+      .split(/[,\n]/)
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .slice(0, 10);
+    try {
+      const res = await fetch(`/api/assets/${asset.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tags,
+          description: editDescription.trim() ? editDescription : null,
+          collection: editCollection.trim() ? editCollection : null,
+        }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        setSaveError(body.error ?? `http ${res.status}`);
+        setSaving(false);
+        return;
+      }
+      setEditing(false);
+      setSaving(false);
+      router.refresh();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'save failed');
+      setSaving(false);
+    }
+  }
 
   async function onDelete() {
     if (deleting) return;
@@ -121,6 +173,14 @@ export function AssetDetailView({
           )}
           <button
             type="button"
+            aria-label={editing ? 'cancel edit' : 'edit'}
+            onClick={() => (editing ? cancelEdit() : setEditing(true))}
+            className="grid h-9 w-9 place-items-center rounded-[10px] border border-line bg-bg-2 text-fg-1 transition-colors duration-fast ease-out hover:border-line-strong hover:bg-bg-3 hover:text-fg-0"
+          >
+            <Pencil size={15} strokeWidth={1.75} />
+          </button>
+          <button
+            type="button"
             aria-label="delete"
             onClick={onDelete}
             disabled={deleting}
@@ -200,23 +260,82 @@ export function AssetDetailView({
             {asset.workflowId && <KV k="workflow" v={asset.workflowId} breakAll />}
           </div>
 
-          {description && (
-            <div>
-              <span className="t-eyebrow">// description</span>
-              <p className="mt-[6px] text-[13px] leading-[1.55] text-fg-1">{description}</p>
-            </div>
-          )}
-
-          <div>
-            <span className="t-eyebrow">// tags</span>
-            <div className="mt-[6px] flex flex-wrap gap-[6px]">
-              {tags.length === 0 ? (
-                <span className="text-[12.5px] text-fg-3">no tags</span>
-              ) : (
-                tags.map((t) => <Chip key={t}>{t}</Chip>)
+          {editing ? (
+            <div className="flex flex-col gap-3 rounded-[12px] border border-line-subtle bg-bg-2 p-3">
+              <div>
+                <FieldLabel htmlFor={`asset-${asset.id}-collection`}>collection</FieldLabel>
+                <Input
+                  id={`asset-${asset.id}-collection`}
+                  value={editCollection}
+                  onChange={(e) => setEditCollection(e.target.value)}
+                  placeholder="product · brand · reference"
+                />
+              </div>
+              <div>
+                <FieldLabel htmlFor={`asset-${asset.id}-description`}>description</FieldLabel>
+                <Textarea
+                  id={`asset-${asset.id}-description`}
+                  rows={3}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="optional"
+                />
+              </div>
+              <div>
+                <FieldLabel htmlFor={`asset-${asset.id}-tags`}>tags (comma separated)</FieldLabel>
+                <Input
+                  id={`asset-${asset.id}-tags`}
+                  value={editTagsRaw}
+                  onChange={(e) => setEditTagsRaw(e.target.value)}
+                  placeholder="hero, packshot, gold"
+                />
+              </div>
+              {saveError && (
+                <span className="font-mono text-[11.5px] text-danger">{saveError}</span>
               )}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={saveEdit}
+                  disabled={saving}
+                  leadingIcon={<Check size={13} strokeWidth={2} />}
+                >
+                  {saving ? 'saving…' : 'save'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={cancelEdit}
+                  disabled={saving}
+                >
+                  cancel
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              {description && (
+                <div>
+                  <span className="t-eyebrow">// description</span>
+                  <p className="mt-[6px] text-[13px] leading-[1.55] text-fg-1">{description}</p>
+                </div>
+              )}
+
+              <div>
+                <span className="t-eyebrow">// tags</span>
+                <div className="mt-[6px] flex flex-wrap gap-[6px]">
+                  {tags.length === 0 ? (
+                    <span className="text-[12.5px] text-fg-3">no tags</span>
+                  ) : (
+                    tags.map((t) => <Chip key={t}>{t}</Chip>)
+                  )}
+                </div>
+              </div>
+            </>
+          )}
 
           {deleteError && (
             <span className="font-mono text-[11.5px] text-danger">{deleteError}</span>

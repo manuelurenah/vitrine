@@ -145,22 +145,81 @@ export async function deleteProduct(userId: string, id: string): Promise<boolean
   return result.length > 0;
 }
 
+export type UpdateProductPatch = Partial<Omit<Product, 'id' | 'userId' | 'createdAt'>> & {
+  imageAssetIds?: string[];
+};
+
+/**
+ * Update product scalar fields and, if `imageAssetIds` is supplied, rewrite the
+ * `product_assets` join to match (order = position; first = hero). SECURITY:
+ * candidate asset ids are filtered by ownership before any link is written;
+ * unknown / foreign ids are silently dropped.
+ */
 export async function updateProduct(
   userId: string,
   id: string,
-  patch: Partial<Omit<Product, 'id' | 'userId' | 'createdAt'>>,
+  patch: UpdateProductPatch,
 ): Promise<Product | null> {
-  const set: Partial<typeof productsTable.$inferInsert> = { updatedAt: new Date() };
-  if (patch.name !== undefined) set.name = patch.name;
-  if (patch.notes !== undefined) set.notes = patch.notes?.trim() || null;
-  if (patch.tags !== undefined) set.tags = cleanTags(patch.tags);
-  if (patch.status !== undefined) set.status = patch.status;
-  if (patch.usedInCount !== undefined) set.usedInCount = patch.usedInCount;
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ id: productsTable.id })
+      .from(productsTable)
+      .where(and(eq(productsTable.id, id), eq(productsTable.userId, userId)))
+      .limit(1);
+    if (!existing) return null;
 
-  const [row] = await db
-    .update(productsTable)
-    .set(set)
-    .where(and(eq(productsTable.id, id), eq(productsTable.userId, userId)))
-    .returning();
-  return row ? toProduct(row) : null;
+    const set: Partial<typeof productsTable.$inferInsert> = { updatedAt: new Date() };
+    if (patch.name !== undefined) set.name = patch.name;
+    if (patch.notes !== undefined) set.notes = patch.notes?.trim() || null;
+    if (patch.tags !== undefined) set.tags = cleanTags(patch.tags);
+    if (patch.status !== undefined) set.status = patch.status;
+    if (patch.usedInCount !== undefined) set.usedInCount = patch.usedInCount;
+
+    let validImageIds: string[] | null = null;
+    if (patch.imageAssetIds !== undefined) {
+      if (patch.imageAssetIds.length === 0) {
+        validImageIds = [];
+      } else {
+        const owned = await tx
+          .select({ id: assetsTable.id })
+          .from(assetsTable)
+          .where(
+            and(
+              inArray(assetsTable.id, patch.imageAssetIds),
+              eq(assetsTable.userId, userId),
+            ),
+          );
+        const ownedSet = new Set(owned.map((r) => r.id));
+        validImageIds = patch.imageAssetIds.filter((aid) => ownedSet.has(aid));
+      }
+      set.heroAssetId = validImageIds[0] ?? null;
+    }
+
+    const [row] = await tx
+      .update(productsTable)
+      .set(set)
+      .where(and(eq(productsTable.id, id), eq(productsTable.userId, userId)))
+      .returning();
+    if (!row) return null;
+
+    if (validImageIds !== null) {
+      await tx.delete(productAssetsTable).where(eq(productAssetsTable.productId, id));
+      if (validImageIds.length > 0) {
+        await tx.insert(productAssetsTable).values(
+          validImageIds.map((aid, i) => ({
+            productId: id,
+            assetId: aid,
+            role: i === 0 ? 'hero' : 'reference',
+            position: i,
+          })),
+        );
+        await tx
+          .update(assetsTable)
+          .set({ productId: id, ownerType: 'product' })
+          .where(inArray(assetsTable.id, validImageIds));
+      }
+    }
+
+    return toProduct(row);
+  });
 }

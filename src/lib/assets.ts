@@ -132,6 +132,49 @@ export async function listAssets(userId: string, limit = 200): Promise<Asset[]> 
   return rows.map(toAsset);
 }
 
+export type AssetMetadataPatch = {
+  collection?: string | null;
+  tags?: string[] | null;
+  description?: string | null;
+};
+
+export async function updateAsset(
+  userId: string,
+  id: string,
+  patch: AssetMetadataPatch,
+): Promise<Asset | null> {
+  const [current] = await db
+    .select()
+    .from(assets)
+    .where(and(eq(assets.id, id), eq(assets.userId, userId), isNull(assets.deletedAt)))
+    .limit(1);
+  if (!current) return null;
+
+  const meta = { ...((current.metadata as Record<string, unknown>) ?? {}) };
+  if (patch.collection !== undefined) {
+    if (patch.collection && patch.collection.trim()) meta.collection = patch.collection.trim();
+    else delete meta.collection;
+  }
+  if (patch.tags !== undefined) {
+    if (patch.tags && patch.tags.length > 0) {
+      meta.tags = patch.tags.map((t) => t.trim()).filter(Boolean);
+    } else {
+      delete meta.tags;
+    }
+  }
+  if (patch.description !== undefined) {
+    if (patch.description && patch.description.trim()) meta.description = patch.description.trim();
+    else delete meta.description;
+  }
+
+  const [row] = await db
+    .update(assets)
+    .set({ metadata: meta })
+    .where(and(eq(assets.id, id), eq(assets.userId, userId), isNull(assets.deletedAt)))
+    .returning();
+  return row ? toAsset(row) : null;
+}
+
 export async function softDeleteAsset(userId: string, id: string): Promise<boolean> {
   const rows = await db
     .update(assets)
