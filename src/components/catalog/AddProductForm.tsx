@@ -86,6 +86,10 @@ export function AddProductForm({
   const nameId = useId();
   const descriptionId = useId();
   const tagsId = useId();
+  const uploadTabId = useId();
+  const libraryTabId = useId();
+  const uploadPanelId = useId();
+  const libraryPanelId = useId();
 
   const hasLibrary = (libraryAssets?.length ?? 0) > 0;
   const validPrefillIds = useMemo(() => {
@@ -320,7 +324,9 @@ export function AddProductForm({
           <button
             type="button"
             role="tab"
+            id={uploadTabId}
             aria-selected={tab === 'upload'}
+            aria-controls={uploadPanelId}
             onClick={() => setTab('upload')}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-fast ease-out',
@@ -334,7 +340,9 @@ export function AddProductForm({
           <button
             type="button"
             role="tab"
+            id={libraryTabId}
             aria-selected={tab === 'library'}
+            aria-controls={libraryPanelId}
             onClick={() => setTab('library')}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-fast ease-out',
@@ -349,6 +357,13 @@ export function AddProductForm({
       )}
 
       {(!hasLibrary || tab === 'upload') && (
+      <div
+        {...(hasLibrary && {
+          role: 'tabpanel',
+          id: uploadPanelId,
+          'aria-labelledby': uploadTabId,
+        })}
+      >
       <div
         onClick={() => !capReached && inputRef.current?.click()}
         onDragOver={(e) => {
@@ -414,10 +429,16 @@ export function AddProductForm({
           onChange={onPick}
         />
       </div>
+      </div>
       )}
 
       {hasLibrary && tab === 'library' && (
-        <div className="flex flex-col gap-3 rounded-[14px] border border-line-subtle bg-bg-2/60 p-4">
+        <div
+          role="tabpanel"
+          id={libraryPanelId}
+          aria-labelledby={libraryTabId}
+          className="flex flex-col gap-3 rounded-[14px] border border-line-subtle bg-bg-2/60 p-4"
+        >
           <div className="flex items-center justify-between">
             <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-3">
               pick existing assets
@@ -431,6 +452,7 @@ export function AddProductForm({
             onChange={onPickerChange}
             max={Math.max(libraryPicked.length, MAX_IMAGES - images.length)}
             initialTab="assets"
+            includeGenerated
           />
         </div>
       )}

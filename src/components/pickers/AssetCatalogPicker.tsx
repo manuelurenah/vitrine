@@ -15,6 +15,14 @@ export type AssetCatalogPickerProps = {
   max?: number;
   className?: string;
   initialTab?: TabKey;
+  /**
+   * When true, assets with `kind: 'generated'` (campaign/photoshoot outputs)
+   * are included in the uploads tab. Defaults to false because campaigns ask
+   * for *reference* inputs (not previously-generated outputs); but product
+   * creation flows want to include generated assets so the cross-flow
+   * "send to product" hand-off can re-pick those images.
+   */
+  includeGenerated?: boolean;
 };
 
 export type FetchState<T> = {
@@ -77,6 +85,7 @@ export function AssetCatalogPicker({
   max = DEFAULT_MAX,
   className,
   initialTab = 'products',
+  includeGenerated = false,
 }: AssetCatalogPickerProps) {
   const [tab, setTab] = useState<TabKey>(initialTab);
   const [products, setProducts] = useState<FetchState<Product>>({
@@ -198,7 +207,14 @@ export function AssetCatalogPicker({
           onToggle={toggleProduct}
         />
       ) : (
-        <AssetsTab state={assets} selected={selected} atCap={atCap} max={max} onToggle={toggle} />
+        <AssetsTab
+          state={assets}
+          selected={selected}
+          atCap={atCap}
+          max={max}
+          onToggle={toggle}
+          includeGenerated={includeGenerated}
+        />
       )}
     </div>
   );
@@ -312,16 +328,20 @@ export function AssetsTab({
   atCap,
   max,
   onToggle,
+  includeGenerated = false,
 }: {
   state: FetchState<Asset>;
   selected: Set<string>;
   atCap: boolean;
   max: number;
   onToggle: (id: string) => void;
+  includeGenerated?: boolean;
 }) {
   if (state.loading) return <LoadingGrid />;
   if (state.error) return <ErrorState message={state.error} />;
-  const items = (state.data ?? []).filter((a) => a.kind !== 'generated');
+  const items = includeGenerated
+    ? (state.data ?? [])
+    : (state.data ?? []).filter((a) => a.kind !== 'generated');
   if (items.length === 0) {
     return (
       <EmptyState
