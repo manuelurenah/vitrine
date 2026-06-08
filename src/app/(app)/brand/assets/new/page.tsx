@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { AssetUploader } from '@/components/assets';
+import { listAssets } from '@/lib/assets';
 import { getSession } from '@/lib/session';
+import { getUserKey } from '@/lib/userKey';
 
 export const metadata = { title: 'upload assets · vitrine' };
 export const dynamic = 'force-dynamic';
@@ -8,6 +10,9 @@ export const dynamic = 'force-dynamic';
 export default async function NewAssetPage() {
   const session = await getSession();
   if (!session) redirect('/');
+
+  const userKey = await getUserKey(session);
+  const libraryAssets = await listAssets(userKey);
 
   return (
     <div className="mx-auto flex max-w-[760px] flex-col gap-6">
@@ -19,7 +24,7 @@ export default async function NewAssetPage() {
         </p>
       </header>
 
-      <AssetUploader redirectTo="/brand/assets" />
+      <AssetUploader redirectTo="/brand/assets" libraryAssets={libraryAssets} />
     </div>
   );
 }
