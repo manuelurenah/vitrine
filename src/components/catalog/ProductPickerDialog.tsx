@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Plus, Search } from 'lucide-react';
-import { Button, Input, cn } from '@/components/ui';
+import { Button, Input, Modal, cn } from '@/components/ui';
 import type { Product } from '@/lib/catalog';
 
 /* -------------------------------------------------------------------------- */
@@ -53,14 +53,13 @@ export function ProductPickerDialog({
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Close on Escape.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Gate close while a request is in flight — ESC + backdrop click must be
+  // no-ops so we don't fire onSuccess against an unmounted dialog.
+  const inFlight = submittingId !== null;
+  const guardedClose = useCallback(() => {
+    if (inFlight) return;
+    onClose();
+  }, [inFlight, onClose]);
 
   const filtered = useMemo(
     () => filterProducts(initialProducts, query),
@@ -98,32 +97,34 @@ export function ProductPickerDialog({
     router.push(buildNewProductHref(assetIds));
   }
 
-  return (
-    <div
-      className="fixed inset-0 z-modal flex items-center justify-center px-6 py-10"
-      data-testid="product-picker-dialog"
-    >
-      <button
-        type="button"
-        aria-label="close"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-bg-0/70 backdrop-blur-[6px]"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="product-picker-title"
-        className="relative flex max-h-[80vh] w-full max-w-[520px] flex-col overflow-hidden rounded-[18px] border border-line bg-bg-1 shadow-[var(--shadow-xl)]"
+  const footer = isEmpty ? null : (
+    <div className="flex items-center justify-between gap-3">
+      <Button variant="ghost" onClick={onClose} disabled={inFlight}>
+        cancel
+      </Button>
+      <Button
+        variant="primary"
+        leadingIcon={<Plus size={14} strokeWidth={1.75} />}
+        onClick={onNewProduct}
+        data-testid="product-picker-new"
       >
-        <header className="flex flex-col gap-1 border-b border-line-subtle px-6 py-5">
-          <span className="t-eyebrow text-fg-3">// add to product</span>
-          <h2 id="product-picker-title" className="t-h3 text-fg-0">
-            pick a product.
-          </h2>
-        </header>
+        + new product
+      </Button>
+    </div>
+  );
 
+  return (
+    <Modal
+      open
+      onClose={guardedClose}
+      eyebrow="// add to product"
+      title="pick a product."
+      maxWidth={520}
+      footer={footer}
+    >
+      <div data-testid="product-picker-dialog">
         {isEmpty ? (
-          <div className="flex flex-col items-center gap-4 px-6 py-10 text-center">
+          <div className="flex flex-col items-center gap-4 py-6 text-center">
             <p className="text-[13px] text-fg-2">no products yet.</p>
             <Button
               variant="primary"
@@ -136,28 +137,26 @@ export function ProductPickerDialog({
           </div>
         ) : (
           <>
-            <div className="border-b border-line-subtle px-6 py-3">
-              <div className="relative">
-                <Search
-                  size={14}
-                  strokeWidth={1.75}
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-3"
-                  aria-hidden
-                />
-                <Input
-                  type="search"
-                  placeholder="search products…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="pl-9"
-                  data-testid="product-picker-search"
-                  aria-label="search products"
-                />
-              </div>
+            <div className="relative mb-3">
+              <Search
+                size={14}
+                strokeWidth={1.75}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-3"
+                aria-hidden
+              />
+              <Input
+                type="search"
+                placeholder="search products…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="pl-9"
+                data-testid="product-picker-search"
+                aria-label="search products"
+              />
             </div>
 
             <ul
-              className="flex-1 overflow-auto px-3 py-2"
+              className="flex flex-col gap-1"
               data-testid="product-picker-list"
             >
               {filtered.length === 0 ? (
@@ -223,29 +222,15 @@ export function ProductPickerDialog({
             {error && (
               <div
                 role="alert"
-                className="mx-6 mb-3 rounded-[10px] border border-danger bg-danger-soft px-3 py-2 text-[13px] text-danger"
+                className="mt-3 rounded-[10px] border border-danger bg-danger-soft px-3 py-2 text-[13px] text-danger"
                 data-testid="product-picker-error"
               >
                 {error}
               </div>
             )}
-
-            <footer className="flex items-center justify-between gap-3 border-t border-line-subtle bg-bg-0/60 px-6 py-4">
-              <Button variant="ghost" onClick={onClose}>
-                cancel
-              </Button>
-              <Button
-                variant="primary"
-                leadingIcon={<Plus size={14} strokeWidth={1.75} />}
-                onClick={onNewProduct}
-                data-testid="product-picker-new"
-              >
-                + new product
-              </Button>
-            </footer>
           </>
         )}
       </div>
-    </div>
+    </Modal>
   );
 }
