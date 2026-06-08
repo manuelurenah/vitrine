@@ -28,5 +28,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!result) {
     return NextResponse.json({ error: 'product_not_found' }, { status: 404 });
   }
-  return NextResponse.json(result, { status: 200 });
+  return NextResponse.json(
+    { product: result.product, addedCount: result.addedCount, skippedCount: result.skippedCount },
+    { status: 200 },
+  );
 }
