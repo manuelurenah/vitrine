@@ -111,6 +111,83 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
   });
 }
 
+type AppendProductImagesInput = {
+  userId: string;
+  productId: string;
+  assetIds: string[];
+};
+
+export type AppendProductImagesResult = {
+  product: Product;
+  addedCount: number;
+  skippedCount: number;
+} | null;
+
+/**
+ * Append owned assets to an existing product's `product_assets` join. SECURITY:
+ * caller ownership of the product and each asset is verified; foreign rows are
+ * silently dropped and counted as skipped. Duplicates already on the product
+ * are also counted as skipped (we pre-filter to keep `skippedCount` accurate
+ * rather than relying on `.onConflictDoNothing`). New rows are appended after
+ * the current max position; the product's hero is not modified by this call.
+ */
+export async function appendProductImages(
+  input: AppendProductImagesInput,
+): Promise<AppendProductImagesResult> {
+  return db.transaction(async (tx) => {
+    const [product] = await tx
+      .select()
+      .from(productsTable)
+      .where(
+        and(eq(productsTable.id, input.productId), eq(productsTable.userId, input.userId)),
+      );
+    if (!product) return null;
+
+    const totalRequested = input.assetIds.length;
+
+    const owned = await tx
+      .select({ id: assetsTable.id })
+      .from(assetsTable)
+      .where(
+        and(inArray(assetsTable.id, input.assetIds), eq(assetsTable.userId, input.userId)),
+      );
+    const ownedSet = new Set(owned.map((r) => r.id));
+    const validIds = input.assetIds.filter((id) => ownedSet.has(id));
+
+    if (validIds.length === 0) {
+      return { product: toProduct(product), addedCount: 0, skippedCount: totalRequested };
+    }
+
+    const existing = await tx
+      .select({ assetId: productAssetsTable.assetId, position: productAssetsTable.position })
+      .from(productAssetsTable)
+      .where(eq(productAssetsTable.productId, input.productId));
+    const existingSet = new Set(existing.map((r) => r.assetId));
+    const newIds = validIds.filter((id) => !existingSet.has(id));
+    const skippedCount = totalRequested - newIds.length;
+
+    if (newIds.length === 0) {
+      return { product: toProduct(product), addedCount: 0, skippedCount };
+    }
+
+    const startPos = existing.reduce((m, r) => Math.max(m, r.position), -1) + 1;
+    await tx.insert(productAssetsTable).values(
+      newIds.map((id, i) => ({
+        productId: input.productId,
+        assetId: id,
+        role: 'reference' as const,
+        position: startPos + i,
+      })),
+    );
+    await tx
+      .update(assetsTable)
+      .set({ productId: input.productId, ownerType: 'product' })
+      .where(inArray(assetsTable.id, newIds));
+
+    return { product: toProduct(product), addedCount: newIds.length, skippedCount };
+  });
+}
+
 export async function getProduct(userId: string, id: string): Promise<Product | null> {
   const [row] = await db
     .select({
