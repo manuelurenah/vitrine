@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Download, MoreVertical, RefreshCw, Sparkles } from 'lucide-react';
 import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
@@ -233,30 +233,37 @@ export function CreativeCard({
 
   return (
     <article className="group flex flex-col gap-3 rounded-[14px] border border-line-subtle bg-bg-2 p-3 transition-all duration-base ease-out hover:-translate-y-[2px] hover:border-line-strong">
-      {isMulti ? (
-        <MultiImageGrid
-          quantity={safeQuantity}
-          urls={imgUrls}
-          aspect={aspect}
-          preset={preset}
-          status={status}
-          error={error}
-          workflowId={workflowId}
-          overlay={selectOverlay}
-          menu={tileMenu}
-        />
-      ) : (
-        <SingleImage
-          url={firstUrl}
-          aspect={aspect}
-          preset={preset}
-          status={status}
-          error={error}
-          workflowId={workflowId}
-          overlay={selectOverlay}
-          menu={tileMenu}
-        />
-      )}
+      {/*
+        Image area wrapper. Intentionally NOT `overflow-hidden` so the
+        per-tile menu dropdown (rendered as a sibling below) can extend
+        beyond the image bounds without being clipped. The `SingleImage`
+        / `MultiImageGrid` children keep their own border-radius clipping
+        for the image itself.
+      */}
+      <div className="relative">
+        {isMulti ? (
+          <MultiImageGrid
+            quantity={safeQuantity}
+            urls={imgUrls}
+            aspect={aspect}
+            preset={preset}
+            status={status}
+            error={error}
+            workflowId={workflowId}
+          />
+        ) : (
+          <SingleImage
+            url={firstUrl}
+            aspect={aspect}
+            preset={preset}
+            status={status}
+            error={error}
+            workflowId={workflowId}
+          />
+        )}
+        {tileMenu}
+        {selectOverlay}
+      </div>
 
       {adCopy && (adCopy.headline || adCopy.subhead) && (
         <div className="flex flex-col gap-1 px-1 pt-1">
@@ -339,13 +346,9 @@ function SingleImage({
   status,
   error,
   workflowId,
-  overlay,
-  menu,
 }: RenderProps & {
   url: string | null;
   workflowId: string;
-  overlay?: React.ReactNode;
-  menu?: React.ReactNode;
 }) {
   return (
     <div
@@ -372,8 +375,6 @@ function SingleImage({
       )}
 
       {status !== 'done' && <StatusOverlay status={status} error={error} />}
-      {menu}
-      {overlay}
     </div>
   );
 }
@@ -386,14 +387,10 @@ function MultiImageGrid({
   status,
   error,
   workflowId,
-  overlay,
-  menu,
 }: RenderProps & {
   quantity: number;
   urls: string[];
   workflowId: string;
-  overlay?: React.ReactNode;
-  menu?: React.ReactNode;
 }) {
   // 2-column grid for 2-4, horizontal scroll strip for 5+.
   const useStrip = quantity >= 5;
@@ -434,8 +431,6 @@ function MultiImageGrid({
           <StatusOverlay status={status} error={error} compact />
         </div>
       )}
-      {menu}
-      {overlay}
     </div>
   );
 }
@@ -533,10 +528,28 @@ function TileMenu({
   onRegenerate?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const hasAny = Boolean(onUseAsProduct || onUseInCampaign || (onRegenerate && canRegenerate));
+
+  // Click-outside to dismiss the menu. Matches the pattern in
+  // `PostGenActions` so the two photoshoot overlays behave consistently.
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!menuRef.current) return;
+      if (e.target instanceof Node && menuRef.current.contains(e.target)) return;
+      setOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
   if (!hasAny) return null;
   return (
-    <div className="absolute right-2 top-2 z-card">
+    // Top-LEFT corner: the top-right slot is owned by `PostGenActions` (the
+    // upscale/animate/download overlay) and the two menus would otherwise
+    // collide visually and steal each other's clicks.
+    <div ref={menuRef} className="absolute left-2 top-2 z-card">
       <button
         type="button"
         aria-label="tile actions"
@@ -550,7 +563,7 @@ function TileMenu({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-1 flex w-[180px] flex-col rounded-[10px] border border-line bg-bg-1 p-1 shadow-[var(--shadow-lg)]"
+          className="absolute left-0 mt-1 flex w-[180px] flex-col rounded-[10px] border border-line bg-bg-1 p-1 shadow-lg"
         >
           {onUseAsProduct && (
             <button
