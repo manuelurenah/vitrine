@@ -10,10 +10,6 @@ import {
 import { signInToApp } from './helpers/auth';
 
 test.describe('Photoshoot cross-flow', () => {
-  test.beforeAll(async () => {
-    await markOnboardingComplete();
-  });
-
   test.beforeEach(async () => {
     await resetUserData();
     await markOnboardingComplete();

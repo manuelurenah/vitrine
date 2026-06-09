@@ -9,6 +9,8 @@
 
 import { Pool } from 'pg';
 
+import type { PhotoshootTemplateId } from '../../src/lib/photoshootTemplates';
+
 const TEST_USER_ID = process.env.TEST_USER_ID ?? '1';
 
 let cached: Pool | null = null;
@@ -155,25 +157,32 @@ export async function seedProduct(
  * ids in insertion order. Mirrors the post-`syncAssetsFromSnapshot` state.
  */
 export async function seedDonePhotoshoot(
-  input: { tileCount?: number; title?: string; ratio?: string } = {},
+  input: {
+    tileCount?: number;
+    title?: string;
+    ratio?: string;
+    templateId?: PhotoshootTemplateId;
+  } = {},
   userId: string = TEST_USER_ID,
 ): Promise<{ id: string; tileIds: string[]; assetIds: string[] }> {
   const pool = getPool();
   const tileCount = Math.max(1, input.tileCount ?? 2);
   const title = input.title ?? `e2e shoot ${Date.now()}`;
   const ratio = input.ratio ?? '4:5';
+  const templateId: PhotoshootTemplateId = input.templateId ?? 'studio-clean';
 
   const shootRes = await pool.query<{ id: string }>(
     `INSERT INTO photoshoots
        (user_id, title, brief, ratio, variants_per_template, template_ids,
         reference_asset_ids, estimated_buzz, actual_buzz)
-     VALUES ($1, $2, $3::jsonb, $4, 1, ARRAY['lifestyle']::text[],
+     VALUES ($1, $2, $3::jsonb, $4, 1, ARRAY[$5]::text[],
              ARRAY[]::text[], 0, 0)
      RETURNING id`,
     [
       userId,
       title,
-      JSON.stringify({ productNotes: 'e2e photoshoot', ratio, templates: ['lifestyle'] }),
+      JSON.stringify({ productNotes: 'e2e photoshoot', ratio, templates: [templateId] }),
+      templateId,
     ],
   );
   const photoshootId = shootRes.rows[0]!.id;
@@ -188,9 +197,9 @@ export async function seedDonePhotoshoot(
       `INSERT INTO photoshoot_tiles
          (photoshoot_id, template_id, variant_index, workflow_id, prompt,
           status, asset_id, quantity, estimated_buzz, actual_buzz)
-       VALUES ($1, 'lifestyle', $2, $3, $4, 'done'::tile_status, $5, 1, 0, 0)
+       VALUES ($1, $2, $3, $4, $5, 'done'::tile_status, $6, 1, 0, 0)
        RETURNING id`,
-      [photoshootId, i, workflowId, `e2e tile prompt ${i}`, assetId],
+      [photoshootId, templateId, i, workflowId, `e2e tile prompt ${i}`, assetId],
     );
     tileIds.push(tileRes.rows[0]!.id);
   }
