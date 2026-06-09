@@ -2,9 +2,11 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Camera, Check, Sparkles } from 'lucide-react';
+import { ArrowLeft, Box, Camera, Check, Image as ImageIcon, Sparkles, X } from 'lucide-react';
 import { Button, BuzzPill, Chip, FieldLabel, Input, Textarea, cn } from '@/components/ui';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
+import type { Asset } from '@/lib/assets';
+import type { Product } from '@/lib/catalog';
 import {
   PHOTOSHOOT_TEMPLATES,
   type PhotoshootRatio,
@@ -93,12 +95,44 @@ export type Brief = {
   templateIds: PhotoshootTemplateId[];
 };
 
+export type Subject =
+  | { kind: 'asset'; id: string }
+  | { kind: 'product'; id: string };
+
+/**
+ * Pure helper: resolve a subject into the underlying asset id that the
+ * orchestrator can fetch as a reference image.
+ *
+ * - `asset:<id>` → the asset id directly.
+ * - `product:<id>` → the product's `heroAssetId` (first attached asset, per
+ *   `createProduct` semantics). Returns `null` if the product has no hero —
+ *   the caller falls back to a text-only brief.
+ *
+ * Exported for unit testing.
+ */
+export function resolveSubjectReference(
+  subject: Subject | null,
+  products: Product[],
+  _assets: Asset[],
+): string | null {
+  if (!subject) return null;
+  if (subject.kind === 'asset') return subject.id;
+  const product = products.find((p) => p.id === subject.id);
+  return product?.heroAssetId ?? null;
+}
+
 export type PhotoshootWizardProps = {
   buzzBalance?: number | null;
+  libraryAssets?: Asset[];
+  libraryProducts?: Product[];
+  defaultSubject?: Subject | null;
 };
 
 export function PhotoshootWizard({
   buzzBalance = null,
+  libraryAssets = [],
+  libraryProducts = [],
+  defaultSubject = null,
 }: PhotoshootWizardProps = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -114,6 +148,26 @@ export function PhotoshootWizard({
     () => new Set(ALL_TEMPLATES.filter((t) => t.defaultOn).map((t) => t.id)),
   );
   const [referenceAssetIds, setReferenceAssetIds] = useState<string[]>([]);
+  const [subject, setSubject] = useState<Subject | null>(defaultSubject);
+
+  /**
+   * Subject → `referenceAssetIds` sync. Resolves the subject to its underlying
+   * asset id and merges it into the existing references (deduped via Set so we
+   * don't double-up if the user also picked it manually somewhere).
+   *
+   * Note: we don't try to "unmerge" the previous subject's asset id when the
+   * subject changes — references the user explicitly picked stay; only the
+   * derived subject reference is added. This keeps the state model simple.
+   */
+  useEffect(() => {
+    const subjectAssetId = resolveSubjectReference(subject, libraryProducts, libraryAssets);
+    if (!subjectAssetId) return;
+    const prefixed = `asset:${subjectAssetId}`;
+    setReferenceAssetIds((prev) => {
+      if (prev.includes(prefixed)) return prev;
+      return Array.from(new Set([prefixed, ...prev]));
+    });
+  }, [subject, libraryProducts, libraryAssets]);
 
   // --- preview / review state ------------------------------------------------
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
@@ -304,6 +358,10 @@ export function PhotoshootWizard({
           groups={groups}
           referenceAssetIds={referenceAssetIds}
           setReferenceAssetIds={setReferenceAssetIds}
+          subject={subject}
+          setSubject={setSubject}
+          libraryAssets={libraryAssets}
+          libraryProducts={libraryProducts}
           totalShots={totalShots}
           previewing={previewing}
           previewError={previewError}
@@ -376,6 +434,10 @@ type BriefStepProps = {
   groups: Record<PhotoshootTemplate['group'], PhotoshootTemplate[]>;
   referenceAssetIds: string[];
   setReferenceAssetIds: (ids: string[]) => void;
+  subject: Subject | null;
+  setSubject: (s: Subject | null) => void;
+  libraryAssets: Asset[];
+  libraryProducts: Product[];
   totalShots: number;
   previewing: boolean;
   previewError: string | null;
@@ -397,6 +459,10 @@ function BriefStep(props: BriefStepProps) {
     groups,
     referenceAssetIds,
     setReferenceAssetIds,
+    subject,
+    setSubject,
+    libraryAssets,
+    libraryProducts,
     totalShots,
     previewing,
     previewError,
@@ -407,6 +473,13 @@ function BriefStep(props: BriefStepProps) {
     <form onSubmit={onSubmit} data-testid="brief-step">
       <div className="mx-auto mt-10 grid w-full max-w-[1080px] grid-cols-1 gap-6 md:grid-cols-[1fr_1.4fr]">
         <section className="flex flex-col gap-4">
+          <SubjectPanel
+            subject={subject}
+            setSubject={setSubject}
+            libraryAssets={libraryAssets}
+            libraryProducts={libraryProducts}
+          />
+
           <h2 className="t-eyebrow">// product</h2>
           <div>
             <FieldLabel htmlFor="pn">name</FieldLabel>
@@ -437,6 +510,7 @@ function BriefStep(props: BriefStepProps) {
               value={referenceAssetIds}
               onChange={setReferenceAssetIds}
               max={4}
+              includeGenerated
             />
           </div>
         </section>
@@ -818,6 +892,195 @@ function Layer({ label, value }: { label: string; value: string }) {
       </span>
       <span className="text-fg-1">{value}</span>
     </div>
+  );
+}
+
+type SubjectPanelProps = {
+  subject: Subject | null;
+  setSubject: (s: Subject | null) => void;
+  libraryAssets: Asset[];
+  libraryProducts: Product[];
+};
+
+/**
+ * Top-of-brief subject sub-step. Lets the user either pick a subject from
+ * their library (a product → its hero asset, or an upload directly), or skip
+ * and rely solely on the text brief. When a subject is set, the panel
+ * collapses into a confirmation row with thumb · name · change / clear.
+ */
+function SubjectPanel({
+  subject,
+  setSubject,
+  libraryAssets,
+  libraryProducts,
+}: SubjectPanelProps) {
+  const [picking, setPicking] = useState<boolean>(false);
+
+  // Resolve the thumb + display name for the confirmation row.
+  const resolved = useMemo(() => {
+    if (!subject) return null;
+    if (subject.kind === 'asset') {
+      const a = libraryAssets.find((x) => x.id === subject.id);
+      if (!a) return { thumbUrl: null as string | null, label: 'upload', sublabel: 'asset' };
+      const filename = a.storageKey.split('/').pop() ?? a.id;
+      return {
+        thumbUrl: a.publicUrl,
+        label: filename,
+        sublabel: `upload · ${a.kind}`,
+      };
+    }
+    const p = libraryProducts.find((x) => x.id === subject.id);
+    if (!p) return { thumbUrl: null as string | null, label: 'product', sublabel: 'product' };
+    const hero = p.heroAssetId
+      ? (libraryAssets.find((x) => x.id === p.heroAssetId)?.publicUrl ?? p.heroUrl ?? null)
+      : (p.heroUrl ?? null);
+    return {
+      thumbUrl: hero,
+      label: p.name,
+      sublabel: 'product',
+    };
+  }, [subject, libraryAssets, libraryProducts]);
+
+  const pickerValue = useMemo<string[]>(() => {
+    if (!subject) return [];
+    return [`${subject.kind}:${subject.id}`];
+  }, [subject]);
+
+  const onPickerChange = useCallback(
+    (ids: string[]) => {
+      const last = ids[ids.length - 1];
+      if (!last) {
+        setSubject(null);
+        return;
+      }
+      const colonIdx = last.indexOf(':');
+      if (colonIdx === -1) return;
+      const kind = last.slice(0, colonIdx);
+      const id = last.slice(colonIdx + 1);
+      if (kind === 'asset' || kind === 'product') {
+        setSubject({ kind, id });
+        setPicking(false);
+      }
+    },
+    [setSubject],
+  );
+
+  // Confirmation row (subject is set, picker is closed).
+  if (subject && !picking) {
+    return (
+      <section
+        data-testid="subject-panel"
+        data-subject-kind={subject.kind}
+        data-subject-id={subject.id}
+        className="flex flex-col gap-2"
+      >
+        <h2 className="t-eyebrow">// subject</h2>
+        <div className="flex items-center gap-3 rounded-[12px] border border-line-volt bg-volt-soft/30 p-3">
+          <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[8px] border border-line-subtle bg-bg-3">
+            {resolved?.thumbUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={resolved.thumbUrl}
+                alt={resolved.label}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            ) : subject.kind === 'product' ? (
+              <Box size={20} strokeWidth={1.5} className="text-fg-2" />
+            ) : (
+              <ImageIcon size={20} strokeWidth={1.5} className="text-fg-2" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[13.5px] font-medium text-fg-0">
+              {resolved?.label ?? subject.id}
+            </div>
+            <div className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-fg-3">
+              {resolved?.sublabel ?? subject.kind}
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setPicking(true)}
+            data-testid="subject-change"
+          >
+            change
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setSubject(null)}
+            data-testid="subject-clear"
+            leadingIcon={<X size={12} strokeWidth={2} />}
+          >
+            clear
+          </Button>
+        </div>
+      </section>
+    );
+  }
+
+  // Inline picker (user clicked "pick from library").
+  if (picking) {
+    return (
+      <section data-testid="subject-panel" className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="t-eyebrow">// subject · pick</h2>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setPicking(false)}
+            data-testid="subject-cancel-pick"
+          >
+            cancel
+          </Button>
+        </div>
+        <AssetCatalogPicker
+          value={pickerValue}
+          onChange={onPickerChange}
+          max={1}
+          includeGenerated
+        />
+      </section>
+    );
+  }
+
+  // Default: choose mode.
+  return (
+    <section data-testid="subject-panel" className="flex flex-col gap-2">
+      <h2 className="t-eyebrow">// subject · optional</h2>
+      <p className="text-[12px] text-fg-3">
+        attach a product or upload as your subject — or skip and describe it in the brief.
+      </p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => setPicking(true)}
+          data-testid="subject-pick-library"
+          className="flex items-center gap-2 rounded-[10px] border border-line-subtle bg-bg-2 px-3 py-2.5 text-left transition-colors duration-fast hover:border-line-strong"
+        >
+          <Box size={16} strokeWidth={1.75} className="text-fg-2" />
+          <span className="font-mono text-[11.5px] uppercase tracking-[0.06em] text-fg-1">
+            pick from library
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubject(null)}
+          data-testid="subject-skip"
+          className="flex items-center gap-2 rounded-[10px] border border-dashed border-line-subtle bg-bg-2/60 px-3 py-2.5 text-left transition-colors duration-fast hover:border-line-strong"
+        >
+          <Sparkles size={14} strokeWidth={1.75} className="text-fg-2" />
+          <span className="font-mono text-[11.5px] uppercase tracking-[0.06em] text-fg-1">
+            skip · describe in text
+          </span>
+        </button>
+      </div>
+    </section>
   );
 }
 

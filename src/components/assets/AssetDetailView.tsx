@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Check, ChevronLeft, ChevronRight, Download, Pencil, Sparkles, Trash2, X } from 'lucide-react';
 import { Button, Chip, FieldLabel, Input, Textarea } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
+import { buildCampaignNewHref, buildPhotoshootNewHref } from '@/lib/campaignHref';
 
 type StripItem = {
   id: string;
@@ -125,7 +126,11 @@ export function AssetDetailView({
   const isVideo = asset.contentType?.startsWith('video/') ?? false;
 
   const useInCampaignHref = useMemo(
-    () => `/campaigns/new?refs=${encodeURIComponent(`asset:${asset.id}`)}`,
+    () => buildCampaignNewHref([{ kind: 'asset', id: asset.id }]),
+    [asset.id],
+  );
+  const usePhotoshootHref = useMemo(
+    () => buildPhotoshootNewHref({ kind: 'asset', id: asset.id }),
     [asset.id],
   );
 
@@ -350,6 +355,19 @@ export function AssetDetailView({
                 className="w-full"
               >
                 use in a campaign
+              </Button>
+            </Link>
+            <Link
+              href={usePhotoshootHref}
+              className="w-full"
+            >
+              <Button
+                type="button"
+                variant="secondary"
+                leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
+                className="w-full"
+              >
+                use as photoshoot subject
               </Button>
             </Link>
             {asset.publicUrl && (

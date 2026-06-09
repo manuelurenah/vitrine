@@ -25,6 +25,12 @@ export type PhotoshootTile = {
   status: TileStatus;
   prompt: string;
   quantity: number;
+  /**
+   * UUID of the asset row this tile resolved to once the workflow finished.
+   * Null while the workflow is queued/cooking or if asset-linking hasn't run.
+   * Set by `syncAssetsFromSnapshot` on terminal workflow status.
+   */
+  assetId: string | null;
 };
 
 export type Photoshoot = {
@@ -54,6 +60,7 @@ function toTile(row: PhotoshootTileRow): PhotoshootTile {
     status: row.status,
     prompt: row.prompt,
     quantity: row.quantity,
+    assetId: row.assetId,
   };
 }
 

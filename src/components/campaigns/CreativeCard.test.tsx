@@ -14,7 +14,7 @@ const orchestratorMocks = vi.hoisted(() => {
 
 vi.mock('@civitai/app-sdk/orchestrator', () => orchestratorMocks);
 
-import { CreativeCard } from './CreativeCard';
+import { CreativeCard, shouldShowTileMenu } from './CreativeCard';
 
 /* -------------------------------------------------------------------------- */
 /* helpers                                                                     */
@@ -89,5 +89,106 @@ describe('CreativeCard — multi image (quantity > 1)', () => {
     // Two overlay containers, regardless of whether the image has loaded yet —
     // workstream K depends on this anchor to mount its action menu.
     expect(html.match(/data-image-overlay/g)?.length ?? 0).toBe(2);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* shouldShowTileMenu — pure helper for photoshoot per-tile menu              */
+/* -------------------------------------------------------------------------- */
+//
+// The full `CreativeCard` component cannot be SSR'd in unit tests because it
+// depends on `useRouter` from `next/navigation`, which is not mounted in the
+// vitest `node` environment. We therefore exercise the menu-visibility
+// contract through the exported pure helper. The helper is the single source
+// of truth for the `showMenu` calculation inside the component, so behaviour
+// stays in sync.
+
+describe('shouldShowTileMenu — photoshoot per-tile menu predicate', () => {
+  it('returns true when context=photoshoot, status=done, tileAssetId is set, selectMode=false', () => {
+    expect(
+      shouldShowTileMenu({
+        context: 'photoshoot',
+        status: 'done',
+        tileAssetId: 'a1',
+        selectMode: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('returns false when context is campaign (or unset)', () => {
+    expect(
+      shouldShowTileMenu({
+        context: 'campaign',
+        status: 'done',
+        tileAssetId: 'a1',
+        selectMode: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowTileMenu({
+        status: 'done',
+        tileAssetId: 'a1',
+        selectMode: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false while the tile is still queued or cooking', () => {
+    expect(
+      shouldShowTileMenu({
+        context: 'photoshoot',
+        status: 'queued',
+        tileAssetId: 'a1',
+        selectMode: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowTileMenu({
+        context: 'photoshoot',
+        status: 'cooking',
+        tileAssetId: 'a1',
+        selectMode: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when the tile has no asset id yet (null or undefined)', () => {
+    expect(
+      shouldShowTileMenu({
+        context: 'photoshoot',
+        status: 'done',
+        tileAssetId: null,
+        selectMode: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowTileMenu({
+        context: 'photoshoot',
+        status: 'done',
+        selectMode: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when select mode is active (the overlay takes over)', () => {
+    expect(
+      shouldShowTileMenu({
+        context: 'photoshoot',
+        status: 'done',
+        tileAssetId: 'a1',
+        selectMode: true,
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false when the tile failed (no asset to act on)', () => {
+    expect(
+      shouldShowTileMenu({
+        context: 'photoshoot',
+        status: 'failed',
+        tileAssetId: 'a1',
+        selectMode: false,
+      }),
+    ).toBe(false);
   });
 });

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Download, RefreshCw, Sparkles } from 'lucide-react';
+import { Check, Download, MoreVertical, RefreshCw, Sparkles } from 'lucide-react';
 import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
 import { Badge, cn } from '@/components/ui';
 import { PRESETS, type PresetId } from '@/lib/presets';
@@ -33,9 +33,44 @@ type Props = {
   quantity?: number;
   regenerate?: RegenerateContext;
   adCopy?: AdCopy | null;
+  /**
+   * Which surface is rendering this card. Defaults to 'campaign' for
+   * back-compat. The 'photoshoot' surface unlocks the per-tile actions menu
+   * and the multi-select overlay.
+   */
+  context?: 'campaign' | 'photoshoot';
+  /** Asset id this tile resolved to once the workflow finished. */
+  tileAssetId?: string | null;
+  /** When true, the card renders a full-tile select overlay instead of the menu. */
+  selectMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+  onUseAsProduct?: (assetId: string) => void;
+  onUseInCampaign?: (assetId: string) => void;
 };
 
 type CardStatus = 'queued' | 'cooking' | 'done' | 'failed';
+
+/**
+ * Pure predicate: should the photoshoot per-tile action menu render?
+ *
+ * Exported so unit tests can verify the logic without standing up a full
+ * React render (the component depends on `useRouter`, which is not mocked
+ * in the SSR test harness).
+ */
+export function shouldShowTileMenu(args: {
+  context?: 'campaign' | 'photoshoot';
+  status: CardStatus;
+  tileAssetId?: string | null;
+  selectMode?: boolean;
+}): boolean {
+  return (
+    args.context === 'photoshoot' &&
+    !args.selectMode &&
+    args.status === 'done' &&
+    args.tileAssetId != null
+  );
+}
 
 function statusFromSnap(snap: WorkflowSnapshot | null): CardStatus {
   const s = (snap?.status ?? '').toLowerCase();
@@ -57,6 +92,13 @@ export function CreativeCard({
   quantity = 1,
   regenerate,
   adCopy,
+  context = 'campaign',
+  tileAssetId = null,
+  selectMode = false,
+  selected = false,
+  onToggleSelect,
+  onUseAsProduct,
+  onUseInCampaign,
 }: Props) {
   const router = useRouter();
   const preset = PRESETS[presetId];
@@ -154,28 +196,74 @@ export function CreativeCard({
 
   const firstUrl = imgUrls[0] ?? null;
 
+  const showMenu = shouldShowTileMenu({
+    context,
+    status,
+    tileAssetId,
+    selectMode,
+  });
+
+  // The select-mode overlay covers the whole thumbnail and intentionally hides
+  // existing per-image controls (regenerate, download, post-gen menu).
+  const selectOverlay = selectMode ? (
+    <button
+      type="button"
+      onClick={onToggleSelect}
+      aria-pressed={selected}
+      aria-label={selected ? 'deselect tile' : 'select tile'}
+      className={cn(
+        'absolute inset-0 z-card grid place-items-center rounded-[10px] transition-colors',
+        selected ? 'bg-volt-soft ring-1 ring-volt' : 'bg-transparent hover:bg-bg-3/40',
+      )}
+    >
+      {selected && <Check size={20} strokeWidth={2} className="text-volt" />}
+    </button>
+  ) : null;
+
+  const tileMenu =
+    showMenu && tileAssetId ? (
+      <TileMenu
+        assetId={tileAssetId}
+        canRegenerate={Boolean(regenerate) && !regenerating && status !== 'cooking'}
+        onUseAsProduct={onUseAsProduct}
+        onUseInCampaign={onUseInCampaign}
+        onRegenerate={onRegenerate}
+      />
+    ) : null;
+
   return (
     <article className="group flex flex-col gap-3 rounded-[14px] border border-line-subtle bg-bg-2 p-3 transition-all duration-base ease-out hover:-translate-y-[2px] hover:border-line-strong">
-      {isMulti ? (
-        <MultiImageGrid
-          quantity={safeQuantity}
-          urls={imgUrls}
-          aspect={aspect}
-          preset={preset}
-          status={status}
-          error={error}
-          workflowId={workflowId}
-        />
-      ) : (
-        <SingleImage
-          url={firstUrl}
-          aspect={aspect}
-          preset={preset}
-          status={status}
-          error={error}
-          workflowId={workflowId}
-        />
-      )}
+      {/*
+        Image area wrapper. Intentionally NOT `overflow-hidden` so the
+        per-tile menu dropdown (rendered as a sibling below) can extend
+        beyond the image bounds without being clipped. The `SingleImage`
+        / `MultiImageGrid` children keep their own border-radius clipping
+        for the image itself.
+      */}
+      <div className="relative">
+        {isMulti ? (
+          <MultiImageGrid
+            quantity={safeQuantity}
+            urls={imgUrls}
+            aspect={aspect}
+            preset={preset}
+            status={status}
+            error={error}
+            workflowId={workflowId}
+          />
+        ) : (
+          <SingleImage
+            url={firstUrl}
+            aspect={aspect}
+            preset={preset}
+            status={status}
+            error={error}
+            workflowId={workflowId}
+          />
+        )}
+        {tileMenu}
+        {selectOverlay}
+      </div>
 
       {adCopy && (adCopy.headline || adCopy.subhead) && (
         <div className="flex flex-col gap-1 px-1 pt-1">
@@ -258,7 +346,10 @@ function SingleImage({
   status,
   error,
   workflowId,
-}: RenderProps & { url: string | null; workflowId: string }) {
+}: RenderProps & {
+  url: string | null;
+  workflowId: string;
+}) {
   return (
     <div
       className="relative overflow-hidden rounded-[10px] border border-line bg-bg-3"
@@ -296,7 +387,11 @@ function MultiImageGrid({
   status,
   error,
   workflowId,
-}: RenderProps & { quantity: number; urls: string[]; workflowId: string }) {
+}: RenderProps & {
+  quantity: number;
+  urls: string[];
+  workflowId: string;
+}) {
   // 2-column grid for 2-4, horizontal scroll strip for 5+.
   const useStrip = quantity >= 5;
   const slots = Array.from({ length: quantity });
@@ -416,6 +511,103 @@ function PresetBadge({ preset, inline }: { preset: PresetForRender; inline?: boo
     >
       {preset.label} · {preset.ratio}
     </span>
+  );
+}
+
+function TileMenu({
+  assetId,
+  canRegenerate,
+  onUseAsProduct,
+  onUseInCampaign,
+  onRegenerate,
+}: {
+  assetId: string;
+  canRegenerate: boolean;
+  onUseAsProduct?: (assetId: string) => void;
+  onUseInCampaign?: (assetId: string) => void;
+  onRegenerate?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const hasAny = Boolean(onUseAsProduct || onUseInCampaign || (onRegenerate && canRegenerate));
+
+  // Click-outside to dismiss the menu. Matches the pattern in
+  // `PostGenActions` so the two photoshoot overlays behave consistently.
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (!menuRef.current) return;
+      if (e.target instanceof Node && menuRef.current.contains(e.target)) return;
+      setOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  if (!hasAny) return null;
+  return (
+    // Top-LEFT corner: the top-right slot is owned by `PostGenActions` (the
+    // upscale/animate/download overlay) and the two menus would otherwise
+    // collide visually and steal each other's clicks.
+    <div ref={menuRef} className="absolute left-2 top-2 z-card">
+      <button
+        type="button"
+        aria-label="tile actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="grid size-7 place-items-center rounded-[6px] bg-bg-0/70 text-fg-0 backdrop-blur transition-colors hover:bg-bg-2"
+      >
+        <MoreVertical size={14} strokeWidth={1.75} />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute left-0 mt-1 flex w-[180px] flex-col rounded-[10px] border border-line bg-bg-1 p-1 shadow-lg"
+        >
+          {onUseAsProduct && (
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onUseAsProduct(assetId);
+              }}
+              className="rounded-[6px] px-2 py-1.5 text-left text-[13px] text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0"
+            >
+              use as product image
+            </button>
+          )}
+          {onUseInCampaign && (
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onUseInCampaign(assetId);
+              }}
+              className="rounded-[6px] px-2 py-1.5 text-left text-[13px] text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0"
+            >
+              use in campaign
+            </button>
+          )}
+          {onRegenerate && (
+            <button
+              role="menuitem"
+              type="button"
+              disabled={!canRegenerate}
+              onClick={() => {
+                setOpen(false);
+                onRegenerate();
+              }}
+              className="rounded-[6px] px-2 py-1.5 text-left text-[13px] text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-fg-1"
+            >
+              regenerate
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
