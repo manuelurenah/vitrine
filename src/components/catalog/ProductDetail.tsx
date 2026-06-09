@@ -3,7 +3,7 @@ import { ArrowLeft, Pencil } from 'lucide-react';
 import { Badge, Chip } from '@/components/ui';
 import { GradientThumb } from '@/components/campaigns';
 import { DeleteProductButton } from './DeleteProductButton';
-import { buildCampaignNewHref } from '@/lib/campaignHref';
+import { buildCampaignNewHref, buildPhotoshootNewHref } from '@/lib/campaignHref';
 import type { Product } from '@/lib/catalog';
 
 export type ProductDetailImage = {
@@ -41,7 +41,7 @@ export function ProductDetail({ product, images = [] }: Props) {
           use in a campaign
         </Link>
         <Link
-          href={`/photoshoot/new?subject=${encodeURIComponent(`product:${product.id}`)}`}
+          href={buildPhotoshootNewHref({ kind: 'product', id: product.id })}
           className="inline-flex items-center gap-2 rounded-pill border border-line-subtle bg-bg-2 px-[14px] py-[7px] text-[13px] font-medium text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0"
         >
           use as photoshoot subject

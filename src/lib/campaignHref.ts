@@ -18,3 +18,12 @@ export function buildCampaignNewHref(
   );
   return `/campaigns/new?refs=${encodeURIComponent(tokens.join(','))}`;
 }
+
+/**
+ * Builds the deep-link URL for the photoshoot wizard with a pre-staged subject.
+ * Encoding contract: single `encodeURIComponent` over the `${kind}:${id}` token.
+ * Must match the decoder in `app/(app)/photoshoot/new/page.tsx`.
+ */
+export function buildPhotoshootNewHref(ref: CampaignRef): string {
+  return `/photoshoot/new?subject=${encodeURIComponent(`${ref.kind}:${ref.id}`)}`;
+}
