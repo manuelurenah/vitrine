@@ -350,6 +350,19 @@ export function AssetDetailView({
                 use in a campaign
               </Button>
             </Link>
+            <Link
+              href={`/photoshoot/new?subject=${encodeURIComponent(`asset:${asset.id}`)}`}
+              className="w-full"
+            >
+              <Button
+                type="button"
+                variant="secondary"
+                leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
+                className="w-full"
+              >
+                use as photoshoot subject
+              </Button>
+            </Link>
             {asset.publicUrl && (
               <a href={asset.publicUrl} target="_blank" rel="noreferrer" className="w-full">
                 <Button
