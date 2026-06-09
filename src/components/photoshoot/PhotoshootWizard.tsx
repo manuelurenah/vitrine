@@ -162,9 +162,10 @@ export function PhotoshootWizard({
   useEffect(() => {
     const subjectAssetId = resolveSubjectReference(subject, libraryProducts, libraryAssets);
     if (!subjectAssetId) return;
+    const prefixed = `asset:${subjectAssetId}`;
     setReferenceAssetIds((prev) => {
-      if (prev.includes(subjectAssetId)) return prev;
-      return Array.from(new Set([subjectAssetId, ...prev]));
+      if (prev.includes(prefixed)) return prev;
+      return Array.from(new Set([prefixed, ...prev]));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subject]);
