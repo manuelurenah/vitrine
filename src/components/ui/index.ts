@@ -9,4 +9,6 @@ export { BuzzPill } from './BuzzPill';
 export { BuzzGlyph } from './BuzzGlyph';
 export { Input, Textarea, FieldLabel } from './Input';
 export { Modal } from './Modal';
+export { TabStrip, tabId } from './TabStrip';
+export type { TabStripTab, TabStripProps } from './TabStrip';
 export { cn } from './cn';

@@ -3,7 +3,7 @@
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Library, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
-import { Button, Chip, cn, FieldLabel, Input, Textarea } from '@/components/ui';
+import { Button, Chip, cn, FieldLabel, Input, TabStrip, Textarea } from '@/components/ui';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
 import type { Asset } from '@/lib/assets';
 
@@ -86,8 +86,6 @@ export function AddProductForm({
   const nameId = useId();
   const descriptionId = useId();
   const tagsId = useId();
-  const uploadTabId = useId();
-  const libraryTabId = useId();
   const uploadPanelId = useId();
   const libraryPanelId = useId();
 
@@ -316,44 +314,24 @@ export function AddProductForm({
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-6">
       {hasLibrary && (
-        <div
-          role="tablist"
-          aria-label="image source"
-          className="inline-flex gap-1 self-start rounded-[10px] border border-line bg-bg-2 p-1"
-        >
-          <button
-            type="button"
-            role="tab"
-            id={uploadTabId}
-            aria-selected={tab === 'upload'}
-            aria-controls={uploadPanelId}
-            onClick={() => setTab('upload')}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-fast ease-out',
-              tab === 'upload'
-                ? 'bg-bg-3 text-fg-0'
-                : 'text-fg-2 hover:text-fg-1',
-            )}
-          >
-            <Upload size={12} strokeWidth={1.75} /> upload
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id={libraryTabId}
-            aria-selected={tab === 'library'}
-            aria-controls={libraryPanelId}
-            onClick={() => setTab('library')}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-fast ease-out',
-              tab === 'library'
-                ? 'bg-bg-3 text-fg-0'
-                : 'text-fg-2 hover:text-fg-1',
-            )}
-          >
-            <Library size={12} strokeWidth={1.75} /> pick from library
-          </button>
-        </div>
+        <TabStrip
+          value={tab}
+          onChange={setTab}
+          label="image source"
+          tabs={[
+            {
+              key: 'upload',
+              label: 'upload',
+              icon: <Upload size={12} strokeWidth={1.75} />,
+            },
+            {
+              key: 'library',
+              label: 'pick from library',
+              icon: <Library size={12} strokeWidth={1.75} />,
+            },
+          ]}
+          panelIds={{ upload: uploadPanelId, library: libraryPanelId }}
+        />
       )}
 
       {(!hasLibrary || tab === 'upload') && (
@@ -361,7 +339,6 @@ export function AddProductForm({
         {...(hasLibrary && {
           role: 'tabpanel',
           id: uploadPanelId,
-          'aria-labelledby': uploadTabId,
         })}
       >
       <div
@@ -436,7 +413,6 @@ export function AddProductForm({
         <div
           role="tabpanel"
           id={libraryPanelId}
-          aria-labelledby={libraryTabId}
           className="flex flex-col gap-3 rounded-[14px] border border-line-subtle bg-bg-2/60 p-4"
         >
           <div className="flex items-center justify-between">

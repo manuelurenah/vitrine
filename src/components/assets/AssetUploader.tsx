@@ -13,7 +13,7 @@ import {
   Video,
   X,
 } from 'lucide-react';
-import { Button, Chip, cn, FieldLabel, Input, Textarea } from '@/components/ui';
+import { Button, Chip, cn, FieldLabel, Input, TabStrip, Textarea } from '@/components/ui';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
 import type { Asset } from '@/lib/assets';
 
@@ -97,8 +97,6 @@ export function AssetUploader({
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const collectionId = useId();
-  const uploadTabId = useId();
-  const libraryTabId = useId();
   const uploadPanelId = useId();
   const libraryPanelId = useId();
 
@@ -123,6 +121,7 @@ export function AssetUploader({
 
   const pickedAsset =
     libraryPicked.length > 0 ? (libraryById.get(libraryPicked[0]!) ?? null) : null;
+  const isAlreadyInCollection = pickedAsset?.metadata?.collection === collection;
 
   const tags = useMemo(
     () =>
@@ -301,40 +300,24 @@ export function AssetUploader({
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-6">
       {hasLibrary && (
-        <div
-          role="tablist"
-          aria-label="asset source"
-          className="inline-flex gap-1 self-start rounded-[10px] border border-line bg-bg-2 p-1"
-        >
-          <button
-            type="button"
-            role="tab"
-            id={uploadTabId}
-            aria-selected={tab === 'upload'}
-            aria-controls={uploadPanelId}
-            onClick={() => setTab('upload')}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-fast ease-out',
-              tab === 'upload' ? 'bg-bg-3 text-fg-0' : 'text-fg-2 hover:text-fg-1',
-            )}
-          >
-            <Upload size={12} strokeWidth={1.75} /> upload
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id={libraryTabId}
-            aria-selected={tab === 'library'}
-            aria-controls={libraryPanelId}
-            onClick={() => setTab('library')}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-fast ease-out',
-              tab === 'library' ? 'bg-bg-3 text-fg-0' : 'text-fg-2 hover:text-fg-1',
-            )}
-          >
-            <Library size={12} strokeWidth={1.75} /> pick from library
-          </button>
-        </div>
+        <TabStrip
+          value={tab}
+          onChange={setTab}
+          label="asset source"
+          tabs={[
+            {
+              key: 'upload',
+              label: 'upload',
+              icon: <Upload size={12} strokeWidth={1.75} />,
+            },
+            {
+              key: 'library',
+              label: 'pick from library',
+              icon: <Library size={12} strokeWidth={1.75} />,
+            },
+          ]}
+          panelIds={{ upload: uploadPanelId, library: libraryPanelId }}
+        />
       )}
 
       {(!hasLibrary || tab === 'upload') && (
@@ -342,7 +325,6 @@ export function AssetUploader({
           {...(hasLibrary && {
             role: 'tabpanel',
             id: uploadPanelId,
-            'aria-labelledby': uploadTabId,
           })}
           className="flex flex-col gap-6"
         >
@@ -422,7 +404,6 @@ export function AssetUploader({
         <div
           role="tabpanel"
           id={libraryPanelId}
-          aria-labelledby={libraryTabId}
           className="flex flex-col gap-4 rounded-[14px] border border-line-subtle bg-bg-2/60 p-4"
         >
           <div className="flex items-center justify-between">
@@ -456,8 +437,17 @@ export function AssetUploader({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13px] text-fg-0">
-                  promoting <span className="font-medium">{pickedFilename}</span> to{' '}
-                  <span className="font-medium">{collection}</span>
+                  {isAlreadyInCollection ? (
+                    <>
+                      <span className="font-medium">{pickedFilename}</span> already in{' '}
+                      <span className="font-medium">{collection}</span> — re-save?
+                    </>
+                  ) : (
+                    <>
+                      promoting <span className="font-medium">{pickedFilename}</span> to{' '}
+                      <span className="font-medium">{collection}</span>
+                    </>
+                  )}
                 </div>
                 <div className="truncate font-mono text-[10.5px] uppercase tracking-[0.08em] text-fg-3">
                   from library · {pickedAsset.kind}
@@ -472,7 +462,9 @@ export function AssetUploader({
         <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-3">
           {tab === 'library'
             ? 'applied to picked asset'
-            : `applied to all ${staged.length || ''} files`}
+            : staged.length > 0
+              ? `applied to all ${staged.length} files`
+              : 'applied to all files'}
         </span>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -565,7 +557,13 @@ export function AssetUploader({
               onClick={onPromote}
               leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
             >
-              {promoting ? 'promoting…' : 'promote to library'}
+              {promoting
+                ? isAlreadyInCollection
+                  ? 're-tagging…'
+                  : 'promoting…'
+                : isAlreadyInCollection
+                  ? 're-tag'
+                  : 'promote to library'}
             </Button>
           ) : (
             <Button
