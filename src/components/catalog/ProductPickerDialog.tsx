@@ -106,6 +106,7 @@ export function ProductPickerDialog({
         variant="primary"
         leadingIcon={<Plus size={14} strokeWidth={1.75} />}
         onClick={onNewProduct}
+        disabled={inFlight}
         data-testid="product-picker-new"
       >
         + new product
@@ -130,6 +131,7 @@ export function ProductPickerDialog({
               variant="primary"
               leadingIcon={<Plus size={14} strokeWidth={1.75} />}
               onClick={onNewProduct}
+              disabled={inFlight}
               data-testid="product-picker-new"
             >
               + new product
