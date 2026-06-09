@@ -167,8 +167,7 @@ export function PhotoshootWizard({
       if (prev.includes(prefixed)) return prev;
       return Array.from(new Set([prefixed, ...prev]));
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subject]);
+  }, [subject, libraryProducts, libraryAssets]);
 
   // --- preview / review state ------------------------------------------------
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
