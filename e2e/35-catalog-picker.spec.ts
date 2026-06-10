@@ -1,4 +1,5 @@
 import { expect, test } from './fixtures';
+import { signInToApp } from './helpers/auth';
 import {
   countRows,
   getAssetCollection,
@@ -7,7 +8,6 @@ import {
   resetUserData,
   seedAsset,
 } from './helpers/db';
-import { signInToApp } from './helpers/auth';
 
 test.describe('Catalog + uploader library picker', () => {
   test.beforeEach(async () => {

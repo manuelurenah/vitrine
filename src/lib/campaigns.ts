@@ -3,13 +3,13 @@ import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   assets as assetsTable,
-  campaigns as campaignsTable,
-  campaignTiles as campaignTilesTable,
   type Campaign as CampaignRow,
   type CampaignTile as CampaignTileRow,
+  campaigns as campaignsTable,
+  campaignTiles as campaignTilesTable,
 } from '@/lib/db/schema';
-import type { BriefForPresets, PresetId } from './presets';
 import type { AdCopy } from './adCopy';
+import type { BriefForPresets, PresetId } from './presets';
 
 export type TileStatus = 'queued' | 'cooking' | 'done' | 'failed';
 
@@ -217,10 +217,10 @@ export async function listCampaignAssets(
         isNull(assetsTable.deletedAt),
       ),
     );
-  return rows
-    .filter((r): r is { tileId: string; presetId: string; publicUrl: string; contentType: string | null } =>
+  return rows.filter(
+    (r): r is { tileId: string; presetId: string; publicUrl: string; contentType: string | null } =>
       Boolean(r.publicUrl),
-    );
+  );
 }
 
 export async function swapTileWorkflow(

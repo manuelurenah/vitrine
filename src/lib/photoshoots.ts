@@ -1,21 +1,17 @@
 import 'server-only';
+import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
 import {
   assets as assetsTable,
   generations as generationsTable,
-  photoshoots as photoshootsTable,
-  photoshootTiles as photoshootTilesTable,
   type Photoshoot as PhotoshootRow,
   type PhotoshootTile as PhotoshootTileRow,
+  photoshoots as photoshootsTable,
+  photoshootTiles as photoshootTilesTable,
 } from '@/lib/db/schema';
-import type {
-  PhotoshootBrief,
-  PhotoshootRatio,
-  PhotoshootTemplateId,
-} from './photoshootTemplates';
 import type { TileStatus } from './campaigns';
+import type { PhotoshootBrief, PhotoshootRatio, PhotoshootTemplateId } from './photoshootTemplates';
 
 export type PhotoshootTile = {
   id: string;
@@ -162,9 +158,7 @@ export async function swapPhotoshootTileWorkflow(
   const owner = await db
     .select({ id: photoshootsTable.id })
     .from(photoshootsTable)
-    .where(
-      and(eq(photoshootsTable.id, photoshootId), eq(photoshootsTable.userId, userId)),
-    )
+    .where(and(eq(photoshootsTable.id, photoshootId), eq(photoshootsTable.userId, userId)))
     .limit(1);
   if (owner.length === 0) return null;
 
@@ -176,10 +170,7 @@ export async function swapPhotoshootTileWorkflow(
       updatedAt: new Date(),
     })
     .where(
-      and(
-        eq(photoshootTilesTable.id, tileId),
-        eq(photoshootTilesTable.photoshootId, photoshootId),
-      ),
+      and(eq(photoshootTilesTable.id, tileId), eq(photoshootTilesTable.photoshootId, photoshootId)),
     )
     .returning();
   return row ? toTile(row) : null;

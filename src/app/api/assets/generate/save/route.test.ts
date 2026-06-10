@@ -133,24 +133,18 @@ describe('POST /api/assets/generate/save', () => {
   });
 
   it('returns 400 on invalid body (empty imageIndexes)', async () => {
-    const res = await POST(
-      makeRequest({ workflowId: 'wf_1', imageIndexes: [] }) as never,
-    );
+    const res = await POST(makeRequest({ workflowId: 'wf_1', imageIndexes: [] }) as never);
     expect(res.status).toBe(400);
   });
 
   it('returns 400 on invalid body (negative imageIndex)', async () => {
-    const res = await POST(
-      makeRequest({ workflowId: 'wf_1', imageIndexes: [-1] }) as never,
-    );
+    const res = await POST(makeRequest({ workflowId: 'wf_1', imageIndexes: [-1] }) as never);
     expect(res.status).toBe(400);
   });
 
   it('returns 404 when generation row is missing', async () => {
     getGenerationMock.mockResolvedValueOnce(null);
-    const res = await POST(
-      makeRequest({ workflowId: 'wf_1', imageIndexes: [0] }) as never,
-    );
+    const res = await POST(makeRequest({ workflowId: 'wf_1', imageIndexes: [0] }) as never);
     expect(res.status).toBe(404);
     expect((await res.json()).error).toBe('workflow_not_found');
     expect(mirrorOrchestratorImageMock).not.toHaveBeenCalled();
@@ -158,9 +152,7 @@ describe('POST /api/assets/generate/save', () => {
 
   it('returns 404 when workflow belongs to a different user', async () => {
     getGenerationMock.mockResolvedValueOnce(makeGen({ userId: 'someone_else' }));
-    const res = await POST(
-      makeRequest({ workflowId: 'wf_1', imageIndexes: [0] }) as never,
-    );
+    const res = await POST(makeRequest({ workflowId: 'wf_1', imageIndexes: [0] }) as never);
     expect(res.status).toBe(404);
     expect((await res.json()).error).toBe('workflow_not_found');
     expect(mirrorOrchestratorImageMock).not.toHaveBeenCalled();
@@ -168,9 +160,7 @@ describe('POST /api/assets/generate/save', () => {
 
   it('returns 400 when every requested index is out of range', async () => {
     extractImageUrlsMock.mockReturnValue(['https://cdn.test/only-one.png']);
-    const res = await POST(
-      makeRequest({ workflowId: 'wf_1', imageIndexes: [5, 6] }) as never,
-    );
+    const res = await POST(makeRequest({ workflowId: 'wf_1', imageIndexes: [5, 6] }) as never);
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe('no_images_saved');
@@ -183,9 +173,7 @@ describe('POST /api/assets/generate/save', () => {
   });
 
   it('returns 200 with savedAssetIds for every successfully mirrored image', async () => {
-    const res = await POST(
-      makeRequest({ workflowId: 'wf_1', imageIndexes: [0, 2] }) as never,
-    );
+    const res = await POST(makeRequest({ workflowId: 'wf_1', imageIndexes: [0, 2] }) as never);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.savedAssetIds).toHaveLength(2);
@@ -220,9 +208,7 @@ describe('POST /api/assets/generate/save', () => {
       'https://cdn.test/img-0.png',
       'https://cdn.test/img-1.png',
     ]);
-    const res = await POST(
-      makeRequest({ workflowId: 'wf_1', imageIndexes: [0, 9] }) as never,
-    );
+    const res = await POST(makeRequest({ workflowId: 'wf_1', imageIndexes: [0, 9] }) as never);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.savedAssetIds).toHaveLength(1);
@@ -244,9 +230,7 @@ describe('POST /api/assets/generate/save', () => {
         byteSize: 100,
       })
       .mockRejectedValueOnce(new Error('failed_to_fetch_source: status=404'));
-    const res = await POST(
-      makeRequest({ workflowId: 'wf_1', imageIndexes: [0, 1] }) as never,
-    );
+    const res = await POST(makeRequest({ workflowId: 'wf_1', imageIndexes: [0, 1] }) as never);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.savedAssetIds).toHaveLength(1);
@@ -263,9 +247,7 @@ describe('POST /api/assets/generate/save', () => {
     snapshotRowQueue.push(undefined);
     snapshotRowQueue.push({ snapshot: { id: 'wf_1', status: 'succeeded' } });
 
-    const res = await POST(
-      makeRequest({ workflowId: 'wf_1', imageIndexes: [0] }) as never,
-    );
+    const res = await POST(makeRequest({ workflowId: 'wf_1', imageIndexes: [0] }) as never);
     expect(res.status).toBe(200);
     expect(refreshGenerationSnapshotMock).toHaveBeenCalledTimes(1);
     expect(refreshGenerationSnapshotMock.mock.calls[0]![0]).toBe('wf_1');
@@ -287,17 +269,13 @@ describe('POST /api/assets/generate/save', () => {
         steps: [{ output: { images: [{ available: true }] } }],
       },
     });
-    const res = await POST(
-      makeRequest({ workflowId: 'wf_1', imageIndexes: [0] }) as never,
-    );
+    const res = await POST(makeRequest({ workflowId: 'wf_1', imageIndexes: [0] }) as never);
     expect(res.status).toBe(200);
     expect(refreshGenerationSnapshotMock).toHaveBeenCalledTimes(1);
   });
 
   it('de-duplicates repeated indexes in the request body', async () => {
-    const res = await POST(
-      makeRequest({ workflowId: 'wf_1', imageIndexes: [0, 0, 1] }) as never,
-    );
+    const res = await POST(makeRequest({ workflowId: 'wf_1', imageIndexes: [0, 0, 1] }) as never);
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.savedAssetIds).toHaveLength(2);

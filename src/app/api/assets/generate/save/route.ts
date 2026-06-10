@@ -1,14 +1,11 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { mirrorOrchestratorImage } from '@/lib/assetMirror';
+import { createAsset } from '@/lib/assets';
 import { extractImageUrls, type WorkflowSnapshot } from '@/lib/civitai';
+import { getGeneration, refreshGenerationSnapshot } from '@/lib/generations';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { createAsset } from '@/lib/assets';
-import {
-  getGeneration,
-  refreshGenerationSnapshot,
-} from '@/lib/generations';
-import { mirrorOrchestratorImage } from '@/lib/assetMirror';
 
 const saveSchema = z.object({
   workflowId: z.string().min(1),
@@ -135,15 +132,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (savedAssetIds.length === 0) {
-    return NextResponse.json(
-      { error: 'no_images_saved', failures },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: 'no_images_saved', failures }, { status: 400 });
   }
 
-  return NextResponse.json(
-    failures.length > 0 ? { savedAssetIds, failures } : { savedAssetIds },
-  );
+  return NextResponse.json(failures.length > 0 ? { savedAssetIds, failures } : { savedAssetIds });
 }
 
 /**
@@ -152,9 +144,7 @@ export async function POST(req: NextRequest) {
  * rather than rely on the returned wrapper (which doesn't expose the raw
  * snapshot).
  */
-async function readGenerationSnapshot(
-  workflowId: string,
-): Promise<WorkflowSnapshot | null> {
+async function readGenerationSnapshot(workflowId: string): Promise<WorkflowSnapshot | null> {
   const { db } = await import('@/lib/db');
   const { generations } = await import('@/lib/db/schema');
   const { eq } = await import('drizzle-orm');

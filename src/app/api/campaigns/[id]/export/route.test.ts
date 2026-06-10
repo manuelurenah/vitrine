@@ -104,10 +104,7 @@ describe('GET /api/campaigns/[id]/export', () => {
     const passedEntries = buildZipStoredMock.mock.calls[0]![0] as Array<{
       name: string;
     }>;
-    expect(passedEntries.map((e) => e.name)).toEqual([
-      '01-ig-feed.png',
-      '02-ig-story.jpg',
-    ]);
+    expect(passedEntries.map((e) => e.name)).toEqual(['01-ig-feed.png', '02-ig-story.jpg']);
   });
 
   it('returns 502 when an asset fetch fails', async () => {

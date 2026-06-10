@@ -190,9 +190,7 @@ describe('POST /api/photoshoot/[id]/tiles/[tileId]/regenerate', () => {
   });
 
   it('resolves shoot.referenceAssetIds into images[]', async () => {
-    getPhotoshootMock.mockResolvedValueOnce(
-      makeShoot({ referenceAssetIds: ['a1', 'a2'] }),
-    );
+    getPhotoshootMock.mockResolvedValueOnce(makeShoot({ referenceAssetIds: ['a1', 'a2'] }));
     await POST(makeRequest() as never, makeParams());
     expect(getPublicUrlsMock).toHaveBeenCalledWith(expect.any(String), ['a1', 'a2']);
     expect(submitImageGenMock.mock.calls[0]![1].images).toEqual([
@@ -224,12 +222,7 @@ describe('POST /api/photoshoot/[id]/tiles/[tileId]/regenerate', () => {
   it('calls swapPhotoshootTileWorkflow with the new workflow id', async () => {
     getPhotoshootMock.mockResolvedValueOnce(makeShoot());
     await POST(makeRequest() as never, makeParams());
-    expect(swapPhotoshootTileWorkflowMock).toHaveBeenCalledWith(
-      'user_1',
-      'p1',
-      't1',
-      'wf_new',
-    );
+    expect(swapPhotoshootTileWorkflowMock).toHaveBeenCalledWith('user_1', 'p1', 't1', 'wf_new');
   });
 
   it('records generation and a submit buzz event with note=regenerate', async () => {
@@ -243,9 +236,7 @@ describe('POST /api/photoshoot/[id]/tiles/[tileId]/regenerate', () => {
 
   it('propagates orchestrator error', async () => {
     getPhotoshootMock.mockResolvedValueOnce(makeShoot());
-    submitImageGenMock.mockRejectedValueOnce(
-      new FakeOrchestratorError('boom', 402, {}),
-    );
+    submitImageGenMock.mockRejectedValueOnce(new FakeOrchestratorError('boom', 402, {}));
     const res = await POST(makeRequest() as never, makeParams());
     expect(res.status).toBe(402);
   });

@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 import { BrandEditor } from '@/components/brand';
+import { ensureDefaultBrand } from '@/lib/brand';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { ensureDefaultBrand } from '@/lib/brand';
 
 export const metadata = { title: 'brand dna · vitrine' };
 export const dynamic = 'force-dynamic';

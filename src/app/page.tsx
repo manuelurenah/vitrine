@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 import { LoginScreen } from '@/components/login/LoginScreen';
+import { getOnboarding } from '@/lib/onboarding';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { getOnboarding } from '@/lib/onboarding';
 
 type SearchParams = Promise<{ error?: string; notice?: string }>;
 

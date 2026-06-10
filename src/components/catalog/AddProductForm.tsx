@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useId, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Check, Library, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
-import { Button, Chip, cn, FieldLabel, Input, TabStrip, Textarea } from '@/components/ui';
+import { useRouter } from 'next/navigation';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
+import { Button, Chip, cn, FieldLabel, Input, TabStrip, Textarea } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -125,8 +125,7 @@ export function AddProductForm({
   );
 
   const totalCount = images.length + libraryPicked.length;
-  const doneCount =
-    images.filter((s) => s.status === 'done').length + libraryPicked.length;
+  const doneCount = images.filter((s) => s.status === 'done').length + libraryPicked.length;
   const capReached = totalCount >= MAX_IMAGES;
   const remainingSlots = Math.max(0, MAX_IMAGES - totalCount);
 
@@ -192,9 +191,7 @@ export function AddProductForm({
   }
 
   function onPickerChange(ids: string[]) {
-    const next = ids
-      .filter((s) => s.startsWith('asset:'))
-      .map((s) => s.slice('asset:'.length));
+    const next = ids.filter((s) => s.startsWith('asset:')).map((s) => s.slice('asset:'.length));
     setLibraryPicked(next);
   }
 
@@ -335,78 +332,76 @@ export function AddProductForm({
       )}
 
       {(!hasLibrary || tab === 'upload') && (
-      <div
-        {...(hasLibrary && {
-          role: 'tabpanel',
-          id: uploadPanelId,
-        })}
-      >
-      <div
-        onClick={() => !capReached && inputRef.current?.click()}
-        onDragOver={(e) => {
-          e.preventDefault();
-          if (!capReached) setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
-        role="button"
-        tabIndex={0}
-        aria-disabled={capReached}
-        onKeyDown={(e) => {
-          if ((e.key === 'Enter' || e.key === ' ') && !capReached) {
-            e.preventDefault();
-            inputRef.current?.click();
-          }
-        }}
-        className={cn(
-          'flex flex-col items-center gap-3 rounded-[14px] border border-dashed bg-bg-2/60 px-6 py-10 text-center transition-colors duration-fast ease-out',
-          capReached
-            ? 'cursor-not-allowed border-line opacity-60'
-            : 'cursor-pointer',
-          !capReached && dragOver
-            ? 'border-volt bg-volt-soft text-fg-0'
-            : !capReached && 'border-line hover:border-line-volt hover:bg-bg-2',
-        )}
-      >
-        <span
-          className="grid h-12 w-12 place-items-center rounded-[12px] border border-line-volt"
-          style={{ background: 'rgba(0,255,157,0.18)' }}
+        <div
+          {...(hasLibrary && {
+            role: 'tabpanel',
+            id: uploadPanelId,
+          })}
         >
-          <Upload size={22} strokeWidth={1.75} />
-        </span>
-        <div>
-          <h3 className="font-display text-[18px] font-semibold tracking-[-0.015em] text-fg-0">
-            {capReached
-              ? `max ${MAX_IMAGES} images reached`
-              : 'drop product images here, or click to choose'}
-          </h3>
-          <p className="mt-1 text-[12.5px] text-fg-2">
-            jpg · png · webp — up to 20 mb each · first image is the hero · max {MAX_IMAGES}
-          </p>
+          <div
+            onClick={() => !capReached && inputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!capReached) setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            role="button"
+            tabIndex={0}
+            aria-disabled={capReached}
+            onKeyDown={(e) => {
+              if ((e.key === 'Enter' || e.key === ' ') && !capReached) {
+                e.preventDefault();
+                inputRef.current?.click();
+              }
+            }}
+            className={cn(
+              'flex flex-col items-center gap-3 rounded-[14px] border border-dashed bg-bg-2/60 px-6 py-10 text-center transition-colors duration-fast ease-out',
+              capReached ? 'cursor-not-allowed border-line opacity-60' : 'cursor-pointer',
+              !capReached && dragOver
+                ? 'border-volt bg-volt-soft text-fg-0'
+                : !capReached && 'border-line hover:border-line-volt hover:bg-bg-2',
+            )}
+          >
+            <span
+              className="grid h-12 w-12 place-items-center rounded-[12px] border border-line-volt"
+              style={{ background: 'rgba(0,255,157,0.18)' }}
+            >
+              <Upload size={22} strokeWidth={1.75} />
+            </span>
+            <div>
+              <h3 className="font-display text-[18px] font-semibold tracking-[-0.015em] text-fg-0">
+                {capReached
+                  ? `max ${MAX_IMAGES} images reached`
+                  : 'drop product images here, or click to choose'}
+              </h3>
+              <p className="mt-1 text-[12.5px] text-fg-2">
+                jpg · png · webp — up to 20 mb each · first image is the hero · max {MAX_IMAGES}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={capReached}
+              onClick={(e) => {
+                e.stopPropagation();
+                inputRef.current?.click();
+              }}
+              leadingIcon={<Upload size={14} strokeWidth={1.75} />}
+            >
+              browse
+            </Button>
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              className="hidden"
+              onChange={onPick}
+            />
+          </div>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={capReached}
-          onClick={(e) => {
-            e.stopPropagation();
-            inputRef.current?.click();
-          }}
-          leadingIcon={<Upload size={14} strokeWidth={1.75} />}
-        >
-          browse
-        </Button>
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          accept="image/*"
-          className="hidden"
-          onChange={onPick}
-        />
-      </div>
-      </div>
       )}
 
       {hasLibrary && tab === 'library' && (
@@ -564,11 +559,7 @@ function ThumbCard({
       )}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={item.previewUrl}
-        alt={item.file.name}
-        className="h-full w-full object-cover"
-      />
+      <img src={item.previewUrl} alt={item.file.name} className="h-full w-full object-cover" />
       {isHero && (
         <span className="absolute left-1.5 top-1.5 rounded-pill border border-line/40 bg-black/55 px-[8px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.08em] text-fg-0 backdrop-blur-md">
           hero

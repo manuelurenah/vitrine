@@ -1,4 +1,3 @@
-import { NextResponse, type NextRequest } from 'next/server';
 import {
   createOrchestratorClient,
   isTerminal,
@@ -6,16 +5,17 @@ import {
   pollWorkflow,
   type WorkflowSnapshot,
 } from '@civitai/app-sdk/orchestrator';
+import { type NextRequest, NextResponse } from 'next/server';
+import { markTileFailed } from '@/lib/assets';
+import { recordBuzzEvent } from '@/lib/buzz';
 import { env } from '@/lib/env';
-import { getSession } from '@/lib/session';
-import { getUserKey } from '@/lib/userKey';
 import {
   getGeneration,
   refreshGenerationSnapshot,
   updateGenerationFromSnapshot,
 } from '@/lib/generations';
-import { markTileFailed } from '@/lib/assets';
-import { recordBuzzEvent } from '@/lib/buzz';
+import { getSession } from '@/lib/session';
+import { getUserKey } from '@/lib/userKey';
 
 /**
  * Long-poll endpoint. `?wait=<ms>` (capped at MAX_WAIT_MS) holds the

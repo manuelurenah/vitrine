@@ -1,14 +1,14 @@
 'use client';
 
-import Link from 'next/link';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowRight, Globe, Plus, TriangleAlert, UploadCloud, X } from 'lucide-react';
-import { Button, Input, Textarea, cn } from '@/components/ui';
-import type { OnboardingPayload, ScrapedSite } from '@/lib/onboarding';
+import Link from 'next/link';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { Button, cn, Input, Textarea } from '@/components/ui';
 import { pickContrast } from '@/lib/color';
+import type { OnboardingPayload, ScrapedSite } from '@/lib/onboarding';
+import { ColorPickerChip } from './ColorPickerChip';
 import { LogoPreview } from './LogoPreview';
 import { useLogoUpload } from './useLogoUpload';
-import { ColorPickerChip } from './ColorPickerChip';
 
 type Props = {
   payload: OnboardingPayload;
@@ -30,7 +30,7 @@ export function DnaStep({ payload }: Props) {
   const [tone, setTone] = useState<string[]>(payload.tone ?? []);
   const [font, setFont] = useState<string>(payload.font ?? scrape?.font ?? '');
   const [colors, setColors] = useState<string[]>(
-    payload.colors && payload.colors.length > 0 ? payload.colors : scrape?.palette ?? [],
+    payload.colors && payload.colors.length > 0 ? payload.colors : (scrape?.palette ?? []),
   );
   const [logoUrl, setLogoUrl] = useState<string | null>(payload.logoUrl ?? scrape?.logoUrl ?? null);
   const [logoName, setLogoName] = useState<string | null>(payload.logoName ?? null);
@@ -91,7 +91,9 @@ export function DnaStep({ payload }: Props) {
     };
   }, [brandName, tagline, description, tone, font, colors, logoUrl, logoName]);
 
-  const sourceLabel = scrape ? `scraped from ${hostnameLabel(scrape.finalUrl)}` : 'no website scanned yet';
+  const sourceLabel = scrape
+    ? `scraped from ${hostnameLabel(scrape.finalUrl)}`
+    : 'no website scanned yet';
   const subtitle = hostnameLabel(scrape?.finalUrl ?? websiteUrl);
 
   const readiness = computeReadiness({
@@ -275,7 +277,11 @@ export function DnaStep({ payload }: Props) {
           </div>
         </div>
         <Link href="/onboarding/next">
-          <Button variant="primary" size="lg" trailingIcon={<ArrowRight size={16} strokeWidth={1.75} />}>
+          <Button
+            variant="primary"
+            size="lg"
+            trailingIcon={<ArrowRight size={16} strokeWidth={1.75} />}
+          >
             let&apos;s go
           </Button>
         </Link>
@@ -461,7 +467,15 @@ function TagInput({
   );
 }
 
-function DnaCard({ title, wide, children }: { title: string; wide?: boolean; children: ReactNode }) {
+function DnaCard({
+  title,
+  wide,
+  children,
+}: {
+  title: string;
+  wide?: boolean;
+  children: ReactNode;
+}) {
   return (
     <article
       className={cn(
@@ -480,7 +494,12 @@ function hostnameLabel(input: string | null | undefined): string | null {
   try {
     return new URL(input).hostname.replace(/^www\./i, '');
   } catch {
-    return input.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0] ?? null;
+    return (
+      input
+        .replace(/^https?:\/\//i, '')
+        .replace(/^www\./i, '')
+        .split('/')[0] ?? null
+    );
   }
 }
 

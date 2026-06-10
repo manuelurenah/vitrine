@@ -3,9 +3,9 @@ import { and, desc, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   assets as assetsTable,
+  type Product as ProductRow,
   productAssets as productAssetsTable,
   products as productsTable,
-  type Product as ProductRow,
 } from '@/lib/db/schema';
 
 export type ProductStatus = 'live' | 'draft' | 'archived';
@@ -65,10 +65,7 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
         .select({ id: assetsTable.id })
         .from(assetsTable)
         .where(
-          and(
-            inArray(assetsTable.id, input.imageAssetIds),
-            eq(assetsTable.userId, input.userId),
-          ),
+          and(inArray(assetsTable.id, input.imageAssetIds), eq(assetsTable.userId, input.userId)),
         );
       const ownedSet = new Set(owned.map((r) => r.id));
       validImageIds = input.imageAssetIds.filter((id) => ownedSet.has(id));
@@ -138,9 +135,7 @@ export async function appendProductImages(
     const [product] = await tx
       .select()
       .from(productsTable)
-      .where(
-        and(eq(productsTable.id, input.productId), eq(productsTable.userId, input.userId)),
-      );
+      .where(and(eq(productsTable.id, input.productId), eq(productsTable.userId, input.userId)));
     if (!product) return null;
 
     const totalRequested = input.assetIds.length;
@@ -148,9 +143,7 @@ export async function appendProductImages(
     const owned = await tx
       .select({ id: assetsTable.id })
       .from(assetsTable)
-      .where(
-        and(inArray(assetsTable.id, input.assetIds), eq(assetsTable.userId, input.userId)),
-      );
+      .where(and(inArray(assetsTable.id, input.assetIds), eq(assetsTable.userId, input.userId)));
     const ownedSet = new Set(owned.map((r) => r.id));
     const validIds = input.assetIds.filter((id) => ownedSet.has(id));
 
@@ -260,12 +253,7 @@ export async function updateProduct(
         const owned = await tx
           .select({ id: assetsTable.id })
           .from(assetsTable)
-          .where(
-            and(
-              inArray(assetsTable.id, patch.imageAssetIds),
-              eq(assetsTable.userId, userId),
-            ),
-          );
+          .where(and(inArray(assetsTable.id, patch.imageAssetIds), eq(assetsTable.userId, userId)));
         const ownedSet = new Set(owned.map((r) => r.id));
         validImageIds = patch.imageAssetIds.filter((aid) => ownedSet.has(aid));
       }

@@ -25,12 +25,10 @@ const orchestratorMocks = vi.hoisted(() => {
     body,
   }));
   const getWorkflow = vi.fn();
-  const createOrchestratorClient = vi.fn(
-    (opts: { accessToken: string; baseUrl?: string }) => ({
-      accessToken: opts.accessToken,
-      baseUrl: opts.baseUrl ?? 'https://orchestration.civitai.com',
-    }),
-  );
+  const createOrchestratorClient = vi.fn((opts: { accessToken: string; baseUrl?: string }) => ({
+    accessToken: opts.accessToken,
+    baseUrl: opts.baseUrl ?? 'https://orchestration.civitai.com',
+  }));
   class OrchestratorError extends Error {
     readonly status: number;
     readonly body: unknown;
@@ -68,7 +66,6 @@ vi.mock('@/lib/env', () => ({
   },
 }));
 
-import type { Session } from './session';
 import {
   DEFAULT_IMAGE_ENGINE,
   DEFAULT_IMAGE_MODEL,
@@ -79,6 +76,7 @@ import {
   submitUpscale,
   submitVideoAnimate,
 } from './civitai';
+import type { Session } from './session';
 
 function makeSession(token = 'tok_abc'): Session {
   return {
@@ -250,15 +248,9 @@ describe('submitVideoAnimate / estimateVideoAnimate', () => {
   });
 
   it('passes optional prompt through when provided', async () => {
-    await submitVideoAnimate(
-      makeSession(),
-      'https://orch.test/img/1.png',
-      'slow zoom in',
-    );
+    await submitVideoAnimate(makeSession(), 'https://orch.test/img/1.png', 'slow zoom in');
     const [step] = orchestratorMocks.buildWorkflowBody.mock.calls[0]!;
-    expect((step as { input: Record<string, unknown> }).input.prompt).toBe(
-      'slow zoom in',
-    );
+    expect((step as { input: Record<string, unknown> }).input.prompt).toBe('slow zoom in');
   });
 
   it('estimateVideoAnimate calls estimateWorkflow', async () => {

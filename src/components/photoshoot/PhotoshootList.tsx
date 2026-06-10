@@ -1,7 +1,7 @@
-import Link from 'next/link';
 import { Camera } from 'lucide-react';
-import { Button } from '@/components/ui';
+import Link from 'next/link';
 import { GradientThumb } from '@/components/campaigns';
+import { Button } from '@/components/ui';
 import type { Photoshoot } from '@/lib/photoshoots';
 
 const TONES = ['volt', 'ion', 'ultraviolet', 'flux', 'buzz'] as const;
@@ -31,7 +31,11 @@ export function PhotoshootList({ shoots }: Props) {
 
         <div className="mx-auto mt-8 flex max-w-[720px] flex-col items-center gap-4">
           <Link href="/photoshoot/new">
-            <Button variant="primary" size="lg" leadingIcon={<Camera size={14} strokeWidth={1.75} />}>
+            <Button
+              variant="primary"
+              size="lg"
+              leadingIcon={<Camera size={14} strokeWidth={1.75} />}
+            >
               new photoshoot
             </Button>
           </Link>
@@ -48,9 +52,7 @@ export function PhotoshootList({ shoots }: Props) {
 
           {shoots.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-[18px] border border-dashed border-line bg-bg-1 p-10 text-center">
-              <div className="font-display text-[18px] font-semibold text-fg-0">
-                no shoots yet.
-              </div>
+              <div className="font-display text-[18px] font-semibold text-fg-0">no shoots yet.</div>
               <p className="max-w-[420px] text-[13.5px] text-fg-2">
                 spin up your first photoshoot — variants per template, four ratios, real renders.
               </p>
@@ -96,7 +98,9 @@ export function PhotoshootList({ shoots }: Props) {
                       <div className="text-[14px] font-medium text-fg-0">{s.title}</div>
                       <div className="mt-1 font-mono text-[11px] text-fg-2">
                         {s.brief.ratio} · {s.tiles.length} shots
-                        {live > 0 && live < s.tiles.length ? ` · ${s.tiles.length - live} cooking` : ''}
+                        {live > 0 && live < s.tiles.length
+                          ? ` · ${s.tiles.length - live} cooking`
+                          : ''}
                       </div>
                     </div>
                   </Link>

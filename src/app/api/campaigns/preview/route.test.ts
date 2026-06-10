@@ -12,7 +12,9 @@ const { getDefaultBrandMock } = vi.hoisted(() => ({
   getDefaultBrandMock: vi.fn(async () => null),
 }));
 const { getPublicUrlsMock } = vi.hoisted(() => ({
-  getPublicUrlsMock: vi.fn(async (_userId: string, ids: string[]) => ids.map((id) => `https://cdn.test/${id}`)),
+  getPublicUrlsMock: vi.fn(async (_userId: string, ids: string[]) =>
+    ids.map((id) => `https://cdn.test/${id}`),
+  ),
 }));
 const { estimateImageGenMock } = vi.hoisted(() => ({
   estimateImageGenMock: vi.fn(
@@ -43,7 +45,19 @@ const { FakeOrchestratorError } = vi.hoisted(() => {
 vi.mock('@/lib/session', () => ({ getSession: getSessionMock }));
 vi.mock('@/lib/userKey', () => ({ getUserKey: getUserKeyMock }));
 vi.mock('@/lib/brand', () => ({ getDefaultBrand: getDefaultBrandMock }));
-vi.mock('@/lib/assets', () => ({ getPublicUrls: getPublicUrlsMock, MissingReferenceError: class MissingReferenceError extends Error { count: number; kind: 'assets' | 'products'; constructor(count: number, kind: 'assets' | 'products') { super('missing'); this.name = 'MissingReferenceError'; this.count = count; this.kind = kind; } } }));
+vi.mock('@/lib/assets', () => ({
+  getPublicUrls: getPublicUrlsMock,
+  MissingReferenceError: class MissingReferenceError extends Error {
+    count: number;
+    kind: 'assets' | 'products';
+    constructor(count: number, kind: 'assets' | 'products') {
+      super('missing');
+      this.name = 'MissingReferenceError';
+      this.count = count;
+      this.kind = kind;
+    }
+  },
+}));
 vi.mock('@/lib/civitai', () => ({
   estimateImageGen: estimateImageGenMock,
   OrchestratorError: FakeOrchestratorError,
@@ -159,9 +173,7 @@ describe('POST /api/campaigns/preview', () => {
   });
 
   it('passes resolved reference URLs when referenceAssetIds present', async () => {
-    await POST(
-      makeRequest(validBody({ referenceAssetIds: ['a1', 'a2'] })) as never,
-    );
+    await POST(makeRequest(validBody({ referenceAssetIds: ['a1', 'a2'] })) as never);
     expect(getPublicUrlsMock).toHaveBeenCalledWith(expect.any(String), ['a1', 'a2']);
     for (const call of estimateImageGenMock.mock.calls) {
       expect(call[1].images).toEqual(['https://cdn.test/a1', 'https://cdn.test/a2']);
@@ -197,9 +209,7 @@ describe('POST /api/campaigns/preview', () => {
     // mocked class from the hoisted vi.mock above.
     const { MissingReferenceError } = await import('@/lib/assets');
     getPublicUrlsMock.mockRejectedValueOnce(new MissingReferenceError(1, 'assets'));
-    const res = await POST(
-      makeRequest(validBody({ referenceAssetIds: ['ghost'] })) as never,
-    );
+    const res = await POST(makeRequest(validBody({ referenceAssetIds: ['ghost'] })) as never);
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.error).toBe('invalid_reference_assets');

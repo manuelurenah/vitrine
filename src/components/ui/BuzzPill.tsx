@@ -1,6 +1,6 @@
 import { forwardRef, type HTMLAttributes } from 'react';
-import { cn } from './cn';
 import { BuzzGlyph } from './BuzzGlyph';
+import { cn } from './cn';
 
 type Props = HTMLAttributes<HTMLSpanElement> & {
   amount: number;

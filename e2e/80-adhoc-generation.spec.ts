@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures';
-import { markOnboardingComplete, resetUserData } from './helpers/db';
 import { signInToApp } from './helpers/auth';
+import { markOnboardingComplete, resetUserData } from './helpers/db';
 
 /**
  * Phase 2 workstream O — Ad-hoc generation from /brand/assets.
@@ -109,9 +109,7 @@ test.describe('Ad-hoc generation modal', () => {
     const total = page.getByText(/\b1 total\b/i);
     // Soft assert — don't fail the whole run if router.refresh() raced the DB
     // commit on slow CI. The save endpoint already returned 200.
-    await total
-      .waitFor({ state: 'visible', timeout: 10_000 })
-      .catch(() => undefined);
+    await total.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => undefined);
   });
 
   test('close mid-poll dismisses the modal and resets state on reopen', async ({

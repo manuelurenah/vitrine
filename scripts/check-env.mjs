@@ -42,7 +42,10 @@ const schema = z.object({
   CIVITAI_CLIENT_SECRET: z.string().min(1, 'paste the Client Secret from the OAuth App'),
   SESSION_SECRET: z
     .string()
-    .min(32, 'must be ≥32 chars. Generate: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'),
+    .min(
+      32,
+      "must be ≥32 chars. Generate: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
+    ),
   NEXT_PUBLIC_APP_URL: z.string().url('must be a full URL (e.g. http://localhost:3000)'),
   CIVITAI_BASE_URL: z.string().url().optional(),
   ORCHESTRATOR_URL: z.string().url().optional(),

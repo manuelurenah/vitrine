@@ -1,9 +1,9 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getSession } from '@/lib/session';
-import { getUserKey } from '@/lib/userKey';
 import { patchOnboardingPayload, type ScrapedSite } from '@/lib/onboarding';
 import { ScrapeError, scrapeSite } from '@/lib/scrape';
+import { getSession } from '@/lib/session';
+import { getUserKey } from '@/lib/userKey';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

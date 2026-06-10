@@ -1,22 +1,14 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import {
-  OrchestratorError,
-  submitImageGen,
-  type VitrineImageGenInput,
-} from '@/lib/civitai';
+import { type NextRequest, NextResponse } from 'next/server';
+import { getPublicUrls, MissingReferenceError } from '@/lib/assets';
+import { getDefaultBrand } from '@/lib/brand';
+import { recordBuzzEvent } from '@/lib/buzz';
 import { getCampaign, swapTileWorkflow } from '@/lib/campaigns';
+import { OrchestratorError, submitImageGen, type VitrineImageGenInput } from '@/lib/civitai';
+import { recordGeneration } from '@/lib/generations';
 import { PRESETS } from '@/lib/presets';
+import { buildCampaignPrompt, type EnhancedPrompt, resolveFinalPrompt } from '@/lib/promptBuilder';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { recordGeneration } from '@/lib/generations';
-import { recordBuzzEvent } from '@/lib/buzz';
-import { getDefaultBrand } from '@/lib/brand';
-import { getPublicUrls, MissingReferenceError } from '@/lib/assets';
-import {
-  buildCampaignPrompt,
-  resolveFinalPrompt,
-  type EnhancedPrompt,
-} from '@/lib/promptBuilder';
 
 type Params = Promise<{ id: string; tileId: string }>;
 
@@ -118,10 +110,7 @@ export async function POST(_: NextRequest, ctx: { params: Params }) {
     return NextResponse.json({ tile: updated, workflowId: snap.id });
   } catch (err) {
     if (err instanceof OrchestratorError) {
-      return NextResponse.json(
-        { error: 'orchestrator_error' },
-        { status: err.status },
-      );
+      return NextResponse.json({ error: 'orchestrator_error' }, { status: err.status });
     }
     return NextResponse.json({ error: 'submit_failed' }, { status: 502 });
   }

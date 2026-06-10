@@ -2,20 +2,16 @@ import { notFound, redirect } from 'next/navigation';
 import {
   DnaStep,
   InputStep,
+  isOnboardingStep,
   NextStep,
   OnboardingFrame,
+  type OnboardingStep,
   ProcessingStep,
   WelcomeStep,
-  isOnboardingStep,
-  type OnboardingStep,
 } from '@/components/onboarding';
+import { getOnboarding, type OnboardingPayload, recordOnboardingStep } from '@/lib/onboarding';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import {
-  getOnboarding,
-  recordOnboardingStep,
-  type OnboardingPayload,
-} from '@/lib/onboarding';
 
 type Params = Promise<{ step: string }>;
 

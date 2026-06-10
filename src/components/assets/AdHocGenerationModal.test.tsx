@@ -1,12 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AdHocGenerationModal,
+  clampNumImages,
   DEFAULT_AD_HOC_FORM,
   FormView,
   PollingView,
   ResultsView,
-  clampNumImages,
   toggleSelectedIndex,
 } from './AdHocGenerationModal';
 
@@ -40,9 +40,7 @@ describe('toggleSelectedIndex', () => {
 
 describe('AdHocGenerationModal — form state', () => {
   it('renders the form with default values when open', () => {
-    const html = renderToStaticMarkup(
-      <AdHocGenerationModal open onClose={() => {}} />,
-    );
+    const html = renderToStaticMarkup(<AdHocGenerationModal open onClose={() => {}} />);
     expect(html).toContain('data-testid="adhoc-form"');
     expect(html).toContain('generate an image');
     expect(html).toContain('data-testid="adhoc-aspect-1:1"');
@@ -64,9 +62,7 @@ describe('AdHocGenerationModal — form state', () => {
   });
 
   it('renders nothing when closed', () => {
-    const html = renderToStaticMarkup(
-      <AdHocGenerationModal open={false} onClose={() => {}} />,
-    );
+    const html = renderToStaticMarkup(<AdHocGenerationModal open={false} onClose={() => {}} />);
     expect(html).toBe('');
   });
 
@@ -131,9 +127,7 @@ describe('AdHocGenerationModal — form state', () => {
     const sixteenActive = html.match(
       /<span[^>]*data-active=""[^>]*data-testid="adhoc-aspect-16:9"/,
     );
-    const oneOneActive = html.match(
-      /<span[^>]*data-active=""[^>]*data-testid="adhoc-aspect-1:1"/,
-    );
+    const oneOneActive = html.match(/<span[^>]*data-active=""[^>]*data-testid="adhoc-aspect-1:1"/);
     expect(sixteenActive).not.toBeNull();
     expect(oneOneActive).toBeNull();
     // num images stepper shows 3

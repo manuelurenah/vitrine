@@ -1,17 +1,16 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { ChevronRight, ListChecks, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, ListChecks, Sparkles, X } from 'lucide-react';
-import { Button, BuzzPill } from '@/components/ui';
-import { CreativeCard } from '@/components/campaigns';
-import { SectionHead } from '@/components/campaigns';
+import { useMemo, useState } from 'react';
+import { CreativeCard, SectionHead } from '@/components/campaigns';
 import { ProductPickerDialog } from '@/components/catalog';
+import { Button, BuzzPill } from '@/components/ui';
 import { buildCampaignNewHref } from '@/lib/campaignHref';
 import type { Product } from '@/lib/catalog';
-import { PHOTOSHOOT_TEMPLATES } from '@/lib/photoshootTemplates';
 import type { Photoshoot } from '@/lib/photoshoots';
+import { PHOTOSHOOT_TEMPLATES } from '@/lib/photoshootTemplates';
 
 type Props = {
   shoot: Photoshoot;
@@ -131,10 +130,7 @@ export function PhotoshootResults({ shoot, products }: Props) {
 
   return (
     <div className="relative">
-      <nav
-        aria-label="breadcrumb"
-        className="flex items-center gap-1.5 text-[12px] text-fg-3"
-      >
+      <nav aria-label="breadcrumb" className="flex items-center gap-1.5 text-[12px] text-fg-3">
         <Link
           href="/photoshoot"
           className="rounded-[6px] px-1.5 py-0.5 transition-colors duration-fast ease-out hover:bg-bg-2 hover:text-fg-1"
@@ -212,9 +208,7 @@ export function PhotoshootResults({ shoot, products }: Props) {
 
       {showBulkBar && (
         <div className="fixed inset-x-0 bottom-4 z-sticky mx-auto flex w-fit items-center gap-3 rounded-pill border border-line bg-bg-1/90 px-4 py-2 shadow-bloom-volt-sm backdrop-blur-md">
-          <span className="font-mono text-[12px] text-fg-1">
-            {selectedCount} selected
-          </span>
+          <span className="font-mono text-[12px] text-fg-1">{selectedCount} selected</span>
           <button
             type="button"
             onClick={clearSelection}

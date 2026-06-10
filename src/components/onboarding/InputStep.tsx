@@ -1,15 +1,15 @@
 'use client';
 
+import { ArrowRight, Check, Link2, Sparkles, TriangleAlert, UploadCloud } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowRight, Check, Link2, Sparkles, TriangleAlert, UploadCloud } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Button, Input, Textarea, cn } from '@/components/ui';
-import type { OnboardingPayload } from '@/lib/onboarding';
+import { Button, cn, Input, Textarea } from '@/components/ui';
 import { pickContrast } from '@/lib/color';
+import type { OnboardingPayload } from '@/lib/onboarding';
+import { ColorPickerChip } from './ColorPickerChip';
 import { LogoPreview } from './LogoPreview';
 import { useLogoUpload } from './useLogoUpload';
-import { ColorPickerChip } from './ColorPickerChip';
 
 const SUGGESTED_COLORS = ['#ff7849', '#ffd13d', '#1c4f29', '#7c5cff', '#19f0ff'] as const;
 
@@ -138,8 +138,8 @@ export function InputStep({ payload = {} }: Props) {
         <span className="t-eyebrow">// step 1 of 3 · brand dna</span>
         <h2 className="t-h2 text-fg-0">tell us who you are.</h2>
         <p className="mx-auto max-w-[560px] text-[14.5px] leading-[1.5] text-fg-2">
-          drop a url and we&apos;ll extract everything — or skip the url and tell us yourself.
-          every field is optional, but the more you give us the sharper your shoots.
+          drop a url and we&apos;ll extract everything — or skip the url and tell us yourself. every
+          field is optional, but the more you give us the sharper your shoots.
         </p>
       </header>
 
@@ -227,10 +227,7 @@ export function InputStep({ payload = {} }: Props) {
           </Card>
 
           <Card>
-            <CardHead
-              title="logo"
-              tag={logoUrl ? 'uploaded' : 'optional'}
-            />
+            <CardHead title="logo" tag={logoUrl ? 'uploaded' : 'optional'} />
             {logoUrl ? (
               <LogoPreview
                 src={logoUrl}
@@ -248,9 +245,11 @@ export function InputStep({ payload = {} }: Props) {
                   <div className="text-fg-1">
                     {logoUpload.status.kind === 'uploading'
                       ? `uploading ${logoName ?? ''}…`
-                      : logoName ?? 'drop a png, svg, or jpg'}
+                      : (logoName ?? 'drop a png, svg, or jpg')}
                   </div>
-                  <div className="font-mono text-[10.5px] text-fg-3">we crop + tint automatically</div>
+                  <div className="font-mono text-[10.5px] text-fg-3">
+                    we crop + tint automatically
+                  </div>
                 </div>
                 <input
                   type="file"
@@ -285,10 +284,11 @@ export function InputStep({ payload = {} }: Props) {
           </Card>
 
           <Card className="md:col-span-2">
-            <CardHead title="brand colors" tag={colors.length > 0 ? `${colors.length} picked` : 'pick a few'} />
-            <p className="text-[12.5px] text-fg-2">
-              tap a suggestion or click + to add your own.
-            </p>
+            <CardHead
+              title="brand colors"
+              tag={colors.length > 0 ? `${colors.length} picked` : 'pick a few'}
+            />
+            <p className="text-[12.5px] text-fg-2">tap a suggestion or click + to add your own.</p>
             <div className="flex flex-wrap gap-3 pt-1">
               {allSwatches.map((c) => {
                 const on = colors.includes(c);

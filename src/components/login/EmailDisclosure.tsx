@@ -2,7 +2,7 @@
 
 import { AtSign, ChevronDown } from 'lucide-react';
 import { useState } from 'react';
-import { Button, FieldLabel, Input, cn } from '@/components/ui';
+import { Button, cn, FieldLabel, Input } from '@/components/ui';
 
 export function EmailDisclosure() {
   const [open, setOpen] = useState(false);
@@ -23,7 +23,10 @@ export function EmailDisclosure() {
         <ChevronDown
           size={14}
           strokeWidth={2.2}
-          className={cn('text-fg-2 transition-transform duration-base ease-out', open && 'rotate-180')}
+          className={cn(
+            'text-fg-2 transition-transform duration-base ease-out',
+            open && 'rotate-180',
+          )}
         />
       </button>
       <div
@@ -37,7 +40,12 @@ export function EmailDisclosure() {
         <form className="flex flex-col gap-3" action="#">
           <div>
             <FieldLabel htmlFor="vitrine-email">email</FieldLabel>
-            <Input id="vitrine-email" type="email" autoComplete="email" placeholder="you@studio.co" />
+            <Input
+              id="vitrine-email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@studio.co"
+            />
           </div>
           <div>
             <FieldLabel htmlFor="vitrine-password">password</FieldLabel>

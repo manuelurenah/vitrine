@@ -1,10 +1,10 @@
 'use client';
 
+import { ArrowLeft, Box, Camera, Check, Image as ImageIcon, Sparkles, X } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Box, Camera, Check, Image as ImageIcon, Sparkles, X } from 'lucide-react';
-import { Button, BuzzPill, Chip, FieldLabel, Input, Textarea, cn } from '@/components/ui';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
+import { Button, BuzzPill, Chip, cn, FieldLabel, Input, Textarea } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
 import type { Product } from '@/lib/catalog';
 import {
@@ -95,9 +95,7 @@ export type Brief = {
   templateIds: PhotoshootTemplateId[];
 };
 
-export type Subject =
-  | { kind: 'asset'; id: string }
-  | { kind: 'product'; id: string };
+export type Subject = { kind: 'asset'; id: string } | { kind: 'product'; id: string };
 
 /**
  * Pure helper: resolve a subject into the underlying asset id that the
@@ -201,8 +199,7 @@ export function PhotoshootWizard({
     return {
       productName: productName.trim() || 'untitled product',
       productNotes:
-        productNotes.trim() ||
-        'small-batch product · studio clean · brand-forward, no overlays',
+        productNotes.trim() || 'small-batch product · studio clean · brand-forward, no overlays',
       ratio,
       variantsPerTemplate: variants,
       templateIds: Array.from(templateIds),
@@ -652,8 +649,7 @@ function ReviewStep(props: ReviewStepProps) {
     onCook,
     buzzBalance,
   } = props;
-  const insufficientBuzz =
-    typeof buzzBalance === 'number' && totalBuzz > buzzBalance;
+  const insufficientBuzz = typeof buzzBalance === 'number' && totalBuzz > buzzBalance;
 
   return (
     <div className="mx-auto mt-10 w-full max-w-[960px]" data-testid="review-step">
@@ -668,9 +664,7 @@ function ReviewStep(props: ReviewStepProps) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-fg-3">
-            total
-          </span>
+          <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-fg-3">total</span>
           <BuzzPill amount={totalBuzz} data-testid="total-buzz" />
         </div>
       </div>
@@ -738,11 +732,8 @@ function ReviewStep(props: ReviewStepProps) {
             </span>
           )}
           {insufficientBuzz && (
-            <span
-              className="font-mono text-[11.5px] text-danger"
-              data-testid="insufficient-buzz"
-            >
-              insufficient buzz · {' '}
+            <span className="font-mono text-[11.5px] text-danger" data-testid="insufficient-buzz">
+              insufficient buzz ·{' '}
               <a
                 href="https://civitai.com/purchase/buzz"
                 target="_blank"
@@ -857,9 +848,7 @@ function TemplateReviewCard({
           <Layer label="brand" value={enhanced.brandLayer} />
           <Layer label="style" value={enhanced.styleLayer} />
           <Layer label="base" value={enhanced.base} />
-          {enhanced.negativePrompt && (
-            <Layer label="negative" value={enhanced.negativePrompt} />
-          )}
+          {enhanced.negativePrompt && <Layer label="negative" value={enhanced.negativePrompt} />}
         </div>
       )}
 
@@ -908,12 +897,7 @@ type SubjectPanelProps = {
  * and rely solely on the text brief. When a subject is set, the panel
  * collapses into a confirmation row with thumb · name · change / clear.
  */
-function SubjectPanel({
-  subject,
-  setSubject,
-  libraryAssets,
-  libraryProducts,
-}: SubjectPanelProps) {
+function SubjectPanel({ subject, setSubject, libraryAssets, libraryProducts }: SubjectPanelProps) {
   const [picking, setPicking] = useState<boolean>(false);
 
   // Resolve the thumb + display name for the confirmation row.
@@ -1084,13 +1068,7 @@ function SubjectPanel({
   );
 }
 
-function SubmitStep({
-  submitting,
-  error,
-}: {
-  submitting: boolean;
-  error: string | null;
-}) {
+function SubmitStep({ submitting, error }: { submitting: boolean; error: string | null }) {
   return (
     <div
       className="mx-auto mt-20 flex max-w-[480px] flex-col items-center gap-4 text-center"
@@ -1108,9 +1086,7 @@ function SubmitStep({
         {error ? 'submit failed' : 'cooking your photoshoot…'}
       </h2>
       <p className="font-mono text-[12px] uppercase tracking-[0.08em] text-fg-3">
-        {error
-          ? error
-          : 'queueing workflows · charging buzz · about to redirect'}
+        {error ? error : 'queueing workflows · charging buzz · about to redirect'}
       </p>
     </div>
   );

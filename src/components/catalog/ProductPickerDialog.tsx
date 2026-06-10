@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2, Plus, Search } from 'lucide-react';
-import { Button, Input, Modal, cn } from '@/components/ui';
+import { useRouter } from 'next/navigation';
+import { useCallback, useMemo, useState } from 'react';
+import { Button, cn, Input, Modal } from '@/components/ui';
 import type { Product } from '@/lib/catalog';
 
 /* -------------------------------------------------------------------------- */
@@ -61,10 +61,7 @@ export function ProductPickerDialog({
     onClose();
   }, [inFlight, onClose]);
 
-  const filtered = useMemo(
-    () => filterProducts(initialProducts, query),
-    [initialProducts, query],
-  );
+  const filtered = useMemo(() => filterProducts(initialProducts, query), [initialProducts, query]);
 
   const isEmpty = initialProducts.length === 0;
 
@@ -157,14 +154,9 @@ export function ProductPickerDialog({
               />
             </div>
 
-            <ul
-              className="flex flex-col gap-1"
-              data-testid="product-picker-list"
-            >
+            <ul className="flex flex-col gap-1" data-testid="product-picker-list">
               {filtered.length === 0 ? (
-                <li className="px-3 py-6 text-center text-[13px] text-fg-3">
-                  no matches.
-                </li>
+                <li className="px-3 py-6 text-center text-[13px] text-fg-3">no matches.</li>
               ) : (
                 filtered.map((p) => {
                   const busy = submittingId === p.id;

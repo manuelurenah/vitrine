@@ -17,8 +17,24 @@ type Preset = {
 };
 
 const PRESETS: Preset[] = [
-  { id: 'ig-feed', label: 'ig · feed', ratio: '4:5', w: 30, h: 38, glyph: 'image', defaultOn: true },
-  { id: 'ig-story', label: 'ig · story', ratio: '9:16', w: 22, h: 38, glyph: 'image', defaultOn: true },
+  {
+    id: 'ig-feed',
+    label: 'ig · feed',
+    ratio: '4:5',
+    w: 30,
+    h: 38,
+    glyph: 'image',
+    defaultOn: true,
+  },
+  {
+    id: 'ig-story',
+    label: 'ig · story',
+    ratio: '9:16',
+    w: 22,
+    h: 38,
+    glyph: 'image',
+    defaultOn: true,
+  },
   { id: 'reels', label: 'reels', ratio: '9:16', w: 22, h: 38, glyph: 'video', defaultOn: false },
   { id: 'tiktok', label: 'tiktok', ratio: '9:16', w: 22, h: 38, glyph: 'video', defaultOn: false },
   { id: 'fb', label: 'facebook', ratio: '1.91:1', w: 38, h: 20, glyph: 'layers', defaultOn: false },

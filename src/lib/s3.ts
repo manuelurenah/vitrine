@@ -1,10 +1,10 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import {
-  S3Client,
   DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
+  S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '@/lib/env';
@@ -14,7 +14,9 @@ let cached: S3Client | null = null;
 function getClient(): S3Client {
   if (cached) return cached;
   if (!env.S3_ENDPOINT || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY) {
-    throw new Error('S3 not configured. Set S3_ENDPOINT + S3_ACCESS_KEY_ID + S3_SECRET_ACCESS_KEY.');
+    throw new Error(
+      'S3 not configured. Set S3_ENDPOINT + S3_ACCESS_KEY_ID + S3_SECRET_ACCESS_KEY.',
+    );
   }
   cached = new S3Client({
     region: 'us-east-1',

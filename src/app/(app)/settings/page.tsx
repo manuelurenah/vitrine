@@ -1,14 +1,14 @@
-import { redirect } from 'next/navigation';
 import { ArrowUpRight, KeyRound, Sparkles } from 'lucide-react';
+import { redirect } from 'next/navigation';
 import { SessionActions } from '@/components/settings/SessionActions';
 import { Badge, BuzzGlyph } from '@/components/ui';
-import { getSession } from '@/lib/session';
-import { getUserKey } from '@/lib/userKey';
-import { getMe, getBuzzAccount } from '@/lib/civitai';
 import { ensureDefaultBrand } from '@/lib/brand';
 import { sumChargedBuzz } from '@/lib/buzz';
-import { REQUESTED_SCOPES } from '@/lib/scopes';
+import { getBuzzAccount, getMe } from '@/lib/civitai';
 import { env } from '@/lib/env';
+import { REQUESTED_SCOPES } from '@/lib/scopes';
+import { getSession } from '@/lib/session';
+import { getUserKey } from '@/lib/userKey';
 
 export const metadata = { title: 'settings · vitrine' };
 export const dynamic = 'force-dynamic';

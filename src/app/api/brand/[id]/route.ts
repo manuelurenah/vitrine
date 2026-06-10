@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { getBrand, updateBrand } from '@/lib/brand';
 import { brandUpdateSchema } from '@/lib/brandSchema';
 import { getSession } from '@/lib/session';

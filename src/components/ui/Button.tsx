@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { type ButtonHTMLAttributes, forwardRef, type ReactNode } from 'react';
 import { cn } from './cn';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'tonal';

@@ -1,4 +1,5 @@
 import { expect, test } from './fixtures';
+import { signInToApp } from './helpers/auth';
 import {
   countRows,
   getProductAssetIds,
@@ -7,7 +8,6 @@ import {
   seedDonePhotoshoot,
   seedProduct,
 } from './helpers/db';
-import { signInToApp } from './helpers/auth';
 
 test.describe('Photoshoot cross-flow', () => {
   test.beforeEach(async () => {
@@ -57,7 +57,10 @@ test.describe('Photoshoot cross-flow', () => {
     await tileOverlays.nth(0).click();
     // After the first click the first overlay flips to "deselect tile",
     // leaving exactly one "select tile" button — click it.
-    await page.getByRole('button', { name: /^select tile$/i }).first().click();
+    await page
+      .getByRole('button', { name: /^select tile$/i })
+      .first()
+      .click();
 
     // Bulk bar → "add to product (2)"
     const bulkAdd = page.getByRole('button', { name: /add to product \(2\)/i });
@@ -90,7 +93,10 @@ test.describe('Photoshoot cross-flow', () => {
     const tileOverlays = page.getByRole('button', { name: /^select tile$/i });
     await expect(tileOverlays).toHaveCount(2);
     await tileOverlays.nth(0).click();
-    await page.getByRole('button', { name: /^select tile$/i }).first().click();
+    await page
+      .getByRole('button', { name: /^select tile$/i })
+      .first()
+      .click();
 
     await page.getByRole('button', { name: /add to product \(2\)/i }).click();
     await expect(page.getByTestId('product-picker-dialog')).toBeVisible();

@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildCampaignPrompt, buildPhotoshootPrompt, resolveFinalPrompt } from './promptBuilder';
-import { PRESETS } from './presets';
-import { PHOTOSHOOT_TEMPLATES } from './photoshootTemplates';
 import type { BrandProfile } from './brand';
-import type { BriefForPresets } from './presets';
 import type { PhotoshootBrief } from './photoshootTemplates';
+import { PHOTOSHOOT_TEMPLATES } from './photoshootTemplates';
+import type { BriefForPresets } from './presets';
+import { PRESETS } from './presets';
+import { buildCampaignPrompt, buildPhotoshootPrompt, resolveFinalPrompt } from './promptBuilder';
 
 const baseBrief: BriefForPresets = {
   title: 'Summer launch',
@@ -52,7 +52,11 @@ const shoot: PhotoshootBrief = {
 
 describe('buildCampaignPrompt', () => {
   it('assembles base + brand + style for fully populated brand', () => {
-    const out = buildCampaignPrompt({ brief: baseBrief, brand: fullBrand, preset: PRESETS['ig-feed'] });
+    const out = buildCampaignPrompt({
+      brief: baseBrief,
+      brand: fullBrand,
+      preset: PRESETS['ig-feed'],
+    });
     expect(out.base).toContain('strawberry sparkling water');
     expect(out.brandLayer).toContain('Fizzly');
     expect(out.brandLayer).toContain('beverage');
@@ -73,7 +77,11 @@ describe('buildCampaignPrompt', () => {
   });
 
   it('handles sparse brand (no tagline, no palette, no tone)', () => {
-    const out = buildCampaignPrompt({ brief: baseBrief, brand: sparseBrand, preset: PRESETS['ig-feed'] });
+    const out = buildCampaignPrompt({
+      brief: baseBrief,
+      brand: sparseBrand,
+      preset: PRESETS['ig-feed'],
+    });
     expect(out.brandLayer).toContain('Fizzly');
     expect(out.brandLayer).not.toContain('palette');
     expect(out.brandLayer).not.toContain('tagline');
@@ -112,7 +120,11 @@ describe('buildCampaignPrompt', () => {
   });
 
   it('omits reference layer when referenceCount=0', () => {
-    const out = buildCampaignPrompt({ brief: baseBrief, brand: fullBrand, preset: PRESETS['ig-feed'] });
+    const out = buildCampaignPrompt({
+      brief: baseBrief,
+      brand: fullBrand,
+      preset: PRESETS['ig-feed'],
+    });
     expect(out.finalPrompt).not.toContain('reference');
   });
 
@@ -130,13 +142,21 @@ describe('buildCampaignPrompt', () => {
   it('resolveFinalPrompt returns finalPrompt when override is absent or whitespace', () => {
     const a = buildCampaignPrompt({ brief: baseBrief, preset: PRESETS['ig-feed'] });
     expect(resolveFinalPrompt(a)).toBe(a.finalPrompt);
-    const b = buildCampaignPrompt({ brief: baseBrief, preset: PRESETS['ig-feed'], userOverride: '   ' });
+    const b = buildCampaignPrompt({
+      brief: baseBrief,
+      preset: PRESETS['ig-feed'],
+      userOverride: '   ',
+    });
     expect(resolveFinalPrompt(b)).toBe(b.finalPrompt);
   });
 
   it('maps preset ratio strings to nano-banana aspect ratios', () => {
-    expect(buildCampaignPrompt({ brief: baseBrief, preset: PRESETS['ig-feed'] }).aspectRatio).toBe('4:5');
-    expect(buildCampaignPrompt({ brief: baseBrief, preset: PRESETS['ig-story'] }).aspectRatio).toBe('9:16');
+    expect(buildCampaignPrompt({ brief: baseBrief, preset: PRESETS['ig-feed'] }).aspectRatio).toBe(
+      '4:5',
+    );
+    expect(buildCampaignPrompt({ brief: baseBrief, preset: PRESETS['ig-story'] }).aspectRatio).toBe(
+      '9:16',
+    );
     expect(buildCampaignPrompt({ brief: baseBrief, preset: PRESETS.fb }).aspectRatio).toBe('16:9');
   });
 });
@@ -165,7 +185,10 @@ describe('buildPhotoshootPrompt', () => {
   });
 
   it('omits reference layer when 0 refs', () => {
-    const out = buildPhotoshootPrompt({ brief: shoot, template: PHOTOSHOOT_TEMPLATES['studio-clean'] });
+    const out = buildPhotoshootPrompt({
+      brief: shoot,
+      template: PHOTOSHOOT_TEMPLATES['studio-clean'],
+    });
     expect(out.finalPrompt).not.toContain('reference');
   });
 

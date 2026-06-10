@@ -1,4 +1,4 @@
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { type ButtonHTMLAttributes, forwardRef, type ReactNode } from 'react';
 import { Button, type ButtonSize, type ButtonVariant } from './Button';
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {

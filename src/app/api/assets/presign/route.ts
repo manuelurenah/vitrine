@@ -1,8 +1,8 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { presignUpload } from '@/lib/s3';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { presignUpload } from '@/lib/s3';
 
 const MAX_BYTES = 20 * 1024 * 1024; // 20 MB — matches "up to 20 mb each" in design
 

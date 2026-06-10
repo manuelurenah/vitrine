@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { AssetDetailView } from '@/components/assets/AssetDetailView';
-import { getAsset, listAssets, type Asset } from '@/lib/assets';
+import { type Asset, getAsset, listAssets } from '@/lib/assets';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
 
@@ -54,10 +54,7 @@ export default async function AssetDetailPage({ params }: { params: Params }) {
   const userKey = await getUserKey(session);
   const { id } = await params;
 
-  const [asset, siblings] = await Promise.all([
-    getAsset(userKey, id),
-    listAssets(userKey),
-  ]);
+  const [asset, siblings] = await Promise.all([getAsset(userKey, id), listAssets(userKey)]);
   if (!asset) notFound();
 
   const idx = siblings.findIndex((s) => s.id === asset.id);

@@ -1,8 +1,8 @@
 'use client';
 
+import { Check, Plus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { HexColorPicker } from 'react-colorful';
-import { Check, Plus, X } from 'lucide-react';
 
 type Props = {
   onPick: (hex: string) => void;

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { FileText, Image as ImageIcon, Sparkles, Upload, Video } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FileText, Image as ImageIcon, Sparkles, Upload, Video } from 'lucide-react';
+import { useState } from 'react';
 import { cn } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
 import { AdHocGenerationModal } from './AdHocGenerationModal';
@@ -99,10 +99,12 @@ function AssetTile({ item }: { item: Asset }) {
   const displayName = item.storageKey.split('/').pop() ?? item.id;
 
   return (
-    <article
+    <Link
+      href={`/brand/assets/${item.id}`}
+      aria-label={`open ${displayName}`}
       className={cn(
         'group relative flex aspect-square flex-col overflow-hidden rounded-[12px] border border-line-subtle bg-bg-2',
-        'transition-colors duration-fast ease-out hover:border-line',
+        'transition-colors duration-fast ease-out hover:border-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt',
       )}
     >
       <div className="relative flex-1 overflow-hidden bg-bg-3">
@@ -126,7 +128,7 @@ function AssetTile({ item }: { item: Asset }) {
           {item.kind} · {item.contentType?.split('/')[1] ?? 'file'}
         </div>
       </div>
-    </article>
+    </Link>
   );
 }
 
@@ -144,7 +146,8 @@ function EmptyState({ onGenerate }: { onGenerate: () => void }) {
           upload your first <span className="text-volt">asset</span>.
         </h2>
         <p className="mt-1 max-w-[460px] text-[13.5px] text-fg-2">
-          drop a file, or pick a collection to start. assets are loose — name + tags are all we need.
+          drop a file, or pick a collection to start. assets are loose — name + tags are all we
+          need.
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2">

@@ -75,8 +75,8 @@ vi.mock('@/lib/db/schema', () => ({
   },
 }));
 
-import type { Session } from './session';
 import { refreshGenerationSnapshot } from './generations';
+import type { Session } from './session';
 
 function makeSession(token = 'tok_abc'): Session {
   return {
@@ -154,10 +154,7 @@ describe('refreshGenerationSnapshot', () => {
     try {
       const result = await refreshGenerationSnapshot('wf_missing', makeSession());
       expect(result).toBeNull();
-      expect(getWorkflowSnapshotMock).toHaveBeenCalledWith(
-        expect.anything(),
-        'wf_missing',
-      );
+      expect(getWorkflowSnapshotMock).toHaveBeenCalledWith(expect.anything(), 'wf_missing');
     } finally {
       db.update = originalUpdate;
     }
@@ -165,9 +162,9 @@ describe('refreshGenerationSnapshot', () => {
 
   it('propagates errors from getWorkflowSnapshot (no DB write on failure)', async () => {
     getWorkflowSnapshotMock.mockRejectedValueOnce(new Error('orchestrator down'));
-    await expect(
-      refreshGenerationSnapshot('wf_oops', makeSession()),
-    ).rejects.toThrow('orchestrator down');
+    await expect(refreshGenerationSnapshot('wf_oops', makeSession())).rejects.toThrow(
+      'orchestrator down',
+    );
     expect(capturedUpdates).toHaveLength(0);
   });
 });

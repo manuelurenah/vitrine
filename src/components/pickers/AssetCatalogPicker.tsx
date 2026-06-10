@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { Box, Check, Image as ImageIcon, Plus, Upload } from 'lucide-react';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { cn } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
 import type { Product } from '@/lib/catalog';
@@ -38,11 +38,7 @@ const DEFAULT_MAX = 4;
  * id being toggled, and a max cap. Always allows deselection; only adds when
  * we are under the cap. Exported for unit testing.
  */
-export function computeNextSelection(
-  current: string[],
-  id: string,
-  max: number,
-): string[] {
+export function computeNextSelection(current: string[], id: string, max: number): string[] {
   const next = new Set(current);
   if (next.has(id)) {
     next.delete(id);
@@ -239,9 +235,7 @@ function TabButton({
       onClick={onClick}
       className={cn(
         'inline-flex items-center gap-1.5 rounded-pill px-3 py-1 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-fast ease-out',
-        active
-          ? 'bg-volt-soft text-volt'
-          : 'text-fg-2 hover:bg-bg-3 hover:text-fg-0',
+        active ? 'bg-volt-soft text-volt' : 'text-fg-2 hover:bg-bg-3 hover:text-fg-0',
       )}
     >
       {children}

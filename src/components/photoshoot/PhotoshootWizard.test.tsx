@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EnhancedPrompt } from '@/lib/promptBuilder';
 
 /* -------------------------------------------------------------------------- */
@@ -36,11 +36,11 @@ vi.mock('next/navigation', () => ({
 }));
 
 import {
-  PhotoshootWizard,
+  type Brief,
   buildCookPayload,
   buildPreviewPayload,
   isStep,
-  type Brief,
+  PhotoshootWizard,
 } from './PhotoshootWizard';
 
 /* -------------------------------------------------------------------------- */
@@ -123,10 +123,7 @@ describe('buildCookPayload', () => {
       'lifestyle-kitchen': makeEnhanced({ finalPrompt: 'kitchen prompt' }),
     };
     const payload = buildCookPayload(brief, [], enhanced, {});
-    expect(Object.keys(payload.enhancedPrompts)).toEqual([
-      'studio-clean',
-      'lifestyle-kitchen',
-    ]);
+    expect(Object.keys(payload.enhancedPrompts)).toEqual(['studio-clean', 'lifestyle-kitchen']);
     expect(payload.enhancedPrompts['studio-clean']?.finalPrompt).toBe('studio clean prompt');
     expect(payload.enhancedPrompts['studio-clean']?.userOverride).toBeUndefined();
   });

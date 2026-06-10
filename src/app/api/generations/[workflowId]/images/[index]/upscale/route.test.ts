@@ -110,7 +110,10 @@ beforeEach(() => {
     },
   });
   getUserKeyMock.mockResolvedValue('user_1');
-  extractImageUrlsMock.mockReturnValue(['https://cdn.test/img-0.png', 'https://cdn.test/img-1.png']);
+  extractImageUrlsMock.mockReturnValue([
+    'https://cdn.test/img-0.png',
+    'https://cdn.test/img-1.png',
+  ]);
   estimateUpscaleMock.mockResolvedValue({ id: 'wf_est', status: 'pending', cost: { total: 12 } });
   submitUpscaleMock.mockResolvedValue({ id: 'wf_new', status: 'pending', cost: { total: 12 } });
   recordGenerationMock.mockResolvedValue({});
@@ -163,7 +166,10 @@ describe('POST /api/generations/[workflowId]/images/[index]/upscale', () => {
     expect(body.estimatedBuzz).toBe(12);
 
     expect(submitUpscaleMock).toHaveBeenCalledWith(expect.anything(), 'https://cdn.test/img-1.png');
-    expect(estimateUpscaleMock).toHaveBeenCalledWith(expect.anything(), 'https://cdn.test/img-1.png');
+    expect(estimateUpscaleMock).toHaveBeenCalledWith(
+      expect.anything(),
+      'https://cdn.test/img-1.png',
+    );
 
     expect(recordGenerationMock).toHaveBeenCalledTimes(1);
     const rec = recordGenerationMock.mock.calls[0]![0];

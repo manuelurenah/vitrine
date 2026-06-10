@@ -34,8 +34,7 @@ export function OnboardingFrame({ step, children, skipHref = '/onboarding/dna' }
                 key={s}
                 className="h-[6px] w-[28px] rounded-pill"
                 style={{
-                  background:
-                    i <= stepIndex ? 'var(--volt)' : 'var(--line-subtle)',
+                  background: i <= stepIndex ? 'var(--volt)' : 'var(--line-subtle)',
                   boxShadow: i === stepIndex ? '0 0 12px -2px var(--volt-glow)' : undefined,
                 }}
               />

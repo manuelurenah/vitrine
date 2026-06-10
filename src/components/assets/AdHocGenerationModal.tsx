@@ -1,18 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, Loader2, Sparkles } from 'lucide-react';
 import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
-import {
-  Button,
-  BuzzPill,
-  Chip,
-  FieldLabel,
-  Modal,
-  Textarea,
-  cn,
-} from '@/components/ui';
+import { ChevronDown, ChevronUp, Loader2, Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
+import { Button, BuzzPill, Chip, cn, FieldLabel, Modal, Textarea } from '@/components/ui';
 
 /* -------------------------------------------------------------------------- */
 /* types                                                                       */
@@ -112,9 +104,7 @@ function AdHocGenerationModalInner({
   const [refsExpanded, setRefsExpanded] = useState<boolean>(
     (initialForm?.referenceAssetIds?.length ?? 0) > 0,
   );
-  const [negExpanded, setNegExpanded] = useState<boolean>(
-    Boolean(initialForm?.negativePrompt),
-  );
+  const [negExpanded, setNegExpanded] = useState<boolean>(Boolean(initialForm?.negativePrompt));
   const [workflowId, setWorkflowId] = useState<string | null>(initialWorkflowId);
   const [estimatedBuzz, setEstimatedBuzz] = useState<number | null>(null);
   const [generationPrompt, setGenerationPrompt] = useState<string>('');
@@ -332,13 +322,7 @@ function AdHocGenerationModalInner({
   }, [phase]);
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      eyebrow={eyebrow}
-      title={title}
-      maxWidth={760}
-    >
+    <Modal open={open} onClose={onClose} eyebrow={eyebrow} title={title} maxWidth={760}>
       {phase === 'form' && (
         <FormView
           form={form}
@@ -504,9 +488,7 @@ export function FormView({
               aria-label="decrease images"
               data-testid="adhoc-num-dec"
               disabled={numImages <= MIN_IMAGES}
-              onClick={() =>
-                setForm({ ...form, numImages: clampNumImages(numImages - 1) })
-              }
+              onClick={() => setForm({ ...form, numImages: clampNumImages(numImages - 1) })}
               className="grid h-7 w-7 place-items-center rounded-[7px] text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0 disabled:opacity-40"
             >
               −
@@ -522,9 +504,7 @@ export function FormView({
               aria-label="increase images"
               data-testid="adhoc-num-inc"
               disabled={numImages >= MAX_IMAGES}
-              onClick={() =>
-                setForm({ ...form, numImages: clampNumImages(numImages + 1) })
-              }
+              onClick={() => setForm({ ...form, numImages: clampNumImages(numImages + 1) })}
               className="grid h-7 w-7 place-items-center rounded-[7px] text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0 disabled:opacity-40"
             >
               +
@@ -813,13 +793,13 @@ export function ResultsView({
           <Button
             variant="primary"
             disabled={!canSave}
-            leadingIcon={
-              saving ? <Loader2 size={14} className="animate-spin" /> : undefined
-            }
+            leadingIcon={saving ? <Loader2 size={14} className="animate-spin" /> : undefined}
             onClick={onSaveSelected}
             data-testid="adhoc-save-selected"
           >
-            {saving ? 'saving…' : `save selected${selectedSet.size > 0 ? ` (${selectedSet.size})` : ''}`}
+            {saving
+              ? 'saving…'
+              : `save selected${selectedSet.size > 0 ? ` (${selectedSet.size})` : ''}`}
           </Button>
         </div>
       </div>

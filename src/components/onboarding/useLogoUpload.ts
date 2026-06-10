@@ -33,7 +33,10 @@ export function useLogoUpload(): UseLogoUpload {
         }),
       });
       if (!presignRes.ok) {
-        const body = (await presignRes.json().catch(() => ({}))) as { error?: string; detail?: string };
+        const body = (await presignRes.json().catch(() => ({}))) as {
+          error?: string;
+          detail?: string;
+        };
         throw new Error(body.detail ?? body.error ?? `presign http ${presignRes.status}`);
       }
       const presign = (await presignRes.json()) as {

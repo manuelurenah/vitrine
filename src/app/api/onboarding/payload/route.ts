@@ -1,8 +1,8 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { type OnboardingPayload, patchOnboardingPayload } from '@/lib/onboarding';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { patchOnboardingPayload, type OnboardingPayload } from '@/lib/onboarding';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

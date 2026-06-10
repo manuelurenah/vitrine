@@ -15,8 +15,12 @@ function crc32(bytes: Uint8Array): number {
 }
 
 function dosDateTime(d: Date): { date: number; time: number } {
-  const time = ((d.getHours() & 0x1f) << 11) | ((d.getMinutes() & 0x3f) << 5) | ((d.getSeconds() / 2) & 0x1f);
-  const date = (((d.getFullYear() - 1980) & 0x7f) << 9) | (((d.getMonth() + 1) & 0xf) << 5) | (d.getDate() & 0x1f);
+  const time =
+    ((d.getHours() & 0x1f) << 11) | ((d.getMinutes() & 0x3f) << 5) | ((d.getSeconds() / 2) & 0x1f);
+  const date =
+    (((d.getFullYear() - 1980) & 0x7f) << 9) |
+    (((d.getMonth() + 1) & 0xf) << 5) |
+    (d.getDate() & 0x1f);
   return { date, time };
 }
 

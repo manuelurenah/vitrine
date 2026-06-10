@@ -1,9 +1,9 @@
 import { PhotoshootWizard } from '@/components/photoshoot/PhotoshootWizard';
+import { getAsset, listAssets } from '@/lib/assets';
+import { getProduct, listProducts } from '@/lib/catalog';
+import { getBuzzAccount } from '@/lib/civitai';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { getBuzzAccount } from '@/lib/civitai';
-import { listAssets, getAsset } from '@/lib/assets';
-import { listProducts, getProduct } from '@/lib/catalog';
 
 export const metadata = { title: 'new photoshoot · vitrine' };
 export const dynamic = 'force-dynamic';
@@ -32,11 +32,7 @@ function parseSubjectParam(
   return null;
 }
 
-export default async function NewPhotoshootPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
+export default async function NewPhotoshootPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await getSession();
   const sp = await searchParams;
   const subjectRaw = firstString(sp.subject);

@@ -1,10 +1,10 @@
-import Link from 'next/link';
 import { ArrowLeft, Pencil } from 'lucide-react';
-import { Badge, Chip } from '@/components/ui';
+import Link from 'next/link';
 import { GradientThumb } from '@/components/campaigns';
-import { DeleteProductButton } from './DeleteProductButton';
+import { Badge, Chip } from '@/components/ui';
 import { buildCampaignNewHref, buildPhotoshootNewHref } from '@/lib/campaignHref';
 import type { Product } from '@/lib/catalog';
+import { DeleteProductButton } from './DeleteProductButton';
 
 export type ProductDetailImage = {
   id: string;
@@ -30,7 +30,15 @@ export function ProductDetail({ product, images = [] }: Props) {
         >
           <ArrowLeft size={14} strokeWidth={1.75} /> catalog
         </Link>
-        <Badge kind={product.status === 'live' ? 'live' : product.status === 'archived' ? 'archived' : 'draft'}>
+        <Badge
+          kind={
+            product.status === 'live'
+              ? 'live'
+              : product.status === 'archived'
+                ? 'archived'
+                : 'draft'
+          }
+        >
           {product.status}
         </Badge>
         <span className="flex-1" />

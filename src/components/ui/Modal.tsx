@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
 import { X } from 'lucide-react';
-import { IconButton } from './IconButton';
+import { type ReactNode, useEffect } from 'react';
 import { cn } from './cn';
+import { IconButton } from './IconButton';
 
 type Props = {
   open: boolean;
@@ -16,7 +16,16 @@ type Props = {
   className?: string;
 };
 
-export function Modal({ open, onClose, title, eyebrow, children, footer, maxWidth = 720, className }: Props) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  eyebrow,
+  children,
+  footer,
+  maxWidth = 720,
+  className,
+}: Props) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -55,10 +64,17 @@ export function Modal({ open, onClose, title, eyebrow, children, footer, maxWidt
             {eyebrow && <span className="t-eyebrow">{eyebrow}</span>}
             {title && <h2 className="mt-1 t-h3 text-fg-0">{title}</h2>}
           </div>
-          <IconButton variant="ghost" aria-label="close" icon={<X size={16} strokeWidth={1.75} />} onClick={onClose} />
+          <IconButton
+            variant="ghost"
+            aria-label="close"
+            icon={<X size={16} strokeWidth={1.75} />}
+            onClick={onClose}
+          />
         </header>
         <div className="flex-1 overflow-auto px-6 py-5">{children}</div>
-        {footer && <footer className="border-t border-line-subtle bg-bg-0/60 px-6 py-4">{footer}</footer>}
+        {footer && (
+          <footer className="border-t border-line-subtle bg-bg-0/60 px-6 py-4">{footer}</footer>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures';
-import { resetUserData } from './helpers/db';
 import { signInToApp } from './helpers/auth';
+import { resetUserData } from './helpers/db';
 
 test.describe('OAuth + session', () => {
   test.beforeAll(async () => {

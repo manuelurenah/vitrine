@@ -28,7 +28,19 @@ const { FakeOrchestratorError } = vi.hoisted(() => {
 vi.mock('@/lib/session', () => ({ getSession: getSessionMock }));
 vi.mock('@/lib/userKey', () => ({ getUserKey: getUserKeyMock }));
 vi.mock('@/lib/brand', () => ({ getDefaultBrand: getDefaultBrandMock }));
-vi.mock('@/lib/assets', () => ({ getPublicUrls: getPublicUrlsMock, MissingReferenceError: class MissingReferenceError extends Error { count: number; kind: 'assets' | 'products'; constructor(count: number, kind: 'assets' | 'products') { super('missing'); this.name = 'MissingReferenceError'; this.count = count; this.kind = kind; } } }));
+vi.mock('@/lib/assets', () => ({
+  getPublicUrls: getPublicUrlsMock,
+  MissingReferenceError: class MissingReferenceError extends Error {
+    count: number;
+    kind: 'assets' | 'products';
+    constructor(count: number, kind: 'assets' | 'products') {
+      super('missing');
+      this.name = 'MissingReferenceError';
+      this.count = count;
+      this.kind = kind;
+    }
+  },
+}));
 vi.mock('@/lib/civitai', () => ({
   estimateImageGen: estimateImageGenMock,
   submitImageGen: submitImageGenMock,
@@ -127,7 +139,9 @@ describe('POST /api/photoshoot/cook', () => {
   });
 
   it('persists photoshoot with referenceAssetIds, enhancedPrompts, and quantity per tile', async () => {
-    await POST(makeRequest(validBody({ referenceAssetIds: ['a1'], variantsPerTemplate: 3 })) as never);
+    await POST(
+      makeRequest(validBody({ referenceAssetIds: ['a1'], variantsPerTemplate: 3 })) as never,
+    );
     const input = createPhotoshootMock.mock.calls[0]![0];
     expect(input.referenceAssetIds).toEqual(['a1']);
     expect(input.enhancedPrompts).toBeDefined();

@@ -2,9 +2,9 @@
 
 import { ImageIcon, ShoppingBag, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, type KeyboardEvent } from 'react';
-import { Button, Chip, Modal } from '@/components/ui';
+import { type KeyboardEvent, useMemo, useState } from 'react';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
+import { Button, Chip, Modal } from '@/components/ui';
 
 type Props = {
   placeholder?: string;
@@ -12,9 +12,7 @@ type Props = {
 
 type PickerTab = 'products' | 'assets';
 
-export function PromptComposer({
-  placeholder = 'describe the campaign you want to cook',
-}: Props) {
+export function PromptComposer({ placeholder = 'describe the campaign you want to cook' }: Props) {
   const router = useRouter();
   const [value, setValue] = useState('');
   const [refs, setRefs] = useState<string[]>([]);
@@ -22,14 +20,8 @@ export function PromptComposer({
 
   const canSubmit = value.trim().length > 0;
 
-  const productCount = useMemo(
-    () => refs.filter((id) => id.startsWith('product:')).length,
-    [refs],
-  );
-  const assetCount = useMemo(
-    () => refs.filter((id) => id.startsWith('asset:')).length,
-    [refs],
-  );
+  const productCount = useMemo(() => refs.filter((id) => id.startsWith('product:')).length, [refs]);
+  const assetCount = useMemo(() => refs.filter((id) => id.startsWith('asset:')).length, [refs]);
 
   function handleSubmit() {
     const prompt = value.trim();
@@ -95,10 +87,7 @@ export function PromptComposer({
             aria-label="select reference images"
             className="appearance-none bg-transparent p-0"
           >
-            <Chip
-              leadingIcon={<ImageIcon size={12} strokeWidth={1.75} />}
-              active={assetCount > 0}
-            >
+            <Chip leadingIcon={<ImageIcon size={12} strokeWidth={1.75} />} active={assetCount > 0}>
               images{assetCount > 0 ? ` · ${assetCount}` : ''}
             </Chip>
           </button>
@@ -135,11 +124,7 @@ export function PromptComposer({
         }
       >
         {pickerTab !== null && (
-          <AssetCatalogPicker
-            value={refs}
-            onChange={setRefs}
-            initialTab={pickerTab}
-          />
+          <AssetCatalogPicker value={refs} onChange={setRefs} initialTab={pickerTab} />
         )}
       </Modal>
     </>

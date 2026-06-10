@@ -10,9 +10,7 @@
  */
 export type CampaignRef = { kind: 'asset' | 'product'; id: string };
 
-export function buildCampaignNewHref(
-  refs: string[] | CampaignRef[],
-): string {
+export function buildCampaignNewHref(refs: string[] | CampaignRef[]): string {
   const tokens = refs.map((ref) =>
     typeof ref === 'string' ? `asset:${ref}` : `${ref.kind}:${ref.id}`,
   );

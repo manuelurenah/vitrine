@@ -28,7 +28,17 @@ export const Chip = forwardRef<HTMLSpanElement, Props>(function Chip(
       {...rest}
     >
       {active && (
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <svg
+          viewBox="0 0 24 24"
+          width="12"
+          height="12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
           <path d="M5 12l5 5L20 7" />
         </svg>
       )}

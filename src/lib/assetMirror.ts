@@ -60,9 +60,7 @@ export async function mirrorOrchestratorImage(
 ): Promise<MirrorResult> {
   const response = await fetch(sourceUrl);
   if (!response.ok) {
-    throw new Error(
-      `failed_to_fetch_source: status=${response.status} url=${sourceUrl}`,
-    );
+    throw new Error(`failed_to_fetch_source: status=${response.status} url=${sourceUrl}`);
   }
 
   const arrayBuffer = await response.arrayBuffer();
@@ -72,8 +70,7 @@ export async function mirrorOrchestratorImage(
   }
 
   const contentType =
-    response.headers.get('content-type')?.split(';')[0]!.trim() ||
-    'application/octet-stream';
+    response.headers.get('content-type')?.split(';')[0]!.trim() || 'application/octet-stream';
   const ext = extFromContentType(contentType);
   const hash = shortHash(`${sourceUrl}:${Date.now()}:${randomUUID()}`);
   const key = `generated/${opts.userId}/${hash}.${ext}`;

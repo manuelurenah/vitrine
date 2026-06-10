@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { ArrowRight, Dna, Pencil, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui';
 
 const cards = [
@@ -66,7 +66,11 @@ export function WelcomeStep() {
 
       <div className="flex flex-col items-center gap-3">
         <Link href="/onboarding/input">
-          <Button variant="primary" size="lg" trailingIcon={<ArrowRight size={16} strokeWidth={1.75} />}>
+          <Button
+            variant="primary"
+            size="lg"
+            trailingIcon={<ArrowRight size={16} strokeWidth={1.75} />}
+          >
             let&apos;s go
           </Button>
         </Link>

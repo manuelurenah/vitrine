@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures';
-import { markOnboardingComplete, resetUserData } from './helpers/db';
 import { signInToApp } from './helpers/auth';
+import { markOnboardingComplete, resetUserData } from './helpers/db';
 
 test.describe('Photoshoot list + wizard', () => {
   test.beforeAll(async () => {

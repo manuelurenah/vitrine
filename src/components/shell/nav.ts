@@ -1,13 +1,7 @@
 import { Camera, Dna, Megaphone } from 'lucide-react';
 import type { ComponentType, SVGProps } from 'react';
 
-export type NavId =
-  | 'dna'
-  | 'overview'
-  | 'catalog'
-  | 'assets'
-  | 'campaigns'
-  | 'photoshoot';
+export type NavId = 'dna' | 'overview' | 'catalog' | 'assets' | 'campaigns' | 'photoshoot';
 
 export type NavItem = {
   id: NavId;

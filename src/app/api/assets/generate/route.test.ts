@@ -208,9 +208,7 @@ describe('POST /api/assets/generate', () => {
   });
 
   it('references: getPublicUrls called with userKey first, resolved URLs land in images[]', async () => {
-    await POST(
-      makeRequest(validBody({ referenceAssetIds: ['ref-a', 'ref-b'] })) as never,
-    );
+    await POST(makeRequest(validBody({ referenceAssetIds: ['ref-a', 'ref-b'] })) as never);
     expect(getPublicUrlsMock).toHaveBeenCalledTimes(1);
     expect(getPublicUrlsMock).toHaveBeenCalledWith('user_1', ['ref-a', 'ref-b']);
     const inputArg = submitImageGenMock.mock.calls[0]![1];

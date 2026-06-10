@@ -1,15 +1,20 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { createAsset, listAssets } from '@/lib/assets';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { createAsset, listAssets } from '@/lib/assets';
 
 const finalizeSchema = z.object({
   bucket: z.string().min(1).max(120),
   key: z.string().min(1).max(500),
   publicUrl: z.string().url().optional(),
   contentType: z.string().max(120).optional(),
-  byteSize: z.number().int().nonnegative().max(50 * 1024 * 1024).optional(),
+  byteSize: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(50 * 1024 * 1024)
+    .optional(),
   width: z.number().int().nonnegative().optional(),
   height: z.number().int().nonnegative().optional(),
   kind: z.enum(['upload', 'generated', 'reference']).default('upload'),

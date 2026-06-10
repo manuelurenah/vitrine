@@ -1,7 +1,5 @@
 'use client';
 
-import { useCallback, useId, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   Check,
   Image as ImageIcon,
@@ -13,8 +11,10 @@ import {
   Video,
   X,
 } from 'lucide-react';
-import { Button, Chip, cn, FieldLabel, Input, TabStrip, Textarea } from '@/components/ui';
+import { useRouter } from 'next/navigation';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
+import { Button, Chip, cn, FieldLabel, Input, TabStrip, Textarea } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
 
 const COLLECTIONS = ['logos', 'partners', 'past campaigns', 'references'] as const;
@@ -90,10 +90,7 @@ export type AssetUploaderProps = {
   libraryAssets?: Asset[];
 };
 
-export function AssetUploader({
-  redirectTo = '/brand/assets',
-  libraryAssets,
-}: AssetUploaderProps) {
+export function AssetUploader({ redirectTo = '/brand/assets', libraryAssets }: AssetUploaderProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const collectionId = useId();
@@ -528,9 +525,7 @@ export function AssetUploader({
       <div className="flex items-center justify-between border-t border-line-subtle pt-4">
         <span className="font-mono text-[12px] text-fg-2">
           {tab === 'library' ? (
-            <>
-              {libraryPicked.length === 0 ? 'pick an asset to promote' : 'ready to promote'}
-            </>
+            <>{libraryPicked.length === 0 ? 'pick an asset to promote' : 'ready to promote'}</>
           ) : (
             <>
               {doneCount} of {staged.length} uploaded

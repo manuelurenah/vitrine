@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { getBuzzAccount, getMe } from '@/lib/civitai';
-import { getSession } from '@/lib/session';
-import { getUserKey } from '@/lib/userKey';
 import { getOnboarding } from '@/lib/onboarding';
+import { getSession } from '@/lib/session';
 import { shellUserFromMe } from '@/lib/user';
+import { getUserKey } from '@/lib/userKey';
 import { AppShellProvider } from './AppShellContext';
 
 export const dynamic = 'force-dynamic';

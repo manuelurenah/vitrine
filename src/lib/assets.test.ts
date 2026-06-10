@@ -72,7 +72,11 @@ vi.mock('@/lib/db/schema', () => ({
   campaignTiles: {},
   photoshootTiles: {},
   productAssets: {},
-  products: { id: 'products.id', userId: 'products.user_id', heroAssetId: 'products.hero_asset_id' },
+  products: {
+    id: 'products.id',
+    userId: 'products.user_id',
+    heroAssetId: 'products.hero_asset_id',
+  },
 }));
 
 vi.mock('@/lib/env', () => ({
@@ -86,9 +90,11 @@ const { presignGetMock, getObjectAsDataUrlMock, isLocalObjectStorageMock } = vi.
   presignGetMock: vi.fn(async (key: string, ttl: number, bucketKind: string) => {
     return `https://presigned.test/${bucketKind}/${key}?ttl=${ttl}`;
   }),
-  getObjectAsDataUrlMock: vi.fn(async ({ key, bucketKind }: { key: string; bucketKind: string }) => {
-    return `data:image/png;base64,DATA_${bucketKind}_${key}`;
-  }),
+  getObjectAsDataUrlMock: vi.fn(
+    async ({ key, bucketKind }: { key: string; bucketKind: string }) => {
+      return `data:image/png;base64,DATA_${bucketKind}_${key}`;
+    },
+  ),
   isLocalObjectStorageMock: vi.fn(() => false),
 }));
 vi.mock('@/lib/s3', () => ({
@@ -117,14 +123,21 @@ beforeEach(() => {
 describe('getPublicUrls', () => {
   it('returns publicUrl directly when present', async () => {
     fakeRows.push(
-      { id: 'a1', bucket: 'assets', storageKey: 'a/1.png', publicUrl: 'https://cdn.example/a/1.png' },
-      { id: 'a2', bucket: 'uploads', storageKey: 'u/2.png', publicUrl: 'https://cdn.example/u/2.png' },
+      {
+        id: 'a1',
+        bucket: 'assets',
+        storageKey: 'a/1.png',
+        publicUrl: 'https://cdn.example/a/1.png',
+      },
+      {
+        id: 'a2',
+        bucket: 'uploads',
+        storageKey: 'u/2.png',
+        publicUrl: 'https://cdn.example/u/2.png',
+      },
     );
     const urls = await getPublicUrls(USER, ['a1', 'a2']);
-    expect(urls).toEqual([
-      'https://cdn.example/a/1.png',
-      'https://cdn.example/u/2.png',
-    ]);
+    expect(urls).toEqual(['https://cdn.example/a/1.png', 'https://cdn.example/u/2.png']);
     expect(presignGetMock).not.toHaveBeenCalled();
   });
 
@@ -194,7 +207,12 @@ describe('getPublicUrls', () => {
   it('inlines bytes as data URLs when object storage is local (orchestrator-unreachable)', async () => {
     isLocalObjectStorageMock.mockReturnValue(true);
     fakeRows.push(
-      { id: 'a1', bucket: 'assets', storageKey: 'a/1.png', publicUrl: 'http://localhost:9000/assets/a/1.png' },
+      {
+        id: 'a1',
+        bucket: 'assets',
+        storageKey: 'a/1.png',
+        publicUrl: 'http://localhost:9000/assets/a/1.png',
+      },
       { id: 'u1', bucket: 'uploads', storageKey: 'u/2.png', publicUrl: null },
     );
     const urls = await getPublicUrls(USER, ['a1', 'u1']);

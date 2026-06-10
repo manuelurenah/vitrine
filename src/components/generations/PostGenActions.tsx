@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ArrowUpRight, Check, Download, MoreHorizontal, Wand2, X } from 'lucide-react';
 import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
+import { ArrowUpRight, Check, Download, MoreHorizontal, Wand2, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/components/ui';
 
 type Action = 'upscale' | 'animate';
@@ -168,42 +168,42 @@ export function PostGenActions({
             (!menuOpen || anyConfirming) && 'hidden',
           )}
         >
-            <ActionChip
-              label="Upscale 2×"
-              icon={<ArrowUpRight size={12} strokeWidth={1.75} />}
-              buzz={actions.upscale.estimatedBuzz}
-              state={actions.upscale}
-              onClick={() => {
-                setMenuOpen(false);
-                startConfirm('upscale');
-              }}
-              disabled={false}
-            />
-            <ActionChip
-              label="Animate"
-              icon={<Wand2 size={12} strokeWidth={1.75} />}
-              buzz={actions.animate.estimatedBuzz}
-              state={actions.animate}
-              onClick={() => {
-                setMenuOpen(false);
-                startConfirm('animate');
-              }}
-              disabled={isVideo}
-              disabledHint={isVideo ? 'already a video' : undefined}
-            />
-            {sourceUrl && (
-              <a
-                href={sourceUrl}
-                download
-                data-testid="post-gen-download"
-                onClick={() => setMenuOpen(false)}
-                className="flex items-center justify-between rounded-[7px] px-2 py-[6px] text-[11.5px] text-fg-0 transition-colors duration-fast ease-out hover:bg-white/10"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <Download size={12} strokeWidth={1.75} /> Download
-                </span>
-              </a>
-            )}
+          <ActionChip
+            label="Upscale 2×"
+            icon={<ArrowUpRight size={12} strokeWidth={1.75} />}
+            buzz={actions.upscale.estimatedBuzz}
+            state={actions.upscale}
+            onClick={() => {
+              setMenuOpen(false);
+              startConfirm('upscale');
+            }}
+            disabled={false}
+          />
+          <ActionChip
+            label="Animate"
+            icon={<Wand2 size={12} strokeWidth={1.75} />}
+            buzz={actions.animate.estimatedBuzz}
+            state={actions.animate}
+            onClick={() => {
+              setMenuOpen(false);
+              startConfirm('animate');
+            }}
+            disabled={isVideo}
+            disabledHint={isVideo ? 'already a video' : undefined}
+          />
+          {sourceUrl && (
+            <a
+              href={sourceUrl}
+              download
+              data-testid="post-gen-download"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center justify-between rounded-[7px] px-2 py-[6px] text-[11.5px] text-fg-0 transition-colors duration-fast ease-out hover:bg-white/10"
+            >
+              <span className="inline-flex items-center gap-2">
+                <Download size={12} strokeWidth={1.75} /> Download
+              </span>
+            </a>
+          )}
         </div>
       </div>
 
@@ -322,8 +322,7 @@ function ConfirmPanel({
           data-testid={`post-gen-confirm-${kind}-go`}
           className="inline-flex h-7 items-center gap-1 rounded-[7px] bg-volt px-2 text-[11.5px] font-medium text-black hover:bg-volt/90 disabled:opacity-50"
         >
-          <Check size={11} strokeWidth={1.75} />{' '}
-          {submitting ? 'submitting…' : 'confirm'}
+          <Check size={11} strokeWidth={1.75} /> {submitting ? 'submitting…' : 'confirm'}
         </button>
       </div>
     </div>
@@ -422,7 +421,12 @@ function ChildResultCard({
 
 function statusFromSnap(snap: WorkflowSnapshot): ChildState['status'] {
   const s = (snap.status ?? '').toString().toLowerCase();
-  if (s.includes('succeed') || s.includes('success') || s.includes('done') || s.includes('complete')) {
+  if (
+    s.includes('succeed') ||
+    s.includes('success') ||
+    s.includes('done') ||
+    s.includes('complete')
+  ) {
     return 'done';
   }
   if (s.includes('fail') || s.includes('error') || s.includes('cancel')) return 'failed';

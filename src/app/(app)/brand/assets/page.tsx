@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 import { AssetsGallery } from '@/components/assets';
+import { listAssets } from '@/lib/assets';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { listAssets } from '@/lib/assets';
 
 export const metadata = { title: 'assets · vitrine' };
 export const dynamic = 'force-dynamic';

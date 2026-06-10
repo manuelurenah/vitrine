@@ -1,9 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Pencil,
+  Sparkles,
+  Trash2,
+  X,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Check, ChevronLeft, ChevronRight, Download, Pencil, Sparkles, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, Chip, FieldLabel, Input, Textarea } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
 import { buildCampaignNewHref, buildPhotoshootNewHref } from '@/lib/campaignHref';
@@ -204,9 +213,9 @@ export function AssetDetailView({
       </div>
 
       {/* main split */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_320px]">
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         {/* preview */}
-        <div className="relative grid place-items-center overflow-hidden px-12 py-8">
+        <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-12 py-8">
           {prevId && (
             <Link
               href={`/brand/assets/${prevId}`}
@@ -216,26 +225,26 @@ export function AssetDetailView({
               <ChevronLeft size={18} strokeWidth={1.75} />
             </Link>
           )}
-          <div className="grid aspect-[4/3] w-full max-w-[720px] place-items-center overflow-hidden rounded-[16px] border border-line-subtle bg-bg-1">
-            {isImage && asset.publicUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={asset.publicUrl}
-                alt={displayName}
-                className="h-full w-full object-contain"
-              />
-            ) : isVideo && asset.publicUrl ? (
-              <video
-                src={asset.publicUrl}
-                controls
-                className="h-full w-full object-contain"
-              />
-            ) : (
+          {isImage && asset.publicUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={asset.publicUrl}
+              alt={displayName}
+              className="max-h-full max-w-full rounded-[16px] border border-line-subtle bg-bg-1 object-contain"
+            />
+          ) : isVideo && asset.publicUrl ? (
+            <video
+              src={asset.publicUrl}
+              controls
+              className="max-h-full max-w-full rounded-[16px] border border-line-subtle bg-bg-1 object-contain"
+            />
+          ) : (
+            <div className="grid aspect-[4/3] w-full max-w-[720px] place-items-center overflow-hidden rounded-[16px] border border-line-subtle bg-bg-1">
               <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-fg-3">
                 preview unavailable
               </span>
-            )}
-          </div>
+            </div>
+          )}
           {nextId && (
             <Link
               href={`/brand/assets/${nextId}`}
@@ -248,7 +257,7 @@ export function AssetDetailView({
         </div>
 
         {/* side */}
-        <aside className="flex flex-col gap-4 overflow-auto border-l border-line-subtle bg-bg-1 px-6 py-7">
+        <aside className="flex flex-col gap-4 overflow-auto border-l border-line-subtle bg-bg-1 px-6 py-7 lg:w-[320px] lg:flex-shrink-0">
           <div>
             <span className="t-eyebrow">// asset</span>
             <h3 className="mt-1 break-all font-display text-[20px] font-semibold leading-tight tracking-[-0.02em] text-fg-0">
@@ -357,10 +366,7 @@ export function AssetDetailView({
                 use in a campaign
               </Button>
             </Link>
-            <Link
-              href={usePhotoshootHref}
-              className="w-full"
-            >
+            <Link href={usePhotoshootHref} className="w-full">
               <Button
                 type="button"
                 variant="secondary"
@@ -407,11 +413,7 @@ export function AssetDetailView({
               >
                 {isImg && s.publicUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={s.publicUrl}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
+                  <img src={s.publicUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <span className="font-mono text-[10px] uppercase text-fg-3">
                     {s.contentType?.split('/')[1] ?? 'file'}

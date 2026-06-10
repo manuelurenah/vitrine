@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import { buildAuthorizeUrl, generatePkce, generateState } from '@civitai/app-sdk';
+import { NextResponse } from 'next/server';
 import { env, REDIRECT_URI } from '@/lib/env';
 import { REQUESTED_SCOPES } from '@/lib/scopes';
 import { setOAuthState } from '@/lib/session';

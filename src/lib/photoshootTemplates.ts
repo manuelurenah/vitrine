@@ -22,28 +22,32 @@ export const PHOTOSHOOT_TEMPLATES: Record<PhotoshootTemplateId, PhotoshootTempla
     id: 'studio-clean',
     label: 'studio · clean',
     group: 'studio',
-    styleNotes: 'studio product shot, seamless paper background, soft key light, ecommerce ready, no props',
+    styleNotes:
+      'studio product shot, seamless paper background, soft key light, ecommerce ready, no props',
     defaultOn: true,
   },
   'studio-dark': {
     id: 'studio-dark',
     label: 'studio · moody',
     group: 'studio',
-    styleNotes: 'studio product shot, dark gradient background, dramatic side light, glossy highlights',
+    styleNotes:
+      'studio product shot, dark gradient background, dramatic side light, glossy highlights',
     defaultOn: false,
   },
   'lifestyle-kitchen': {
     id: 'lifestyle-kitchen',
     label: 'lifestyle · kitchen',
     group: 'lifestyle',
-    styleNotes: 'lifestyle shot, warm kitchen counter, natural daylight, hand reaching for product, candid',
+    styleNotes:
+      'lifestyle shot, warm kitchen counter, natural daylight, hand reaching for product, candid',
     defaultOn: true,
   },
   'lifestyle-market': {
     id: 'lifestyle-market',
     label: 'lifestyle · market',
     group: 'lifestyle',
-    styleNotes: 'farmers market scene, wooden crates, bright sunlight, contextual product placement',
+    styleNotes:
+      'farmers market scene, wooden crates, bright sunlight, contextual product placement',
     defaultOn: false,
   },
   'lifestyle-handheld': {
@@ -64,7 +68,8 @@ export const PHOTOSHOOT_TEMPLATES: Record<PhotoshootTemplateId, PhotoshootTempla
     id: 'hero-wide',
     label: 'hero · web',
     group: 'hero',
-    styleNotes: 'wide hero composition, lots of negative space on the right for copy, cinematic light',
+    styleNotes:
+      'wide hero composition, lots of negative space on the right for copy, cinematic light',
     defaultOn: true,
   },
 };
@@ -80,4 +85,3 @@ export type PhotoshootBrief = {
   variantsPerTemplate: number;
   templateIds: PhotoshootTemplateId[];
 };
-

@@ -7,7 +7,9 @@ export function isOnboardingStep(value: string): value is OnboardingStep {
 
 export function nextStep(current: OnboardingStep): OnboardingStep | null {
   const i = ONBOARDING_STEPS.indexOf(current);
-  return i >= 0 && i < ONBOARDING_STEPS.length - 1 ? (ONBOARDING_STEPS[i + 1] as OnboardingStep) : null;
+  return i >= 0 && i < ONBOARDING_STEPS.length - 1
+    ? (ONBOARDING_STEPS[i + 1] as OnboardingStep)
+    : null;
 }
 
 export function prevStep(current: OnboardingStep): OnboardingStep | null {

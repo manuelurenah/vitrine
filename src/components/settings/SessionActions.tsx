@@ -8,7 +8,10 @@ export function SessionActions() {
   const [busy, setBusy] = useState<'none' | 'logout' | 'revoke'>('none');
 
   async function call(path: '/api/auth/logout' | '/api/auth/revoke', label: 'logout' | 'revoke') {
-    if (label === 'revoke' && !window.confirm('revoke vitrine\'s access at Civitai? you can re-grant by logging in again.')) {
+    if (
+      label === 'revoke' &&
+      !window.confirm("revoke vitrine's access at Civitai? you can re-grant by logging in again.")
+    ) {
       return;
     }
     setBusy(label);

@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { Camera, Megaphone, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import { BuzzPill } from '@/components/ui';
 
 const options = [

@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useId, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ArrowDown, ArrowUp, Check, Plus, Sparkles, Star, Trash2, Upload, X } from 'lucide-react';
-import { Button, Chip, cn, FieldLabel, Input, Textarea } from '@/components/ui';
+import { useRouter } from 'next/navigation';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { GradientThumb } from '@/components/campaigns';
+import { Button, Chip, cn, FieldLabel, Input, Textarea } from '@/components/ui';
 import type { Product, ProductStatus } from '@/lib/catalog';
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -64,11 +64,7 @@ export type EditProductFormProps = {
   redirectTo?: string;
 };
 
-export function EditProductForm({
-  product,
-  initialImages,
-  redirectTo,
-}: EditProductFormProps) {
+export function EditProductForm({ product, initialImages, redirectTo }: EditProductFormProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const nameId = useId();
@@ -184,9 +180,7 @@ export function EditProductForm({
     });
   }
 
-  async function uploadOne(
-    s: Extract<ImageItem, { kind: 'staged' }>,
-  ): Promise<string | null> {
+  async function uploadOne(s: Extract<ImageItem, { kind: 'staged' }>): Promise<string | null> {
     patchImage(s.localId, { status: 'signing', progress: 0 });
     try {
       const presignRes = await fetch('/api/assets/presign', {
@@ -328,9 +322,7 @@ export function EditProductForm({
           onDrop={onDrop}
           className={cn(
             'mt-2 grid grid-cols-2 gap-2 rounded-[14px] border border-dashed p-2 transition-colors duration-fast ease-out sm:grid-cols-3 md:grid-cols-4',
-            !capReached && dragOver
-              ? 'border-volt bg-volt-soft'
-              : 'border-line-subtle bg-bg-2/40',
+            !capReached && dragOver ? 'border-volt bg-volt-soft' : 'border-line-subtle bg-bg-2/40',
           )}
         >
           {images.length === 0 && (
@@ -470,7 +462,16 @@ type CardProps = {
   onMakeHero: () => void;
 };
 
-function ImageCard({ item, isHero, isFirst, isLast, onRemove, onUp, onDown, onMakeHero }: CardProps) {
+function ImageCard({
+  item,
+  isHero,
+  isFirst,
+  isLast,
+  onRemove,
+  onUp,
+  onDown,
+  onMakeHero,
+}: CardProps) {
   const isStaged = item.kind === 'staged';
   const previewUrl = isStaged ? item.previewUrl : item.publicUrl;
   const failed = isStaged && item.status === 'failed';

@@ -26,7 +26,11 @@ const CIVITAI_HOSTS_BASE = [
  * Civitai dev (e.g. https://civitai-dev.blue) without users having to edit
  * CSP by hand. */
 function originOrNull(url) {
-  try { return new URL(url).origin; } catch { return null; }
+  try {
+    return new URL(url).origin;
+  } catch {
+    return null;
+  }
 }
 
 const CIVITAI_HOSTS = Array.from(
@@ -44,18 +48,14 @@ const CIVITAI_HOSTS = Array.from(
 // into `img-src` so uploaded logo previews render.
 const STORAGE_HOSTS = Array.from(
   new Set(
-    [
-      originOrNull(process.env.S3_ENDPOINT),
-      originOrNull(process.env.S3_PUBLIC_URL),
-    ].filter(Boolean),
+    [originOrNull(process.env.S3_ENDPOINT), originOrNull(process.env.S3_PUBLIC_URL)].filter(
+      Boolean,
+    ),
   ),
 );
 
 // Google Fonts are loaded dynamically by the DnaStep font picker.
-const GOOGLE_FONTS = [
-  'https://fonts.googleapis.com',
-  'https://fonts.gstatic.com',
-];
+const GOOGLE_FONTS = ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'];
 
 const csp = [
   `default-src 'self'`,

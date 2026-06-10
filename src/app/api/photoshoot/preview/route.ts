@@ -1,16 +1,20 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getPublicUrls, MissingReferenceError } from '@/lib/assets';
+import { getDefaultBrand } from '@/lib/brand';
 import { estimateImageGen, OrchestratorError } from '@/lib/civitai';
 import {
   isPhotoshootTemplateId,
   PHOTOSHOOT_TEMPLATES,
   type PhotoshootTemplateId,
 } from '@/lib/photoshootTemplates';
+import {
+  buildPhotoshootPrompt,
+  type EnhancedPrompt,
+  resolveFinalPrompt,
+} from '@/lib/promptBuilder';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { getDefaultBrand } from '@/lib/brand';
-import { getPublicUrls, MissingReferenceError } from '@/lib/assets';
-import { buildPhotoshootPrompt, resolveFinalPrompt, type EnhancedPrompt } from '@/lib/promptBuilder';
 
 const photoshootBriefSchema = z.object({
   productName: z.string().min(1).max(120),

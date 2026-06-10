@@ -64,20 +64,14 @@ vi.mock('@/lib/db/schema', () => ({
   generations: { workflowId: 'generations.workflow_id' },
 }));
 
-import { recordGeneration, type GenerationSource } from './generations';
+import { type GenerationSource, recordGeneration } from './generations';
 
 beforeEach(() => {
   capturedInserts.length = 0;
 });
 
 describe('recordGeneration', () => {
-  const sources: GenerationSource[] = [
-    'campaign',
-    'photoshoot',
-    'adhoc',
-    'upscale',
-    'animate',
-  ];
+  const sources: GenerationSource[] = ['campaign', 'photoshoot', 'adhoc', 'upscale', 'animate'];
 
   for (const source of sources) {
     it(`persists source=${source} with correct columns`, async () => {

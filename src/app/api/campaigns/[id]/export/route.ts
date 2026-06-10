@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { getCampaign, listCampaignAssets } from '@/lib/campaigns';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
@@ -34,7 +34,10 @@ export async function GET(_: NextRequest, ctx: { params: Params }) {
 
   const entries = await listCampaignAssets(userKey, id);
   if (entries.length === 0) {
-    return NextResponse.json({ error: 'no_assets', detail: 'no completed tiles to export' }, { status: 409 });
+    return NextResponse.json(
+      { error: 'no_assets', detail: 'no completed tiles to export' },
+      { status: 409 },
+    );
   }
 
   const zipEntries: ZipEntry[] = [];

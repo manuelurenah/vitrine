@@ -1,13 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Asset } from '@/lib/assets';
 import type { Product } from '@/lib/catalog';
 import {
   AssetCatalogPicker,
   AssetsTab,
-  ProductsTab,
-  computeNextSelection,
   computeNextProductSelection,
+  computeNextSelection,
+  ProductsTab,
 } from './AssetCatalogPicker';
 
 /* -------------------------------------------------------------------------- */
@@ -177,27 +177,22 @@ describe('ProductsTab rendering', () => {
 
 describe('computeNextProductSelection', () => {
   it('adds product when none currently selected (under cap)', () => {
-    expect(computeNextProductSelection([], 'product:p1', 4)).toEqual([
+    expect(computeNextProductSelection([], 'product:p1', 4)).toEqual(['product:p1']);
+    expect(computeNextProductSelection(['asset:a1'], 'product:p1', 4)).toEqual([
       'product:p1',
+      'asset:a1',
     ]);
-    expect(
-      computeNextProductSelection(['asset:a1'], 'product:p1', 4),
-    ).toEqual(['product:p1', 'asset:a1']);
   });
 
   it('deselects the product when clicked twice', () => {
-    expect(
-      computeNextProductSelection(['product:p1', 'asset:a1'], 'product:p1', 4),
-    ).toEqual(['asset:a1']);
+    expect(computeNextProductSelection(['product:p1', 'asset:a1'], 'product:p1', 4)).toEqual([
+      'asset:a1',
+    ]);
   });
 
   it('swaps products when a different one is picked, keeping assets', () => {
     expect(
-      computeNextProductSelection(
-        ['product:p1', 'asset:a1', 'asset:a2'],
-        'product:p2',
-        4,
-      ),
+      computeNextProductSelection(['product:p1', 'asset:a1', 'asset:a2'], 'product:p2', 4),
     ).toEqual(['product:p2', 'asset:a1', 'asset:a2']);
   });
 
@@ -209,9 +204,12 @@ describe('computeNextProductSelection', () => {
 
   it('allows swap even when total is at cap', () => {
     const current = ['product:p1', 'asset:a1', 'asset:a2', 'asset:a3'];
-    expect(
-      computeNextProductSelection(current, 'product:p2', 4),
-    ).toEqual(['product:p2', 'asset:a1', 'asset:a2', 'asset:a3']);
+    expect(computeNextProductSelection(current, 'product:p2', 4)).toEqual([
+      'product:p2',
+      'asset:a1',
+      'asset:a2',
+      'asset:a3',
+    ]);
   });
 });
 
@@ -343,17 +341,15 @@ describe('AssetCatalogPicker', () => {
   });
 
   it('marks the products tab as selected by default', () => {
-    const html = renderToStaticMarkup(
-      <AssetCatalogPicker value={[]} onChange={() => {}} />,
-    );
+    const html = renderToStaticMarkup(<AssetCatalogPicker value={[]} onChange={() => {}} />);
     // first tab (products) → aria-selected="true"; second tab (uploads) → aria-selected="false"
-    expect(html.indexOf('aria-selected="true"')).toBeLessThan(html.indexOf('aria-selected="false"'));
+    expect(html.indexOf('aria-selected="true"')).toBeLessThan(
+      html.indexOf('aria-selected="false"'),
+    );
   });
 
   it('renders a loading skeleton initially (effects do not run during SSR)', () => {
-    const html = renderToStaticMarkup(
-      <AssetCatalogPicker value={[]} onChange={() => {}} />,
-    );
+    const html = renderToStaticMarkup(<AssetCatalogPicker value={[]} onChange={() => {}} />);
     expect(html).toContain('data-testid="picker-loading"');
   });
 });

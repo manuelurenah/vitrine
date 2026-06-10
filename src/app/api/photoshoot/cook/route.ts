@@ -1,27 +1,20 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import {
-  OrchestratorError,
-  submitImageGen,
-  type VitrineImageGenInput,
-} from '@/lib/civitai';
-import { photoshootBriefSchema } from '@/lib/photoshootSchema';
-import {
-  PHOTOSHOOT_TEMPLATES,
-  type PhotoshootTemplateId,
-} from '@/lib/photoshootTemplates';
-import { getSession } from '@/lib/session';
-import { getUserKey } from '@/lib/userKey';
-import { createPhotoshoot } from '@/lib/photoshoots';
-import { recordGeneration } from '@/lib/generations';
-import { recordBuzzEvent } from '@/lib/buzz';
-import { getDefaultBrand } from '@/lib/brand';
 import { getPublicUrls, MissingReferenceError } from '@/lib/assets';
+import { getDefaultBrand } from '@/lib/brand';
+import { recordBuzzEvent } from '@/lib/buzz';
+import { OrchestratorError, submitImageGen, type VitrineImageGenInput } from '@/lib/civitai';
+import { recordGeneration } from '@/lib/generations';
+import { photoshootBriefSchema } from '@/lib/photoshootSchema';
+import { createPhotoshoot } from '@/lib/photoshoots';
+import { PHOTOSHOOT_TEMPLATES, type PhotoshootTemplateId } from '@/lib/photoshootTemplates';
 import {
   buildPhotoshootPrompt,
-  resolveFinalPrompt,
   type EnhancedPrompt,
+  resolveFinalPrompt,
 } from '@/lib/promptBuilder';
+import { getSession } from '@/lib/session';
+import { getUserKey } from '@/lib/userKey';
 
 const MAX_PROMPT_CHARS = 4000;
 

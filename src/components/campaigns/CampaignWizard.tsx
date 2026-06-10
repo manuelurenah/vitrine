@@ -1,7 +1,5 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowLeft,
   ChevronDown,
@@ -13,26 +11,19 @@ import {
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
-import {
-  Badge,
-  BuzzPill,
-  Button,
-  Chip,
-  FieldLabel,
-  Input,
-  Textarea,
-  cn,
-} from '@/components/ui';
-import { PresetGrid } from './PresetGrid';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
-import type { EnhancedPrompt } from '@/lib/promptBuilder';
+import { Badge, Button, BuzzPill, Chip, cn, FieldLabel, Input, Textarea } from '@/components/ui';
 import {
-  fetchCampaignPreview,
-  useCampaignPreview,
   type CampaignPreviewResponse,
   type FetchPreviewArgs,
+  fetchCampaignPreview,
   type PreviewBrief,
+  useCampaignPreview,
 } from '@/hooks/useCampaignPreview';
+import type { EnhancedPrompt } from '@/lib/promptBuilder';
+import { PresetGrid } from './PresetGrid';
 
 type AdCopyShape = { headline: string; subhead: string; cta?: string };
 type DraftShape = {
@@ -360,9 +351,7 @@ export function CampaignWizard({ initial, fetcher }: Props) {
           buzzBalance={initial?.buzzBalance ?? null}
         />
       )}
-      {step === 'submit' && (
-        <SubmitStep submitting={submitting} error={submitError} />
-      )}
+      {step === 'submit' && <SubmitStep submitting={submitting} error={submitError} />}
     </div>
   );
 }
@@ -397,9 +386,7 @@ function StepDots({ step }: { step: Step }) {
             >
               {`0${i + 1}`} · {s}
             </span>
-            {i < STEP_ORDER.length - 1 && (
-              <span className="h-px w-6 bg-line" aria-hidden />
-            )}
+            {i < STEP_ORDER.length - 1 && <span className="h-px w-6 bg-line" aria-hidden />}
           </div>
         );
       })}
@@ -441,11 +428,7 @@ function PromptStep({
   const totalCreatives = presetIds.length * variantsPerPreset;
 
   return (
-    <form
-      className="flex flex-col gap-6"
-      onSubmit={onContinue}
-      data-testid="prompt-step"
-    >
+    <form className="flex flex-col gap-6" onSubmit={onContinue} data-testid="prompt-step">
       {drafting && <DraftingOverlay />}
 
       <div>
@@ -459,33 +442,25 @@ function PromptStep({
           data-testid="prompt-input"
         />
         <p className="mt-1 font-mono text-[10.5px] text-fg-3">
-          we&rsquo;ll use this + your brand DNA to draft a full brief with copy
-          for each placement.
+          we&rsquo;ll use this + your brand DNA to draft a full brief with copy for each placement.
         </p>
       </div>
 
       <section>
         <FieldLabel>references</FieldLabel>
-        <AssetCatalogPicker
-          value={referenceAssetIds}
-          onChange={setReferenceAssetIds}
-          max={4}
-        />
+        <AssetCatalogPicker value={referenceAssetIds} onChange={setReferenceAssetIds} max={4} />
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">
         <div>
           <FieldLabel htmlFor="prompt-variants">variants per preset</FieldLabel>
-          <VariantsStepper
-            value={variantsPerPreset}
-            onChange={setVariantsPerPreset}
-          />
+          <VariantsStepper value={variantsPerPreset} onChange={setVariantsPerPreset} />
         </div>
         <div className="flex flex-col gap-2">
           <FieldLabel>total creatives</FieldLabel>
           <div className="font-mono text-[15px] text-fg-0">
-            {presetIds.length} preset{presetIds.length === 1 ? '' : 's'} ×{' '}
-            {variantsPerPreset} = {totalCreatives}
+            {presetIds.length} preset{presetIds.length === 1 ? '' : 's'} × {variantsPerPreset} ={' '}
+            {totalCreatives}
           </div>
         </div>
       </section>
@@ -501,10 +476,7 @@ function PromptStep({
         </span>
         <span className="flex-1" />
         {error && (
-          <span
-            className="font-mono text-[11.5px] text-danger"
-            data-testid="prompt-error"
-          >
+          <span className="font-mono text-[11.5px] text-danger" data-testid="prompt-error">
             {error}
           </span>
         )}
@@ -547,8 +519,7 @@ function DraftingOverlay() {
           drafting your brief
         </span>
         <span className="max-w-[280px] text-[12.5px] text-fg-3">
-          mixing your prompt with brand DNA and writing copy for each
-          placement.
+          mixing your prompt with brand DNA and writing copy for each placement.
         </span>
       </div>
     </div>
@@ -571,10 +542,7 @@ function VariantsStepper({
   max?: number;
 }) {
   return (
-    <div
-      className="inline-flex items-center gap-2"
-      data-testid="variants-stepper"
-    >
+    <div className="inline-flex items-center gap-2" data-testid="variants-stepper">
       <button
         type="button"
         aria-label="decrement variants"
@@ -678,8 +646,7 @@ function BriefStep({
     setAdCopy({ ...adCopy, [id]: { ...current, [field]: value } });
   }
   const total = preview?.totalBuzz ?? 0;
-  const insufficientBuzz =
-    typeof buzzBalance === 'number' && total > 0 && total > buzzBalance;
+  const insufficientBuzz = typeof buzzBalance === 'number' && total > 0 && total > buzzBalance;
 
   return (
     <div className="flex flex-col gap-5" data-testid="brief-step">
@@ -699,11 +666,7 @@ function BriefStep({
           data-testid="regenerate-draft"
           aria-label="regenerate brief with the same prompt"
         >
-          <RefreshCw
-            size={12}
-            strokeWidth={1.75}
-            className={drafting ? 'animate-spin' : ''}
-          />
+          <RefreshCw size={12} strokeWidth={1.75} className={drafting ? 'animate-spin' : ''} />
           {drafting ? 'drafting…' : 'regenerate'}
         </button>
         {previewLoading && (
@@ -712,9 +675,7 @@ function BriefStep({
             estimating…
           </span>
         )}
-        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-fg-3">
-          total
-        </span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-fg-3">total</span>
         <BuzzPill amount={total} data-testid="total-buzz" />
       </header>
 
@@ -802,16 +763,13 @@ function BriefStep({
       <section className="grid gap-4 md:grid-cols-2">
         <div>
           <FieldLabel htmlFor="brief-variants">variants per preset</FieldLabel>
-          <VariantsStepper
-            value={variantsPerPreset}
-            onChange={setVariantsPerPreset}
-          />
+          <VariantsStepper value={variantsPerPreset} onChange={setVariantsPerPreset} />
         </div>
         <div className="flex flex-col gap-2">
           <FieldLabel>total creatives</FieldLabel>
           <div className="font-mono text-[15px] text-fg-0">
-            {presetIds.length} preset{presetIds.length === 1 ? '' : 's'} ×{' '}
-            {variantsPerPreset} = {presetIds.length * variantsPerPreset}
+            {presetIds.length} preset{presetIds.length === 1 ? '' : 's'} × {variantsPerPreset} ={' '}
+            {presetIds.length * variantsPerPreset}
           </div>
         </div>
       </section>
@@ -913,11 +871,7 @@ function BriefStep({
                         re-estimating…
                       </span>
                     )}
-                    <BuzzPill
-                      amount={estimate}
-                      size="compact"
-                      data-testid={`buzz-${id}`}
-                    />
+                    <BuzzPill amount={estimate} size="compact" data-testid={`buzz-${id}`} />
                   </div>
 
                   {errMsg && (
@@ -940,9 +894,7 @@ function BriefStep({
 
                       <button
                         type="button"
-                        onClick={() =>
-                          setShowBrandLayer({ ...showBrandLayer, [id]: !showBrand })
-                        }
+                        onClick={() => setShowBrandLayer({ ...showBrandLayer, [id]: !showBrand })}
                         aria-expanded={showBrand}
                         className="mt-3 inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.1em] text-fg-2 hover:text-fg-0"
                         data-testid={`toggle-brand-${id}`}
@@ -979,9 +931,7 @@ function BriefStep({
                       <div className="mt-3 flex flex-wrap items-center gap-3">
                         <button
                           type="button"
-                          onClick={() =>
-                            setEditing({ ...editing, [id]: !isEditing })
-                          }
+                          onClick={() => setEditing({ ...editing, [id]: !isEditing })}
                           aria-pressed={isEditing}
                           className={cn(
                             'inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.1em]',
@@ -1003,8 +953,8 @@ function BriefStep({
                             aria-label={`raw prompt override for ${id}`}
                           />
                           <p className="mt-1 font-mono text-[10.5px] text-fg-3">
-                            edits replace the assembled prompt sent to the
-                            orchestrator. re-estimates after a short pause.
+                            edits replace the assembled prompt sent to the orchestrator.
+                            re-estimates after a short pause.
                           </p>
                         </div>
                       )}
@@ -1029,18 +979,12 @@ function BriefStep({
         </Button>
         <span className="flex-1" />
         {previewError && (
-          <span
-            className="font-mono text-[11.5px] text-danger"
-            data-testid="brief-error"
-          >
+          <span className="font-mono text-[11.5px] text-danger" data-testid="brief-error">
             {previewError}
           </span>
         )}
         {insufficientBuzz && (
-          <span
-            className="font-mono text-[11.5px] text-danger"
-            data-testid="insufficient-buzz"
-          >
+          <span className="font-mono text-[11.5px] text-danger" data-testid="insufficient-buzz">
             insufficient buzz ·{' '}
             <a
               href="https://civitai.com/purchase/buzz"
@@ -1071,13 +1015,7 @@ function BriefStep({
 /* step 3: submit                                                              */
 /* -------------------------------------------------------------------------- */
 
-function SubmitStep({
-  submitting,
-  error,
-}: {
-  submitting: boolean;
-  error: string | null;
-}) {
+function SubmitStep({ submitting, error }: { submitting: boolean; error: string | null }) {
   return (
     <div
       className="flex flex-col items-center gap-3 rounded-[14px] border border-line-subtle bg-bg-2 p-10 text-center"
@@ -1095,10 +1033,7 @@ function SubmitStep({
         </>
       )}
       {!submitting && error && (
-        <span
-          className="font-mono text-[11.5px] text-danger"
-          data-testid="submit-error"
-        >
+        <span className="font-mono text-[11.5px] text-danger" data-testid="submit-error">
           {error}
         </span>
       )}

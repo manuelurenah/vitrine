@@ -1,7 +1,7 @@
-import Link from 'next/link';
 import { Plus } from 'lucide-react';
-import { Badge, Button, Chip } from '@/components/ui';
+import Link from 'next/link';
 import { GradientThumb, type ThumbTone } from '@/components/campaigns';
+import { Badge, Button, Chip } from '@/components/ui';
 import type { Product } from '@/lib/catalog';
 
 const TONES: ThumbTone[] = ['volt', 'ion', 'ultraviolet', 'flux', 'buzz'];
@@ -35,9 +35,7 @@ export function CatalogGrid({ products }: Props) {
 
       {!hasItems ? (
         <div className="mt-10 flex flex-col items-center gap-3 rounded-[18px] border border-dashed border-line bg-bg-1 p-10 text-center">
-          <div className="font-display text-[18px] font-semibold text-fg-0">
-            no products yet.
-          </div>
+          <div className="font-display text-[18px] font-semibold text-fg-0">no products yet.</div>
           <p className="max-w-[420px] text-[13.5px] text-fg-2">
             add your first product. notes feed every campaign prompt and photoshoot template.
           </p>
@@ -70,7 +68,11 @@ export function CatalogGrid({ products }: Props) {
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-[14px] font-medium text-fg-0">{p.name}</span>
-                  <Badge kind={p.status === 'live' ? 'live' : p.status === 'archived' ? 'archived' : 'draft'}>
+                  <Badge
+                    kind={
+                      p.status === 'live' ? 'live' : p.status === 'archived' ? 'archived' : 'draft'
+                    }
+                  >
                     {p.status}
                   </Badge>
                 </div>

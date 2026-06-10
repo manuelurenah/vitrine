@@ -1,32 +1,32 @@
-import "server-only";
-import { cache } from "react";
-import { fetchMe } from "@civitai/app-sdk";
+import 'server-only';
+import { fetchMe } from '@civitai/app-sdk';
 import {
   buildImageGenBody,
   buildWorkflowBody,
   createOrchestratorClient,
   estimateWorkflow,
   getWorkflow,
-  submitWorkflow,
   type OrchestratorClient,
+  submitWorkflow,
   type WorkflowSnapshot,
-} from "@civitai/app-sdk/orchestrator";
-import { env } from "./env";
-import type { Session } from "./session";
+} from '@civitai/app-sdk/orchestrator';
+import { cache } from 'react';
+import { env } from './env';
+import type { Session } from './session';
 
-const STARTER_TAG = "next-app";
-const TAGS: string[] = ["civitai-app-starter", STARTER_TAG];
+const STARTER_TAG = 'next-app';
+const TAGS: string[] = ['civitai-app-starter', STARTER_TAG];
 
 /**
  * Default `imageGen` engine — Google. Pair with {@link DEFAULT_IMAGE_MODEL}.
  * Override per call via {@link VitrineImageGenInput.engine}.
  */
-export const DEFAULT_IMAGE_ENGINE = "google";
+export const DEFAULT_IMAGE_ENGINE = 'google';
 /**
  * Default `imageGen` model — Nano Banana 2. Multi-modal, accepts optional
  * reference images. Override per call via {@link VitrineImageGenInput.model}.
  */
-export const DEFAULT_IMAGE_MODEL = "nano-banana-2";
+export const DEFAULT_IMAGE_MODEL = 'nano-banana-2';
 
 /**
  * Vitrine-specific input shape for the single `imageGen` path used by both
@@ -38,9 +38,9 @@ export type VitrineImageGenInput = {
   negativePrompt?: string;
   /** Reference images. URL, data URL, or raw base64 string. */
   images?: string[];
-  aspectRatio: "1:1" | "4:5" | "9:16" | "16:9";
+  aspectRatio: '1:1' | '4:5' | '9:16' | '16:9';
   numImages: number;
-  resolution?: "1K" | "2K";
+  resolution?: '1K' | '2K';
   /** Override the default engine (`google`). */
   engine?: string;
   /** Override the default model (`nano-banana-2`). */
@@ -54,12 +54,10 @@ function buildVitrineImageGenBody(input: VitrineImageGenInput): unknown {
       model: input.model ?? DEFAULT_IMAGE_MODEL,
       prompt: input.prompt,
       ...(input.negativePrompt ? { negativePrompt: input.negativePrompt } : {}),
-      ...(input.images && input.images.length > 0
-        ? { images: input.images }
-        : {}),
+      ...(input.images && input.images.length > 0 ? { images: input.images } : {}),
       aspectRatio: input.aspectRatio,
       numImages: input.numImages,
-      resolution: input.resolution ?? "1K",
+      resolution: input.resolution ?? '1K',
     },
     { tags: TAGS },
   );
@@ -84,12 +82,10 @@ export interface MeResponse {
  * getUserKey can all call this without double-hitting Civitai. Cache is
  * request-scoped via React's `cache()` — no cross-user leakage.
  */
-const fetchMeCached = cache(
-  async (accessToken: string): Promise<MeResponse> => {
-    const data = await fetchMe({ baseUrl: env.CIVITAI_BASE_URL, accessToken });
-    return data as MeResponse;
-  },
-);
+const fetchMeCached = cache(async (accessToken: string): Promise<MeResponse> => {
+  const data = await fetchMe({ baseUrl: env.CIVITAI_BASE_URL, accessToken });
+  return data as MeResponse;
+});
 
 export function getMe(session: Session): Promise<MeResponse> {
   return fetchMeCached(session.tokens.access_token);
@@ -121,51 +117,47 @@ export type BuzzBalance = {
  * Balance must reflect the latest Buzz spend immediately after a
  * cook/regenerate.
  */
-const fetchBuzzAccountCached = cache(
-  async (accessToken: string): Promise<BuzzBalance | null> => {
-    try {
-      const url = `${env.CIVITAI_BASE_URL}/api/trpc/buzz.getBuzzAccount?t=${Date.now()}`;
-      const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        cache: "no-store",
-      });
-      if (!res.ok) {
-        console.warn(
-          "[civitai] buzz.getBuzzAccount failed:",
-          res.status,
-          await res.text().catch(() => ""),
-        );
-        return null;
-      }
-      // tRPC envelope variants:
-      //   { result: { data: { json: { yellow, blue, green } } } }   (superjson)
-      //   { result: { data: { yellow, blue, green } } }             (no transformer)
-      //   { yellow, blue, green }                                   (raw — defensive)
-      type Pools = { yellow?: number; blue?: number; green?: number };
-      const body = (await res.json()) as
-        | Pools
-        | { result?: { data?: Pools | { json?: Pools } } };
-      const inner =
-        "result" in body
-          ? (() => {
-              const d = body.result?.data;
-              if (!d) return null;
-              return "json" in d ? (d.json ?? null) : (d as Pools);
-            })()
-          : (body as Pools);
-      if (!inner) return null;
-      return {
-        balance: inner.yellow ?? 0,
-        yellow: inner.yellow ?? 0,
-        blue: inner.blue ?? 0,
-        green: inner.green ?? 0,
-      };
-    } catch (err) {
-      console.warn("[civitai] fetchBuzzAccount failed:", err);
+const fetchBuzzAccountCached = cache(async (accessToken: string): Promise<BuzzBalance | null> => {
+  try {
+    const url = `${env.CIVITAI_BASE_URL}/api/trpc/buzz.getBuzzAccount?t=${Date.now()}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      console.warn(
+        '[civitai] buzz.getBuzzAccount failed:',
+        res.status,
+        await res.text().catch(() => ''),
+      );
       return null;
     }
-  },
-);
+    // tRPC envelope variants:
+    //   { result: { data: { json: { yellow, blue, green } } } }   (superjson)
+    //   { result: { data: { yellow, blue, green } } }             (no transformer)
+    //   { yellow, blue, green }                                   (raw — defensive)
+    type Pools = { yellow?: number; blue?: number; green?: number };
+    const body = (await res.json()) as Pools | { result?: { data?: Pools | { json?: Pools } } };
+    const inner =
+      'result' in body
+        ? (() => {
+            const d = body.result?.data;
+            if (!d) return null;
+            return 'json' in d ? (d.json ?? null) : (d as Pools);
+          })()
+        : (body as Pools);
+    if (!inner) return null;
+    return {
+      balance: inner.yellow ?? 0,
+      yellow: inner.yellow ?? 0,
+      blue: inner.blue ?? 0,
+      green: inner.green ?? 0,
+    };
+  } catch (err) {
+    console.warn('[civitai] fetchBuzzAccount failed:', err);
+    return null;
+  }
+});
 
 export function getBuzzAccount(session: Session): Promise<BuzzBalance | null> {
   return fetchBuzzAccountCached(session.tokens.access_token);
@@ -203,7 +195,7 @@ export function submitImageGen(
 function buildUpscaleBody(sourceImageUrl: string): unknown {
   return buildWorkflowBody(
     {
-      $type: "imageUpscaler",
+      $type: 'imageUpscaler',
       input: { image: sourceImageUrl, scale: 2 },
     },
     { tags: TAGS },
@@ -222,24 +214,18 @@ export function estimateUpscale(
  * Submit a 2x upscale workflow for an existing image URL. Post-generation
  * action — runs against a completed image, debits Buzz separately.
  */
-export function submitUpscale(
-  session: Session,
-  sourceImageUrl: string,
-): Promise<WorkflowSnapshot> {
+export function submitUpscale(session: Session, sourceImageUrl: string): Promise<WorkflowSnapshot> {
   return submitWorkflow(getClient(session), buildUpscaleBody(sourceImageUrl));
 }
 
 // TODO: confirm videoGen engine/model with smoke test
-function buildVideoAnimateBody(
-  sourceImageUrl: string,
-  prompt?: string,
-): unknown {
+function buildVideoAnimateBody(sourceImageUrl: string, prompt?: string): unknown {
   return buildWorkflowBody(
     {
-      $type: "videoGen",
+      $type: 'videoGen',
       input: {
-        engine: "wan",
-        model: "image-to-video",
+        engine: 'wan',
+        model: 'image-to-video',
         sourceImage: sourceImageUrl,
         ...(prompt ? { prompt } : {}),
       },
@@ -254,10 +240,7 @@ export function estimateVideoAnimate(
   sourceImageUrl: string,
   prompt?: string,
 ): Promise<WorkflowSnapshot> {
-  return estimateWorkflow(
-    getClient(session),
-    buildVideoAnimateBody(sourceImageUrl, prompt),
-  );
+  return estimateWorkflow(getClient(session), buildVideoAnimateBody(sourceImageUrl, prompt));
 }
 
 /**
@@ -270,10 +253,7 @@ export function submitVideoAnimate(
   sourceImageUrl: string,
   prompt?: string,
 ): Promise<WorkflowSnapshot> {
-  return submitWorkflow(
-    getClient(session),
-    buildVideoAnimateBody(sourceImageUrl, prompt),
-  );
+  return submitWorkflow(getClient(session), buildVideoAnimateBody(sourceImageUrl, prompt));
 }
 
 export {
@@ -282,4 +262,4 @@ export {
   isTerminal,
   OrchestratorError,
   type WorkflowSnapshot,
-} from "@civitai/app-sdk/orchestrator";
+} from '@civitai/app-sdk/orchestrator';

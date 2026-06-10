@@ -12,11 +12,7 @@ export function Wordmark({ size = 24, className }: Props) {
         fontVariationSettings: `"opsz" ${Math.min(size, 48)}`,
       }}
     >
-      <span
-        className="bg-gradient-to-br from-volt to-ion bg-clip-text text-transparent"
-      >
-        v
-      </span>
+      <span className="bg-gradient-to-br from-volt to-ion bg-clip-text text-transparent">v</span>
       itrine
     </span>
   );

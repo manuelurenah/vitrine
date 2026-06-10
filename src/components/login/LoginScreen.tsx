@@ -1,6 +1,6 @@
 import { Wordmark } from '@/components/shell';
-import { LoginPitch } from './LoginPitch';
 import { AuthCard } from './AuthCard';
+import { LoginPitch } from './LoginPitch';
 
 type Props = {
   error?: string;

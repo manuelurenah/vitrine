@@ -130,9 +130,7 @@ function buildSelect() {
             (predicate.__userIdEq === undefined || p.userId === predicate.__userIdEq),
         );
       } else if (table === 'assets') {
-        const idSet = predicate.__idsIn?.col === 'asset.id'
-          ? new Set(predicate.__idsIn.ids)
-          : null;
+        const idSet = predicate.__idsIn?.col === 'asset.id' ? new Set(predicate.__idsIn.ids) : null;
         rows = fixtures.assets
           .filter(
             (a) =>

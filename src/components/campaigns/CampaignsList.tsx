@@ -64,10 +64,7 @@ export function CampaignsList({ past }: Props) {
 
         {hasPast ? (
           <section className="mt-9">
-            <SectionHead
-              title="past campaigns"
-              count={String(pastItems.length)}
-            />
+            <SectionHead title="past campaigns" count={String(pastItems.length)} />
             <div className="overflow-hidden rounded-[14px] border border-line-subtle bg-bg-2">
               {pastItems.map((p, i) => (
                 <Link key={p.id || p.name} href={p.id ? `/campaigns/${p.id}` : '#'}>

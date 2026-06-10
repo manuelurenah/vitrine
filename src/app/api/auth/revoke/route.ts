@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import { revokeToken } from '@civitai/app-sdk';
+import { NextResponse } from 'next/server';
 import { env } from '@/lib/env';
 import { clearSession, getSession } from '@/lib/session';
 

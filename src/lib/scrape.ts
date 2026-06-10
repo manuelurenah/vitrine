@@ -35,8 +35,7 @@ const MAX_REDIRECTS = 3;
 const MAX_STYLESHEETS = 3;
 const STYLESHEET_MAX_BYTES = 300_000;
 const STYLESHEET_TIMEOUT_MS = 5_000;
-const USER_AGENT =
-  'Mozilla/5.0 (compatible; VitrineBot/1.0; +https://vitrine.civitai.com)';
+const USER_AGENT = 'Mozilla/5.0 (compatible; VitrineBot/1.0; +https://vitrine.civitai.com)';
 
 export async function scrapeSite(input: string): Promise<ScrapeResult> {
   const url = normalizeUrl(input);
@@ -159,7 +158,8 @@ async function fetchHtml(url: URL): Promise<{ html: string; finalUrl: string }> 
       });
       if (res.status >= 300 && res.status < 400) {
         const loc = res.headers.get('location');
-        if (!loc) throw new ScrapeError('request_failed', `redirect without location (${res.status})`);
+        if (!loc)
+          throw new ScrapeError('request_failed', `redirect without location (${res.status})`);
         if (++redirects > MAX_REDIRECTS) {
           throw new ScrapeError('request_failed', 'too many redirects');
         }
@@ -183,10 +183,7 @@ async function fetchHtml(url: URL): Promise<{ html: string; finalUrl: string }> 
     if (err instanceof Error && err.name === 'AbortError') {
       throw new ScrapeError('timeout', `request timed out after ${FETCH_TIMEOUT_MS}ms`);
     }
-    throw new ScrapeError(
-      'request_failed',
-      err instanceof Error ? err.message : String(err),
-    );
+    throw new ScrapeError('request_failed', err instanceof Error ? err.message : String(err));
   } finally {
     clearTimeout(timer);
   }
@@ -325,7 +322,11 @@ function clean(s: string): string {
 }
 
 export function pickBrandName(html: string, hostname: string): string | null {
-  const meta = readMetaContent(html, ['og:site_name', 'application-name', 'apple-mobile-web-app-title']);
+  const meta = readMetaContent(html, [
+    'og:site_name',
+    'application-name',
+    'apple-mobile-web-app-title',
+  ]);
   if (meta) return clean(meta);
   const title = TITLE_RE.exec(html)?.[1];
   if (title) {
@@ -411,7 +412,12 @@ function readMetaContent(html: string, names: string[]): string | null {
   const byName = new Map<string, string>();
   for (const m of html.matchAll(META_RE)) {
     const tag = m[0];
-    const name = (attr(tag, 'name') ?? attr(tag, 'property') ?? attr(tag, 'itemprop') ?? '').toLowerCase();
+    const name = (
+      attr(tag, 'name') ??
+      attr(tag, 'property') ??
+      attr(tag, 'itemprop') ??
+      ''
+    ).toLowerCase();
     if (!name) continue;
     if (byName.has(name)) continue;
     const content = attr(tag, 'content');
@@ -510,7 +516,10 @@ export function pickFont(html: string, cssText: string): string | null {
   for (const m of source.matchAll(FONT_FAMILY_RE)) {
     const value = m[1] ?? '';
     for (const raw of value.split(',')) {
-      const cleaned = raw.trim().replace(/^["']|["']$/g, '').trim();
+      const cleaned = raw
+        .trim()
+        .replace(/^["']|["']$/g, '')
+        .trim();
       if (!cleaned) continue;
       const lower = cleaned.toLowerCase();
       if (SYSTEM_FONT_TOKENS.has(lower)) continue;

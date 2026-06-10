@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures';
-import { markOnboardingComplete, resetUserData } from './helpers/db';
 import { signInToApp } from './helpers/auth';
+import { markOnboardingComplete, resetUserData } from './helpers/db';
 
 test.describe('Brand pages render', () => {
   test.beforeAll(async () => {

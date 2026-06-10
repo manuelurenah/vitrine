@@ -1,9 +1,9 @@
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
 import { EditProductForm } from '@/components/catalog';
-import { getProduct } from '@/lib/catalog';
 import { listAssetsForProduct } from '@/lib/assets';
+import { getProduct } from '@/lib/catalog';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
 

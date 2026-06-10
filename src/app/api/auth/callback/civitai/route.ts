@@ -1,5 +1,5 @@
-import { NextResponse, type NextRequest } from 'next/server';
 import { exchangeCode, OAuthError } from '@civitai/app-sdk';
+import { type NextRequest, NextResponse } from 'next/server';
 import { env, REDIRECT_URI } from '@/lib/env';
 import { consumeOAuthState, setSession } from '@/lib/session';
 

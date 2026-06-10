@@ -1,5 +1,5 @@
 import { MoreHorizontal } from 'lucide-react';
-import { Badge, cn, type BadgeKind } from '@/components/ui';
+import { Badge, type BadgeKind, cn } from '@/components/ui';
 import { GradientThumb, type ThumbTone } from './GradientThumb';
 
 type Props = {

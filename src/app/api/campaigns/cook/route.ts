@@ -1,25 +1,17 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import {
-  OrchestratorError,
-  submitImageGen,
-  type VitrineImageGenInput,
-} from '@/lib/civitai';
+import { type AdCopy, generateAdCopyForPresets } from '@/lib/adCopy';
+import { getPublicUrls, MissingReferenceError } from '@/lib/assets';
+import { getDefaultBrand } from '@/lib/brand';
 import { briefSchema } from '@/lib/briefSchema';
+import { recordBuzzEvent } from '@/lib/buzz';
+import { createCampaign } from '@/lib/campaigns';
+import { OrchestratorError, submitImageGen, type VitrineImageGenInput } from '@/lib/civitai';
+import { recordGeneration } from '@/lib/generations';
 import { PRESETS, type PresetId } from '@/lib/presets';
+import { buildCampaignPrompt, type EnhancedPrompt, resolveFinalPrompt } from '@/lib/promptBuilder';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { createCampaign } from '@/lib/campaigns';
-import { recordGeneration } from '@/lib/generations';
-import { recordBuzzEvent } from '@/lib/buzz';
-import { getDefaultBrand } from '@/lib/brand';
-import { getPublicUrls, MissingReferenceError } from '@/lib/assets';
-import {
-  buildCampaignPrompt,
-  resolveFinalPrompt,
-  type EnhancedPrompt,
-} from '@/lib/promptBuilder';
-import { generateAdCopyForPresets, type AdCopy } from '@/lib/adCopy';
 
 const MAX_PROMPT_CHARS = 4000;
 

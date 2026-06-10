@@ -19,7 +19,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { className, type = 'text', ...rest },
   ref,
 ) {
-  return <input ref={ref} type={type} className={cn(fieldBase, 'h-[38px] px-3', className)} {...rest} />;
+  return (
+    <input ref={ref} type={type} className={cn(fieldBase, 'h-[38px] px-3', className)} {...rest} />
+  );
 });
 
 type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement>;
@@ -32,7 +34,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
     <textarea
       ref={ref}
       rows={rows}
-      className={cn(fieldBase, 'min-h-[70px] resize-y px-3 py-[10px] leading-[1.5] font-body', className)}
+      className={cn(
+        fieldBase,
+        'min-h-[70px] resize-y px-3 py-[10px] leading-[1.5] font-body',
+        className,
+      )}
       {...rest}
     />
   );

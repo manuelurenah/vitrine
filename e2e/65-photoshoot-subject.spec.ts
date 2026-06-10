@@ -1,11 +1,6 @@
 import { expect, test } from './fixtures';
-import {
-  markOnboardingComplete,
-  resetUserData,
-  seedAsset,
-  seedProduct,
-} from './helpers/db';
 import { signInToApp } from './helpers/auth';
+import { markOnboardingComplete, resetUserData, seedAsset, seedProduct } from './helpers/db';
 
 test.describe('Photoshoot subject deep-links', () => {
   test.beforeEach(async () => {

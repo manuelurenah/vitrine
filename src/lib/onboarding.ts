@@ -1,8 +1,8 @@
 import 'server-only';
 import { eq, sql } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { onboardingState, type OnboardingState } from '@/lib/db/schema';
 import { ONBOARDING_STEPS, type OnboardingStep } from '@/components/onboarding/steps';
+import { db } from '@/lib/db';
+import { type OnboardingState, onboardingState } from '@/lib/db/schema';
 
 export type OnboardingPayload = {
   brandName?: string;

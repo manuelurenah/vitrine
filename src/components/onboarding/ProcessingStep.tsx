@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Check, Dna, Loader2, TriangleAlert } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/components/ui';
 import type { OnboardingPayload } from '@/lib/onboarding';
 
@@ -56,7 +56,10 @@ export function ProcessingStep({ payload }: Props) {
             body: JSON.stringify({ url }),
           });
           if (!res.ok) {
-            const body = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+            const body = (await res.json().catch(() => ({}))) as {
+              error?: string;
+              detail?: string;
+            };
             throw new Error(body.detail ?? body.error ?? `scrape http ${res.status}`);
           }
           setStatus('scrape', 'done');

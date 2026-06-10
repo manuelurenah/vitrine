@@ -14,10 +14,7 @@ import { mergeImageAssetIds } from './AddProductForm';
 
 describe('mergeImageAssetIds', () => {
   it('drops null, undefined, and empty string entries from uploads', () => {
-    const result = mergeImageAssetIds(
-      ['a1', null, undefined, '', 'a2'],
-      [],
-    );
+    const result = mergeImageAssetIds(['a1', null, undefined, '', 'a2'], []);
     expect(result).toEqual(['a1', 'a2']);
   });
 
@@ -34,10 +31,7 @@ describe('mergeImageAssetIds', () => {
   it('dedupes across uploads + library with uploads-first ordering winning', () => {
     // Same id present in both arrays — uploads-first wins so the id keeps its
     // position from the uploads array, the library copy is dropped.
-    const result = mergeImageAssetIds(
-      ['a1', 'shared', 'a2'],
-      ['shared', 'b1'],
-    );
+    const result = mergeImageAssetIds(['a1', 'shared', 'a2'], ['shared', 'b1']);
     expect(result).toEqual(['a1', 'shared', 'a2', 'b1']);
   });
 
@@ -56,11 +50,7 @@ describe('mergeImageAssetIds', () => {
   });
 
   it('honors a custom cap', () => {
-    const result = mergeImageAssetIds(
-      ['u1', 'u2', 'u3'],
-      ['l1', 'l2'],
-      3,
-    );
+    const result = mergeImageAssetIds(['u1', 'u2', 'u3'], ['l1', 'l2'], 3);
     expect(result).toEqual(['u1', 'u2', 'u3']);
   });
 });

@@ -73,14 +73,18 @@
   --shadow-xl: 0 32px 80px rgba(0, 0, 0, 0.65), 0 4px 8px rgba(0, 0, 0, 0.4);
 
   /* Bloom — signature electric halo */
-  --bloom-volt: 0 0 0 1px rgba(0, 255, 157, 0.35), 0 0 28px -4px rgba(0, 255, 157, 0.55),
+  --bloom-volt:
+    0 0 0 1px rgba(0, 255, 157, 0.35), 0 0 28px -4px rgba(0, 255, 157, 0.55),
     0 0 64px -10px rgba(0, 255, 157, 0.35);
   --bloom-volt-sm: 0 0 0 1px rgba(0, 255, 157, 0.28), 0 0 12px -2px rgba(0, 255, 157, 0.45);
-  --bloom-ion: 0 0 0 1px rgba(25, 240, 255, 0.35), 0 0 28px -4px rgba(25, 240, 255, 0.55),
+  --bloom-ion:
+    0 0 0 1px rgba(25, 240, 255, 0.35), 0 0 28px -4px rgba(25, 240, 255, 0.55),
     0 0 64px -10px rgba(25, 240, 255, 0.35);
-  --bloom-ultraviolet: 0 0 0 1px rgba(124, 92, 255, 0.4),
-    0 0 28px -4px rgba(124, 92, 255, 0.55), 0 0 64px -10px rgba(124, 92, 255, 0.35);
-  --bloom-flux: 0 0 0 1px rgba(255, 43, 214, 0.4), 0 0 28px -4px rgba(255, 43, 214, 0.55),
+  --bloom-ultraviolet:
+    0 0 0 1px rgba(124, 92, 255, 0.4), 0 0 28px -4px rgba(124, 92, 255, 0.55),
+    0 0 64px -10px rgba(124, 92, 255, 0.35);
+  --bloom-flux:
+    0 0 0 1px rgba(255, 43, 214, 0.4), 0 0 28px -4px rgba(255, 43, 214, 0.55),
     0 0 64px -10px rgba(255, 43, 214, 0.35);
 
   --inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -110,9 +114,9 @@
   --space-24: 96px;
 
   /* Type families — backed by next/font CSS variables defined on <html>. */
-  --font-display: var(--font-display-family), 'Bricolage Grotesque', system-ui, sans-serif;
-  --font-body: var(--font-body-family), 'Space Grotesk', system-ui, sans-serif;
-  --font-mono: var(--font-mono-family), ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-display: var(--font-display-family), "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: var(--font-body-family), "Space Grotesk", system-ui, sans-serif;
+  --font-mono: var(--font-mono-family), ui-monospace, "SF Mono", Menlo, monospace;
 
   /* Type scale */
   --text-xs: 11px;
@@ -159,7 +163,7 @@
 /* ============================================================
    LIGHT THEME — opt-in via [data-theme="light"].
    ============================================================ */
-[data-theme='light'] {
+[data-theme="light"] {
   color-scheme: light;
 
   --bg-0: #faf9f5;
@@ -217,8 +221,7 @@
   --bloom-volt: 0 0 0 1px rgba(0, 165, 95, 0.35), 0 6px 24px -4px rgba(0, 165, 95, 0.3);
   --bloom-volt-sm: 0 0 0 1px rgba(0, 165, 95, 0.3), 0 4px 12px -2px rgba(0, 165, 95, 0.25);
   --bloom-ion: 0 0 0 1px rgba(0, 138, 168, 0.35), 0 6px 24px -4px rgba(0, 138, 168, 0.3);
-  --bloom-ultraviolet: 0 0 0 1px rgba(91, 62, 224, 0.4),
-    0 6px 24px -4px rgba(91, 62, 224, 0.3);
+  --bloom-ultraviolet: 0 0 0 1px rgba(91, 62, 224, 0.4), 0 6px 24px -4px rgba(91, 62, 224, 0.3);
   --bloom-flux: 0 0 0 1px rgba(198, 26, 163, 0.4), 0 6px 24px -4px rgba(198, 26, 163, 0.3);
 
   --inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.6);
@@ -254,7 +257,7 @@ body {
   font-size: var(--text-6xl);
   line-height: var(--lh-tight);
   letter-spacing: var(--track-tight);
-  font-variation-settings: 'opsz' 48;
+  font-variation-settings: "opsz" 48;
 }
 .t-display-2 {
   font-family: var(--font-display);
@@ -262,7 +265,7 @@ body {
   font-size: var(--text-5xl);
   line-height: var(--lh-tight);
   letter-spacing: var(--track-tight);
-  font-variation-settings: 'opsz' 48;
+  font-variation-settings: "opsz" 48;
 }
 .t-h1 {
   font-family: var(--font-display);
@@ -270,7 +273,7 @@ body {
   font-size: var(--text-4xl);
   line-height: var(--lh-snug);
   letter-spacing: var(--track-tight);
-  font-variation-settings: 'opsz' 36;
+  font-variation-settings: "opsz" 36;
 }
 .t-h2 {
   font-family: var(--font-display);
@@ -278,7 +281,7 @@ body {
   font-size: var(--text-3xl);
   line-height: var(--lh-snug);
   letter-spacing: var(--track-snug);
-  font-variation-settings: 'opsz' 28;
+  font-variation-settings: "opsz" 28;
 }
 .t-h3 {
   font-family: var(--font-display);
@@ -286,7 +289,7 @@ body {
   font-size: var(--text-2xl);
   line-height: var(--lh-snug);
   letter-spacing: var(--track-snug);
-  font-variation-settings: 'opsz' 20;
+  font-variation-settings: "opsz" 20;
 }
 .t-eyebrow {
   font-family: var(--font-mono);

@@ -77,7 +77,9 @@ describe('parsers', () => {
   });
 
   it('falls back to hostname when nothing matches', () => {
-    expect(pickBrandName('<html><head></head></html>', 'fallback.example')).toBe('fallback.example');
+    expect(pickBrandName('<html><head></head></html>', 'fallback.example')).toBe(
+      'fallback.example',
+    );
   });
 
   it('prefers title head when no og:site_name', () => {
@@ -125,13 +127,31 @@ describe('parsers', () => {
   });
 
   it('caps palette to 6 entries', () => {
-    const colors = ['#aa1111', '#bb2222', '#cc3333', '#dd4444', '#ee5555', '#664488', '#778899', '#abcdef'];
+    const colors = [
+      '#aa1111',
+      '#bb2222',
+      '#cc3333',
+      '#dd4444',
+      '#ee5555',
+      '#664488',
+      '#778899',
+      '#abcdef',
+    ];
     const html = `<style>${colors.map((c, i) => `.x${i}{color:${c};}`).join(' ')}</style>`;
     expect(pickPalette(html).length).toBe(6);
   });
 
   it('drops near-grays even when frequent', () => {
-    const grays = ['#0a0a0a', '#1a1a1a', '#2a2a2a', '#3a3a3a', '#4a4a4a', '#5a5a5a', '#6a6a6a', '#7a7a7a'];
+    const grays = [
+      '#0a0a0a',
+      '#1a1a1a',
+      '#2a2a2a',
+      '#3a3a3a',
+      '#4a4a4a',
+      '#5a5a5a',
+      '#6a6a6a',
+      '#7a7a7a',
+    ];
     const css = grays.map((c, i) => `.g${i}{color:${c};} `.repeat(30)).join('');
     const real = '.brand{color:#7c5cff;background:#ff7849;}';
     const palette = pickPalette(`<style>${css} ${real}</style>`);
@@ -175,12 +195,14 @@ describe('parsers', () => {
 
 describe('pickFont', () => {
   it('extracts the family from a Google Fonts <link>', () => {
-    const html = '<head><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;700&display=swap"></head>';
+    const html =
+      '<head><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;700&display=swap"></head>';
     expect(pickFont(html, '')).toBe('Bricolage Grotesque');
   });
 
   it('skips system-stack tokens', () => {
-    const css = '.a{font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;}';
+    const css =
+      '.a{font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;}';
     expect(pickFont('', css)).toBeNull();
   });
 
@@ -195,7 +217,8 @@ describe('pickFont', () => {
   });
 
   it('handles unquoted family names', () => {
-    const css = '.x{font-family: Helvetica Neue, Arial, sans-serif;} .y{font-family: Outfit, sans-serif;}';
+    const css =
+      '.x{font-family: Helvetica Neue, Arial, sans-serif;} .y{font-family: Outfit, sans-serif;}';
     // Helvetica Neue + Arial are skipped as system-stack fallbacks, so
     // Outfit wins despite a lower direct count.
     expect(pickFont('', css)).toBe('Outfit');
@@ -207,7 +230,8 @@ describe('pickFont', () => {
   });
 
   it('prefers Google Fonts link over count-based heuristic', () => {
-    const html = '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700">';
+    const html =
+      '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700">';
     const css = `${'.a{font-family: "Inter", sans-serif;}'.repeat(50)}`;
     expect(pickFont(html, css)).toBe('Outfit');
   });

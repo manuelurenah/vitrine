@@ -1,3 +1,3 @@
-export { AssetUploader } from './AssetUploader';
-export { AssetsGallery } from './AssetsGallery';
 export { AssetDetailView } from './AssetDetailView';
+export { AssetsGallery } from './AssetsGallery';
+export { AssetUploader } from './AssetUploader';

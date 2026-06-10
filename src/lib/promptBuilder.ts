@@ -1,7 +1,7 @@
-import type { BriefForPresets, PresetDef } from './presets';
-import type { PhotoshootBrief, PhotoshootRatio, PhotoshootTemplate } from './photoshootTemplates';
-import type { BrandProfile } from './brand';
 import type { AdCopy } from './adCopy';
+import type { BrandProfile } from './brand';
+import type { PhotoshootBrief, PhotoshootRatio, PhotoshootTemplate } from './photoshootTemplates';
+import type { BriefForPresets, PresetDef } from './presets';
 
 export type AspectRatio = '1:1' | '4:5' | '9:16' | '16:9';
 
@@ -15,8 +15,10 @@ export type EnhancedPrompt = {
   userOverride?: string;
 };
 
-const DEFAULT_NEGATIVE = 'low quality, watermark, text overlay, distorted product, extra fingers, blurry';
-const CAMPAIGN_TEXT_NEGATIVE = 'low quality, watermark, distorted product, extra fingers, blurry, gibberish text, misspelled text, duplicate text';
+const DEFAULT_NEGATIVE =
+  'low quality, watermark, text overlay, distorted product, extra fingers, blurry';
+const CAMPAIGN_TEXT_NEGATIVE =
+  'low quality, watermark, distorted product, extra fingers, blurry, gibberish text, misspelled text, duplicate text';
 
 const RATIO_FALLBACK: Record<string, AspectRatio> = {
   '1:1': '1:1',
@@ -110,7 +112,10 @@ function copyLayer(preset: PresetDef, adCopy: AdCopy): string {
 export function buildCampaignPrompt(input: BuildCampaignPromptInput): EnhancedPrompt {
   const { brief, brand, preset, referenceCount = 0, userOverride, adCopy } = input;
 
-  const baseDescription = (brief.description?.trim() || brief.prompt?.trim() || '').replace(/\s+/g, ' ');
+  const baseDescription = (brief.description?.trim() || brief.prompt?.trim() || '').replace(
+    /\s+/g,
+    ' ',
+  );
   const base = assemble([
     baseDescription,
     brief.goal ? `goal: ${brief.goal}` : undefined,

@@ -1,8 +1,8 @@
 import OpenAI from 'openai';
-import { env } from './env';
-import { PRESETS, type PresetId } from './presets';
-import type { BriefForPresets } from './presets';
 import type { BrandProfile } from './brand';
+import { env } from './env';
+import type { BriefForPresets } from './presets';
+import { PRESETS, type PresetId } from './presets';
 
 export type AdCopy = {
   headline: string;
@@ -157,7 +157,8 @@ export async function generateAdCopyForPresets(
     const text = completion.choices?.[0]?.message?.content ?? '';
     const parsed = parseJson(text);
     if (!parsed || typeof parsed !== 'object') return fallback();
-    const tiles = (parsed as { tiles?: Record<string, unknown> }).tiles ?? (parsed as Record<string, unknown>);
+    const tiles =
+      (parsed as { tiles?: Record<string, unknown> }).tiles ?? (parsed as Record<string, unknown>);
     if (!tiles || typeof tiles !== 'object') return fallback();
     const out = {} as Record<PresetId, AdCopy>;
     for (const id of presetIds) {
@@ -400,9 +401,7 @@ export async function generateCampaignDraft(
       } catch (err) {
         lastErr = err;
         if (isJsonModeUnsupported(err) && !triedNoJsonMode) {
-          console.warn(
-            `[adCopy] ${model} rejected response_format — retrying without JSON mode`,
-          );
+          console.warn(`[adCopy] ${model} rejected response_format — retrying without JSON mode`);
           jsonMode = false;
           triedNoJsonMode = true;
           continue;
@@ -414,10 +413,7 @@ export async function generateCampaignDraft(
           await new Promise((r) => setTimeout(r, 1500));
           continue;
         }
-        console.warn(
-          `[adCopy] non-transient error from ${model} — advancing chain`,
-          err,
-        );
+        console.warn(`[adCopy] non-transient error from ${model} — advancing chain`, err);
         break;
       }
     }
@@ -429,10 +425,7 @@ export async function generateCampaignDraft(
       lastErr instanceof Error
         ? `${lastErr.name}: ${lastErr.message.slice(0, 200)}`
         : 'all_models_failed';
-    console.error(
-      `[adCopy] all ${models.length} models in chain failed. Last error:`,
-      lastErr,
-    );
+    console.error(`[adCopy] all ${models.length} models in chain failed. Last error:`, lastErr);
     return {
       draft: fallbackDraft(prompt, brand, presetIds),
       meta: { llm: 'fallback', attempts, reason },
@@ -450,10 +443,7 @@ export async function generateCampaignDraft(
       | Record<string, unknown>
       | null;
     if (!parsed || typeof parsed !== 'object') {
-      console.warn(
-        `[adCopy] ${usedModel} returned non-JSON. raw=`,
-        text.slice(0, 500),
-      );
+      console.warn(`[adCopy] ${usedModel} returned non-JSON. raw=`, text.slice(0, 500));
       return {
         draft: fallbackDraft(prompt, brand, presetIds),
         meta: { llm: 'fallback', model: usedModel, attempts, reason: 'invalid_json' },
@@ -533,9 +523,7 @@ export async function generateCampaignDraft(
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') throw err;
     const reason =
-      err instanceof Error
-        ? `${err.name}: ${err.message.slice(0, 200)}`
-        : 'unknown_error';
+      err instanceof Error ? `${err.name}: ${err.message.slice(0, 200)}` : 'unknown_error';
     console.error('[adCopy] LLM draft parse/processing failed.', err);
     return {
       draft: fallbackDraft(prompt, brand, presetIds),

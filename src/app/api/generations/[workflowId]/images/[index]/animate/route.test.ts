@@ -72,10 +72,7 @@ function makeRequest(body?: unknown): Request {
     init.headers = { 'content-type': 'application/json' };
     init.body = JSON.stringify(body);
   }
-  return new Request(
-    'http://localhost/api/generations/wf_parent/images/0/animate',
-    init,
-  );
+  return new Request('http://localhost/api/generations/wf_parent/images/0/animate', init);
 }
 
 function makeParams(workflowId = 'wf_parent', index = '0') {
@@ -119,7 +116,10 @@ beforeEach(() => {
     },
   });
   getUserKeyMock.mockResolvedValue('user_1');
-  extractImageUrlsMock.mockReturnValue(['https://cdn.test/img-0.png', 'https://cdn.test/img-1.png']);
+  extractImageUrlsMock.mockReturnValue([
+    'https://cdn.test/img-0.png',
+    'https://cdn.test/img-1.png',
+  ]);
   estimateVideoAnimateMock.mockResolvedValue({
     id: 'wf_est',
     status: 'pending',
@@ -208,7 +208,10 @@ describe('POST /api/generations/[workflowId]/images/[index]/animate', () => {
     expect(submitVideoAnimateMock.mock.calls[0]![2]).toBe('slow zoom out');
     expect(estimateVideoAnimateMock.mock.calls[0]![2]).toBe('slow zoom out');
     const rec = recordGenerationMock.mock.calls[0]![0];
-    expect(rec.input).toMatchObject({ sourceUrl: 'https://cdn.test/img-0.png', prompt: 'slow zoom out' });
+    expect(rec.input).toMatchObject({
+      sourceUrl: 'https://cdn.test/img-0.png',
+      prompt: 'slow zoom out',
+    });
   });
 
   it('propagates orchestrator error with original status code', async () => {

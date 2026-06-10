@@ -43,9 +43,7 @@ export async function fetchCampaignPreview(
     body: JSON.stringify(args),
     signal: init?.signal,
   });
-  const json = (await res.json().catch(() => ({}))) as
-    | CampaignPreviewResponse
-    | { error?: string };
+  const json = (await res.json().catch(() => ({}))) as CampaignPreviewResponse | { error?: string };
   if (!res.ok) {
     const err = (json as { error?: string }).error ?? `http ${res.status}`;
     throw new Error(err);
@@ -74,9 +72,7 @@ export type UseCampaignPreviewResult = {
  * the in-flight controller so subsequent calls cancel stale ones and the UI
  * never flashes a previous response.
  */
-export function useCampaignPreview(
-  opts: UseCampaignPreviewOptions = {},
-): UseCampaignPreviewResult {
+export function useCampaignPreview(opts: UseCampaignPreviewOptions = {}): UseCampaignPreviewResult {
   const debounceMs = opts.debounceMs ?? 300;
   const fetcher = opts.fetcher;
   const [preview, setPreview] = useState<CampaignPreviewResponse | null>(null);

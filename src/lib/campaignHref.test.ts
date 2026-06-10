@@ -7,9 +7,7 @@ describe('buildCampaignNewHref', () => {
   });
 
   it('comma-joins multiple legacy asset ids before encoding', () => {
-    expect(buildCampaignNewHref(['a1', 'a2'])).toBe(
-      '/campaigns/new?refs=asset%3Aa1%2Casset%3Aa2',
-    );
+    expect(buildCampaignNewHref(['a1', 'a2'])).toBe('/campaigns/new?refs=asset%3Aa1%2Casset%3Aa2');
   });
 
   it('handles a mixed CampaignRef[] of assets and products', () => {

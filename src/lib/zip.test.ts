@@ -7,9 +7,7 @@ function readU16LE(buf: Uint8Array, off: number): number {
   return buf[off]! | (buf[off + 1]! << 8);
 }
 function readU32LE(buf: Uint8Array, off: number): number {
-  return (
-    (buf[off]! | (buf[off + 1]! << 8) | (buf[off + 2]! << 16) | (buf[off + 3]! << 24)) >>> 0
-  );
+  return (buf[off]! | (buf[off + 1]! << 8) | (buf[off + 2]! << 16) | (buf[off + 3]! << 24)) >>> 0;
 }
 
 function findEocd(buf: Uint8Array): number {

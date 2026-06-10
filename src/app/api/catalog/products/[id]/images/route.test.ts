@@ -5,9 +5,9 @@ vi.mock('@/lib/session', () => ({ getSession: vi.fn() }));
 vi.mock('@/lib/userKey', () => ({ getUserKey: vi.fn() }));
 vi.mock('@/lib/catalog', () => ({ appendProductImages: vi.fn() }));
 
+import { appendProductImages } from '@/lib/catalog';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { appendProductImages } from '@/lib/catalog';
 
 function reqWith(body: unknown) {
   return new Request('http://t/p/123/images', {

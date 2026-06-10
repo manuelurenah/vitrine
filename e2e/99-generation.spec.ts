@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures';
-import { markOnboardingComplete, resetUserData } from './helpers/db';
 import { signInToApp } from './helpers/auth';
+import { markOnboardingComplete, resetUserData } from './helpers/db';
 
 /**
  * Smoke pass over the full generation pipeline against deterministic MSW

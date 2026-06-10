@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Sidebar } from './Sidebar';
-import { TopBar, type Crumb } from './TopBar';
+import { type Crumb, TopBar } from './TopBar';
 
 type Props = {
   user: { initials: string; name: string; tier?: string };

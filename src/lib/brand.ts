@@ -1,10 +1,7 @@
 import 'server-only';
 import { and, desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import {
-  brandProfiles,
-  type BrandProfile as BrandRow,
-} from '@/lib/db/schema';
+import { type BrandProfile as BrandRow, brandProfiles } from '@/lib/db/schema';
 import { getOnboarding, type OnboardingPayload } from '@/lib/onboarding';
 
 export type BrandProfile = {
@@ -122,9 +119,8 @@ function seedFromPayload(payload: OnboardingPayload): BrandSeed {
     return t.length > 0 ? t : null;
   };
   const colors =
-    payload.colors && payload.colors.length > 0 ? payload.colors : scrape?.palette ?? [];
-  const tone =
-    payload.tone && payload.tone.length > 0 ? payload.tone.join(', ') : null;
+    payload.colors && payload.colors.length > 0 ? payload.colors : (scrape?.palette ?? []);
+  const tone = payload.tone && payload.tone.length > 0 ? payload.tone.join(', ') : null;
   return {
     name: trimOrNull(payload.brandName) ?? trimOrNull(scrape?.brandName),
     description: trimOrNull(payload.description) ?? trimOrNull(scrape?.description),

@@ -21,10 +21,7 @@ function makeProduct(id: string, heroAssetId: string | undefined): Product {
 }
 
 describe('resolveSubjectReference', () => {
-  const products: Product[] = [
-    makeProduct('p1', 'h1'),
-    makeProduct('p2', undefined),
-  ];
+  const products: Product[] = [makeProduct('p1', 'h1'), makeProduct('p2', undefined)];
   const assets: Asset[] = [];
 
   it('returns null when subject is null', () => {
@@ -34,24 +31,16 @@ describe('resolveSubjectReference', () => {
   it('returns the asset id directly for an asset subject', () => {
     // The resolver should not depend on whether `a1` is in the products or
     // assets arrays — it just unwraps the discriminator.
-    expect(
-      resolveSubjectReference({ kind: 'asset', id: 'a1' }, products, assets),
-    ).toBe('a1');
-    expect(
-      resolveSubjectReference({ kind: 'asset', id: 'a1' }, [], []),
-    ).toBe('a1');
+    expect(resolveSubjectReference({ kind: 'asset', id: 'a1' }, products, assets)).toBe('a1');
+    expect(resolveSubjectReference({ kind: 'asset', id: 'a1' }, [], [])).toBe('a1');
   });
 
   it('returns the product heroAssetId for a product subject with a hero', () => {
-    expect(
-      resolveSubjectReference({ kind: 'product', id: 'p1' }, products, assets),
-    ).toBe('h1');
+    expect(resolveSubjectReference({ kind: 'product', id: 'p1' }, products, assets)).toBe('h1');
   });
 
   it('returns null for a product subject when heroAssetId is missing', () => {
-    expect(
-      resolveSubjectReference({ kind: 'product', id: 'p2' }, products, assets),
-    ).toBeNull();
+    expect(resolveSubjectReference({ kind: 'product', id: 'p2' }, products, assets)).toBeNull();
   });
 
   it('returns null for a product subject not in the products list', () => {

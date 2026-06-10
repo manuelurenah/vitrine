@@ -1,14 +1,14 @@
 'use client';
 
+import { Save, UploadCloud, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Save, UploadCloud, X } from 'lucide-react';
-import { Button, FieldLabel, Input, Textarea } from '@/components/ui';
+import { ColorPickerChip } from '@/components/onboarding/ColorPickerChip';
 import { LogoPreview } from '@/components/onboarding/LogoPreview';
 import { useLogoUpload } from '@/components/onboarding/useLogoUpload';
-import { ColorPickerChip } from '@/components/onboarding/ColorPickerChip';
-import { pickContrast } from '@/lib/color';
+import { Button, FieldLabel, Input, Textarea } from '@/components/ui';
 import type { BrandProfile } from '@/lib/brand';
+import { pickContrast } from '@/lib/color';
 
 type Props = { brand: BrandProfile };
 
@@ -254,9 +254,7 @@ export function BrandEditor({ brand }: Props) {
       <div className="flex items-center justify-between pt-2">
         <div className="flex-1">
           {error && <span className="font-mono text-[11.5px] text-danger">{error}</span>}
-          {saved && !error && (
-            <span className="font-mono text-[11.5px] text-volt">saved.</span>
-          )}
+          {saved && !error && <span className="font-mono text-[11.5px] text-volt">saved.</span>}
         </div>
         <Button
           type="submit"

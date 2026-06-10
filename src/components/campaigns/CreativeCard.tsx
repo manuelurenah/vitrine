@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Check, Download, MoreVertical, RefreshCw, Sparkles } from 'lucide-react';
 import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
-import { Badge, cn } from '@/components/ui';
-import { PRESETS, type PresetId } from '@/lib/presets';
+import { Check, Download, MoreVertical, RefreshCw, Sparkles } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { PostGenActions } from '@/components/generations/PostGenActions';
+import { Badge, cn } from '@/components/ui';
 import { downloadImagesAsZip } from '@/lib/downloadZip';
+import { PRESETS, type PresetId } from '@/lib/presets';
 
 type RegenerateContext = {
   kind?: 'campaign' | 'photoshoot';
@@ -140,12 +140,10 @@ export function CreativeCard({
     setImgUrls([]);
     setStatus('cooking');
     try {
-      const base =
-        regenerate.kind === 'photoshoot' ? '/api/photoshoot' : '/api/campaigns';
-      const res = await fetch(
-        `${base}/${regenerate.id}/tiles/${regenerate.tileId}/regenerate`,
-        { method: 'POST' },
-      );
+      const base = regenerate.kind === 'photoshoot' ? '/api/photoshoot' : '/api/campaigns';
+      const res = await fetch(`${base}/${regenerate.id}/tiles/${regenerate.tileId}/regenerate`, {
+        method: 'POST',
+      });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(body?.error ?? `http ${res.status}`);
@@ -470,11 +468,7 @@ function ImageSlot({
           >
             <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
           </a>
-          <PostGenActions
-            workflowId={workflowId}
-            imageIndex={imageIndex}
-            sourceUrl={url}
-          />
+          <PostGenActions workflowId={workflowId} imageIndex={imageIndex} sourceUrl={url} />
         </>
       ) : (
         <div

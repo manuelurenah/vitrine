@@ -15,7 +15,10 @@ export const env = createEnv({
     CIVITAI_CLIENT_SECRET: z.string().min(1),
     SESSION_SECRET: z
       .string()
-      .min(32, 'SESSION_SECRET must be ≥32 chars. Generate with `node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"`.'),
+      .min(
+        32,
+        "SESSION_SECRET must be ≥32 chars. Generate with `node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"`.",
+      ),
     CIVITAI_BASE_URL: z.string().url().default('https://civitai.com'),
     ORCHESTRATOR_URL: z.string().url().default('https://orchestration.civitai.com'),
     // Vitrine infra — optional at build time so the legacy demo + login

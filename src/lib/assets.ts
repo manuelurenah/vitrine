@@ -1,17 +1,17 @@
 import 'server-only';
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { extractImageUrls, type WorkflowSnapshot } from '@/lib/civitai';
 import { db } from '@/lib/db';
 import {
+  type Asset as AssetRow,
   assets,
   campaignTiles,
+  type NewAsset,
   photoshootTiles,
   productAssets,
   products,
-  type Asset as AssetRow,
-  type NewAsset,
 } from '@/lib/db/schema';
 import { env } from '@/lib/env';
-import { extractImageUrls, type WorkflowSnapshot } from '@/lib/civitai';
 import { getObjectAsDataUrl, isLocalObjectStorage, presignGet } from '@/lib/s3';
 
 export type AssetKind = NewAsset['kind'];
@@ -331,9 +331,7 @@ export async function getPublicUrls(
         })
         .from(productAssets)
         .innerJoin(products, eq(products.id, productAssets.productId))
-        .where(
-          and(inArray(productAssets.productId, stillMissing), eq(products.userId, userId)),
-        )
+        .where(and(inArray(productAssets.productId, stillMissing), eq(products.userId, userId)))
         .orderBy(productAssets.position);
       for (const row of fallbackRows) {
         if (!productHeroByProductId.has(row.productId)) {
@@ -361,11 +359,7 @@ export async function getPublicUrls(
     })
     .from(assets)
     .where(
-      and(
-        inArray(assets.id, uniqueAssetIds),
-        eq(assets.userId, userId),
-        isNull(assets.deletedAt),
-      ),
+      and(inArray(assets.id, uniqueAssetIds), eq(assets.userId, userId), isNull(assets.deletedAt)),
     );
 
   const byId = new Map(rows.map((r) => [r.id, r]));

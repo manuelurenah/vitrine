@@ -125,9 +125,7 @@ describe('POST /api/assets/generate/estimate', () => {
 
   it('returns 400 with sanitized body when references are missing (no UUID leak)', async () => {
     getPublicUrlsMock.mockRejectedValueOnce(new FakeMissingReferenceError(1, 'assets'));
-    const res = await POST(
-      makeRequest(validBody({ referenceAssetIds: ['ghost'] })) as never,
-    );
+    const res = await POST(makeRequest(validBody({ referenceAssetIds: ['ghost'] })) as never);
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.error).toBe('invalid_reference_assets');
@@ -148,9 +146,7 @@ describe('POST /api/assets/generate/estimate', () => {
   });
 
   it('coerces non-4xx/5xx orchestrator status to 502', async () => {
-    estimateImageGenMock.mockRejectedValueOnce(
-      new FakeOrchestratorError('weird', 0, null),
-    );
+    estimateImageGenMock.mockRejectedValueOnce(new FakeOrchestratorError('weird', 0, null));
     const res = await POST(makeRequest(validBody()) as never);
     expect(res.status).toBe(502);
     expect(await res.json()).toEqual({ error: 'orchestrator_error' });
@@ -158,9 +154,7 @@ describe('POST /api/assets/generate/estimate', () => {
 
   it('threads negativePrompt and resolution into estimate input', async () => {
     await POST(
-      makeRequest(
-        validBody({ negativePrompt: 'low quality', resolution: '2K' }),
-      ) as never,
+      makeRequest(validBody({ negativePrompt: 'low quality', resolution: '2K' })) as never,
     );
     const input = estimateImageGenMock.mock.calls[0]![1];
     expect(input.negativePrompt).toBe('low quality');

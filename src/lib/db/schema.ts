@@ -110,10 +110,7 @@ export const products = pgTable(
     name: text('name').notNull(),
     sku: text('sku'),
     notes: text('notes'),
-    tags: text('tags')
-      .array()
-      .default(sql`ARRAY[]::text[]`)
-      .notNull(),
+    tags: text('tags').array().default(sql`ARRAY[]::text[]`).notNull(),
     status: productStatus('status').default('draft').notNull(),
     usedInCount: integer('used_in_count').default(0).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -192,14 +189,8 @@ export const campaigns = pgTable(
     productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
     brief: jsonb('brief').notNull(),
-    presetIds: text('preset_ids')
-      .array()
-      .default(sql`ARRAY[]::text[]`)
-      .notNull(),
-    referenceAssetIds: text('reference_asset_ids')
-      .array()
-      .default(sql`ARRAY[]::text[]`)
-      .notNull(),
+    presetIds: text('preset_ids').array().default(sql`ARRAY[]::text[]`).notNull(),
+    referenceAssetIds: text('reference_asset_ids').array().default(sql`ARRAY[]::text[]`).notNull(),
     variantsPerPreset: integer('variants_per_preset').default(1).notNull(),
     enhancedPrompts: jsonb('enhanced_prompts'),
     audience: text('audience'),
@@ -256,14 +247,8 @@ export const photoshoots = pgTable(
     brief: jsonb('brief').notNull(),
     ratio: text('ratio').notNull(),
     variantsPerTemplate: integer('variants_per_template').default(1).notNull(),
-    templateIds: text('template_ids')
-      .array()
-      .default(sql`ARRAY[]::text[]`)
-      .notNull(),
-    referenceAssetIds: text('reference_asset_ids')
-      .array()
-      .default(sql`ARRAY[]::text[]`)
-      .notNull(),
+    templateIds: text('template_ids').array().default(sql`ARRAY[]::text[]`).notNull(),
+    referenceAssetIds: text('reference_asset_ids').array().default(sql`ARRAY[]::text[]`).notNull(),
     enhancedPrompts: jsonb('enhanced_prompts'),
     estimatedBuzz: integer('estimated_buzz').default(0).notNull(),
     actualBuzz: integer('actual_buzz').default(0).notNull(),

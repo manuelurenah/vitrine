@@ -1,12 +1,4 @@
-export type PresetId =
-  | 'ig-feed'
-  | 'ig-story'
-  | 'reels'
-  | 'tiktok'
-  | 'fb'
-  | 'li'
-  | 'x'
-  | 'yt';
+export type PresetId = 'ig-feed' | 'ig-story' | 'reels' | 'tiktok' | 'fb' | 'li' | 'x' | 'yt';
 
 export type PresetDef = {
   id: PresetId;
@@ -32,7 +24,8 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     ratio: '9:16',
     width: 576,
     height: 1024,
-    styleNotes: 'vertical mobile-first layout, single subject, plenty of negative space for overlay text',
+    styleNotes:
+      'vertical mobile-first layout, single subject, plenty of negative space for overlay text',
   },
   reels: {
     id: 'reels',
@@ -97,4 +90,3 @@ export type BriefForPresets = {
   audience?: string;
   aesthetics?: string;
 };
-

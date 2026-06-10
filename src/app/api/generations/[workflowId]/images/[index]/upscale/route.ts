@@ -1,7 +1,6 @@
-import { NextResponse, type NextRequest } from 'next/server';
 import { eq } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import { generations } from '@/lib/db/schema';
+import { type NextRequest, NextResponse } from 'next/server';
+import { recordBuzzEvent } from '@/lib/buzz';
 import {
   estimateUpscale,
   extractImageUrls,
@@ -9,13 +8,11 @@ import {
   submitUpscale,
   type WorkflowSnapshot,
 } from '@/lib/civitai';
+import { db } from '@/lib/db';
+import { generations } from '@/lib/db/schema';
+import { recordGeneration, refreshGenerationSnapshot } from '@/lib/generations';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import {
-  recordGeneration,
-  refreshGenerationSnapshot,
-} from '@/lib/generations';
-import { recordBuzzEvent } from '@/lib/buzz';
 
 type Params = Promise<{ workflowId: string; index: string }>;
 
@@ -55,10 +52,7 @@ export async function POST(_: NextRequest, ctx: { params: Params }) {
   let snapshot = (parentRow.snapshot ?? null) as WorkflowSnapshot | null;
   let urls = snapshot ? extractImageUrls(snapshot) : [];
   const needsRefresh =
-    !snapshot ||
-    urls.length === 0 ||
-    hasUnavailable(snapshot) ||
-    index >= urls.length;
+    !snapshot || urls.length === 0 || hasUnavailable(snapshot) || index >= urls.length;
   if (needsRefresh) {
     try {
       const refreshed = await refreshGenerationSnapshot(workflowId, session);

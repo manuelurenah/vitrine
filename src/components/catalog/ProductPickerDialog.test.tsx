@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ProductPickerDialog, buildNewProductHref } from './ProductPickerDialog';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '@/lib/catalog';
+import { buildNewProductHref, ProductPickerDialog } from './ProductPickerDialog';
 
 /* -------------------------------------------------------------------------- */
 /* mocks                                                                       */
@@ -40,9 +40,7 @@ const products: Product[] = [
 
 describe('buildNewProductHref', () => {
   it('encodes a single asset id with the asset: prefix', () => {
-    expect(buildNewProductHref(['a1'])).toBe(
-      '/brand/catalog/new?images=asset%3Aa1',
-    );
+    expect(buildNewProductHref(['a1'])).toBe('/brand/catalog/new?images=asset%3Aa1');
   });
 
   it('joins multiple asset ids with a comma and url-encodes the whole list', () => {

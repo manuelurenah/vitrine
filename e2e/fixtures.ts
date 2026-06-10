@@ -4,4 +4,4 @@
  * injected by Playwright on context creation). See `playwright.config.ts`
  * for the wiring.
  */
-export { test, expect } from '@playwright/test';
+export { expect, test } from '@playwright/test';

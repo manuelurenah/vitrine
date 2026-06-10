@@ -1,10 +1,10 @@
 import { CampaignWizard } from '@/components/campaigns/CampaignWizard';
+import { listAssets } from '@/lib/assets';
+import { getDefaultBrand } from '@/lib/brand';
+import { listProducts } from '@/lib/catalog';
+import { getBuzzAccount } from '@/lib/civitai';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { getDefaultBrand } from '@/lib/brand';
-import { getBuzzAccount } from '@/lib/civitai';
-import { listProducts } from '@/lib/catalog';
-import { listAssets } from '@/lib/assets';
 
 export const metadata = { title: 'new campaign · vitrine' };
 export const dynamic = 'force-dynamic';
@@ -25,18 +25,12 @@ function parseRefs(raw: string | undefined): string[] {
     .slice(0, 4);
 }
 
-export default async function NewCampaignPage({
-  searchParams,
-}: {
-  searchParams: SearchParams;
-}) {
+export default async function NewCampaignPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await getSession();
   const sp = await searchParams;
   const promptParam = firstString(sp.prompt)?.trim();
   const refsParam = parseRefs(firstString(sp.refs));
-  const defaultBrief = promptParam
-    ? { prompt: promptParam, description: promptParam }
-    : undefined;
+  const defaultBrief = promptParam ? { prompt: promptParam, description: promptParam } : undefined;
 
   if (!session) {
     return (
@@ -46,9 +40,7 @@ export default async function NewCampaignPage({
             defaultBrief || refsParam.length > 0
               ? {
                   ...(defaultBrief ? { defaultBrief } : {}),
-                  ...(refsParam.length > 0
-                    ? { defaultReferenceAssetIds: refsParam }
-                    : {}),
+                  ...(refsParam.length > 0 ? { defaultReferenceAssetIds: refsParam } : {}),
                 }
               : undefined
           }
@@ -69,9 +61,7 @@ export default async function NewCampaignPage({
     <main className="mx-auto flex w-full max-w-[960px] flex-col gap-6 px-6 py-8">
       <header className="flex flex-col gap-2">
         <span className="t-eyebrow">// new campaign</span>
-        <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-fg-0">
-          cook a campaign
-        </h1>
+        <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-fg-0">cook a campaign</h1>
         <p className="text-[13.5px] text-fg-2">
           brief → review → submit. {products.length} product
           {products.length === 1 ? '' : 's'} · {assets.length} asset

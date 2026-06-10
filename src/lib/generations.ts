@@ -1,13 +1,9 @@
 import 'server-only';
 import { eq } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import {
-  generations,
-  type Generation as GenerationRow,
-  type NewGeneration,
-} from '@/lib/db/schema';
 import type { WorkflowSnapshot } from '@/lib/civitai';
 import { getWorkflowSnapshot, isTerminal } from '@/lib/civitai';
+import { db } from '@/lib/db';
+import { type Generation as GenerationRow, generations, type NewGeneration } from '@/lib/db/schema';
 import type { Session } from '@/lib/session';
 
 export type GenerationSource = NewGeneration['source'];
@@ -70,7 +66,7 @@ export async function recordGeneration(input: RecordGenerationInput): Promise<Ge
   const promptValue =
     input.prompt ??
     (typeof (input.input as { prompt?: unknown }).prompt === 'string'
-      ? ((input.input as { prompt: string }).prompt)
+      ? (input.input as { prompt: string }).prompt
       : null);
   const [row] = await db
     .insert(generations)

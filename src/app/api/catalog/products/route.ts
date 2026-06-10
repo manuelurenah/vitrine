@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createProduct, listProducts } from '@/lib/catalog';
 import { productCreateSchema } from '@/lib/catalogSchema';
 import { getSession } from '@/lib/session';

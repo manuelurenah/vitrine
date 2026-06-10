@@ -28,7 +28,19 @@ const { FakeOrchestratorError } = vi.hoisted(() => {
 vi.mock('@/lib/session', () => ({ getSession: getSessionMock }));
 vi.mock('@/lib/userKey', () => ({ getUserKey: getUserKeyMock }));
 vi.mock('@/lib/brand', () => ({ getDefaultBrand: getDefaultBrandMock }));
-vi.mock('@/lib/assets', () => ({ getPublicUrls: getPublicUrlsMock, MissingReferenceError: class MissingReferenceError extends Error { count: number; kind: 'assets' | 'products'; constructor(count: number, kind: 'assets' | 'products') { super('missing'); this.name = 'MissingReferenceError'; this.count = count; this.kind = kind; } } }));
+vi.mock('@/lib/assets', () => ({
+  getPublicUrls: getPublicUrlsMock,
+  MissingReferenceError: class MissingReferenceError extends Error {
+    count: number;
+    kind: 'assets' | 'products';
+    constructor(count: number, kind: 'assets' | 'products') {
+      super('missing');
+      this.name = 'MissingReferenceError';
+      this.count = count;
+      this.kind = kind;
+    }
+  },
+}));
 vi.mock('@/lib/civitai', () => ({
   submitImageGen: submitImageGenMock,
   OrchestratorError: FakeOrchestratorError,
@@ -178,9 +190,7 @@ describe('POST /api/campaigns/[id]/tiles/[tileId]/regenerate', () => {
   });
 
   it('resolves campaign.referenceAssetIds into images[]', async () => {
-    getCampaignMock.mockResolvedValueOnce(
-      makeCampaign({ referenceAssetIds: ['a1', 'a2'] }),
-    );
+    getCampaignMock.mockResolvedValueOnce(makeCampaign({ referenceAssetIds: ['a1', 'a2'] }));
     await POST(makeRequest() as never, makeParams());
     expect(getPublicUrlsMock).toHaveBeenCalledWith(expect.any(String), ['a1', 'a2']);
     expect(submitImageGenMock.mock.calls[0]![1].images).toEqual([
@@ -231,9 +241,7 @@ describe('POST /api/campaigns/[id]/tiles/[tileId]/regenerate', () => {
 
   it('propagates orchestrator error', async () => {
     getCampaignMock.mockResolvedValueOnce(makeCampaign());
-    submitImageGenMock.mockRejectedValueOnce(
-      new FakeOrchestratorError('boom', 402, {}),
-    );
+    submitImageGenMock.mockRejectedValueOnce(new FakeOrchestratorError('boom', 402, {}));
     const res = await POST(makeRequest() as never, makeParams());
     expect(res.status).toBe(402);
   });

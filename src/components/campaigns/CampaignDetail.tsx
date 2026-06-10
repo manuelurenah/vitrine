@@ -1,10 +1,10 @@
-import Link from 'next/link';
 import { ChevronRight, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import { BuzzPill } from '@/components/ui';
+import type { Campaign } from '@/lib/campaigns';
 import { CreativeCard } from './CreativeCard';
 import { ExportCampaignButton } from './ExportCampaignButton';
 import { SectionHead } from './SectionHead';
-import type { Campaign } from '@/lib/campaigns';
 
 type Props = { campaign: Campaign };
 
@@ -13,10 +13,7 @@ export function CampaignDetail({ campaign }: Props) {
   const isCooking = campaign.tiles.some((t) => t.status === 'queued' || t.status === 'cooking');
   return (
     <div className="relative">
-      <nav
-        aria-label="breadcrumb"
-        className="flex items-center gap-1.5 text-[12px] text-fg-3"
-      >
+      <nav aria-label="breadcrumb" className="flex items-center gap-1.5 text-[12px] text-fg-3">
         <Link
           href="/campaigns"
           className="rounded-[6px] px-1.5 py-0.5 transition-colors duration-fast ease-out hover:bg-bg-2 hover:text-fg-1"
@@ -54,7 +51,9 @@ export function CampaignDetail({ campaign }: Props) {
         <SectionHead
           title="creatives"
           count={`${campaign.tiles.length}`}
-          action={<span className="font-mono text-[10.5px] uppercase tracking-[0.1em]">live polling</span>}
+          action={
+            <span className="font-mono text-[10.5px] uppercase tracking-[0.1em]">live polling</span>
+          }
         />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {campaign.tiles.map((tile) => (

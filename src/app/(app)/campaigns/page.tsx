@@ -1,8 +1,8 @@
 import { CampaignsList } from '@/components/campaigns';
+import { relativeDate } from '@/components/campaigns/CampaignsList';
 import { listCampaigns } from '@/lib/campaigns';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-import { relativeDate } from '@/components/campaigns/CampaignsList';
 
 export const metadata = { title: 'campaigns · vitrine' };
 

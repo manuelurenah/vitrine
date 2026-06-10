@@ -1,7 +1,7 @@
 import 'server-only';
 import { desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { buzzEvents, type BuzzEvent as BuzzEventRow } from '@/lib/db/schema';
+import { type BuzzEvent as BuzzEventRow, buzzEvents } from '@/lib/db/schema';
 
 export type BuzzEventKind = 'estimate' | 'submit' | 'refund';
 

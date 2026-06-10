@@ -76,9 +76,7 @@ describe('mirrorOrchestratorImage', () => {
   });
 
   it('strips content-type parameters before mapping', async () => {
-    fetchMock.mockResolvedValueOnce(
-      makeResponse(new Uint8Array([0]), 'image/png; charset=utf-8'),
-    );
+    fetchMock.mockResolvedValueOnce(makeResponse(new Uint8Array([0]), 'image/png; charset=utf-8'));
     const result = await mirrorOrchestratorImage('https://orch.test/x.png', {
       userId: 'u1',
     });
@@ -87,9 +85,7 @@ describe('mirrorOrchestratorImage', () => {
   });
 
   it('falls back to .bin extension for unknown content-types', async () => {
-    fetchMock.mockResolvedValueOnce(
-      makeResponse(new Uint8Array([0]), 'application/octet-stream'),
-    );
+    fetchMock.mockResolvedValueOnce(makeResponse(new Uint8Array([0]), 'application/octet-stream'));
     await mirrorOrchestratorImage('https://orch.test/blob', { userId: 'u1' });
     expect(putObjectMock.mock.calls[0]![0].key).toMatch(/\.bin$/);
   });

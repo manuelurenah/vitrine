@@ -11,7 +11,9 @@ const { submitImageGenMock } = vi.hoisted(() => ({ submitImageGenMock: vi.fn() }
 const { createCampaignMock } = vi.hoisted(() => ({ createCampaignMock: vi.fn() }));
 const { recordGenerationMock } = vi.hoisted(() => ({ recordGenerationMock: vi.fn() }));
 const { recordBuzzEventMock } = vi.hoisted(() => ({ recordBuzzEventMock: vi.fn() }));
-const { generateAdCopyForPresetsMock } = vi.hoisted(() => ({ generateAdCopyForPresetsMock: vi.fn() }));
+const { generateAdCopyForPresetsMock } = vi.hoisted(() => ({
+  generateAdCopyForPresetsMock: vi.fn(),
+}));
 
 const { FakeOrchestratorError } = vi.hoisted(() => {
   class FakeOrchestratorError extends Error {
@@ -29,7 +31,19 @@ const { FakeOrchestratorError } = vi.hoisted(() => {
 vi.mock('@/lib/session', () => ({ getSession: getSessionMock }));
 vi.mock('@/lib/userKey', () => ({ getUserKey: getUserKeyMock }));
 vi.mock('@/lib/brand', () => ({ getDefaultBrand: getDefaultBrandMock }));
-vi.mock('@/lib/assets', () => ({ getPublicUrls: getPublicUrlsMock, MissingReferenceError: class MissingReferenceError extends Error { count: number; kind: 'assets' | 'products'; constructor(count: number, kind: 'assets' | 'products') { super('missing'); this.name = 'MissingReferenceError'; this.count = count; this.kind = kind; } } }));
+vi.mock('@/lib/assets', () => ({
+  getPublicUrls: getPublicUrlsMock,
+  MissingReferenceError: class MissingReferenceError extends Error {
+    count: number;
+    kind: 'assets' | 'products';
+    constructor(count: number, kind: 'assets' | 'products') {
+      super('missing');
+      this.name = 'MissingReferenceError';
+      this.count = count;
+      this.kind = kind;
+    }
+  },
+}));
 vi.mock('@/lib/civitai', () => ({
   estimateImageGen: estimateImageGenMock,
   submitImageGen: submitImageGenMock,
@@ -79,11 +93,13 @@ beforeEach(() => {
   });
   getUserKeyMock.mockResolvedValue('user_1');
   getDefaultBrandMock.mockResolvedValue(null);
-  generateAdCopyForPresetsMock.mockImplementation(async ({ presetIds }: { presetIds: string[] }) => {
-    const out: Record<string, { headline: string; subhead: string; cta?: string }> = {};
-    for (const id of presetIds) out[id] = { headline: `H ${id}`, subhead: `S ${id}`, cta: 'Buy' };
-    return out;
-  });
+  generateAdCopyForPresetsMock.mockImplementation(
+    async ({ presetIds }: { presetIds: string[] }) => {
+      const out: Record<string, { headline: string; subhead: string; cta?: string }> = {};
+      for (const id of presetIds) out[id] = { headline: `H ${id}`, subhead: `S ${id}`, cta: 'Buy' };
+      return out;
+    },
+  );
   getPublicUrlsMock.mockImplementation(async (_userId: string, ids: string[]) =>
     ids.map((id) => `https://cdn.test/${id}`),
   );
@@ -98,14 +114,16 @@ beforeEach(() => {
     status: 'succeeded',
     cost: { total: 5 },
   });
-  createCampaignMock.mockImplementation(async (input: { tiles: Array<{ workflowId: string; presetId: string }> }) => ({
-    id: 'camp_1',
-    tiles: input.tiles.map((t, i) => ({
-      id: `tile_${i}`,
-      presetId: t.presetId,
-      workflowId: t.workflowId,
-    })),
-  }));
+  createCampaignMock.mockImplementation(
+    async (input: { tiles: Array<{ workflowId: string; presetId: string }> }) => ({
+      id: 'camp_1',
+      tiles: input.tiles.map((t, i) => ({
+        id: `tile_${i}`,
+        presetId: t.presetId,
+        workflowId: t.workflowId,
+      })),
+    }),
+  );
   recordGenerationMock.mockResolvedValue({});
   recordBuzzEventMock.mockResolvedValue({});
 });
@@ -132,7 +150,9 @@ describe('POST /api/campaigns/cook', () => {
   });
 
   it('persists campaign with referenceAssetIds, variantsPerPreset, enhancedPrompts, tiles', async () => {
-    await POST(makeRequest(validBody({ referenceAssetIds: ['a1', 'a2'], variantsPerPreset: 3 })) as never);
+    await POST(
+      makeRequest(validBody({ referenceAssetIds: ['a1', 'a2'], variantsPerPreset: 3 })) as never,
+    );
     expect(createCampaignMock).toHaveBeenCalledTimes(1);
     const input = createCampaignMock.mock.calls[0]![0];
     expect(input.referenceAssetIds).toEqual(['a1', 'a2']);

@@ -1,11 +1,11 @@
-import { cookies } from 'next/headers';
 import {
   buildSetCookieHeader,
+  type OAuthTokens,
   refreshToken as oauthRefresh,
   sealCookie,
   unsealCookie,
-  type OAuthTokens,
 } from '@civitai/app-sdk';
+import { cookies } from 'next/headers';
 import 'server-only';
 import { env } from './env';
 

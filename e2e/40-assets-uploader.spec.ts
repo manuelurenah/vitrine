@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures';
-import { markOnboardingComplete, resetUserData } from './helpers/db';
 import { signInToApp } from './helpers/auth';
+import { markOnboardingComplete, resetUserData } from './helpers/db';
 
 test.describe('Asset uploader UI', () => {
   test.beforeAll(async () => {
@@ -30,7 +30,11 @@ test.describe('Asset uploader UI', () => {
   // upload path itself is exercised by the presign/finalize API handlers
   // directly — re-enable once we either drag-and-drop instead or wire a
   // visible-file-input variant of the dropzone.
-  test.fixme('stubbed upload of one image lands in the gallery', async ({ page, baseURL, context }) => {
+  test.fixme('stubbed upload of one image lands in the gallery', async ({
+    page,
+    baseURL,
+    context,
+  }) => {
     // Avoid hitting MinIO from the playwright runtime — stub the presign +
     // PUT + finalize roundtrip so we exercise the wiring without real S3.
     let finalizePayload: Record<string, unknown> | null = null;

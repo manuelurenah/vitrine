@@ -41,7 +41,8 @@ async function ensureDatabase() {
     if (exists.rows.length === 0) {
       // Identifier is fixed (env-controlled) — avoid SQL injection by
       // restricting to ascii word chars.
-      if (!/^[a-zA-Z0-9_]+$/.test(TEST_DB)) throw new Error(`unsafe TEST_DATABASE_NAME: ${TEST_DB}`);
+      if (!/^[a-zA-Z0-9_]+$/.test(TEST_DB))
+        throw new Error(`unsafe TEST_DATABASE_NAME: ${TEST_DB}`);
       await client.query(`CREATE DATABASE "${TEST_DB}"`);
       console.log(`[test-db] created ${TEST_DB}`);
     } else {
@@ -53,14 +54,10 @@ async function ensureDatabase() {
 }
 
 function runMigrations() {
-  const res = spawnSync(
-    process.execPath,
-    ['./node_modules/drizzle-kit/bin.cjs', 'migrate'],
-    {
-      stdio: 'inherit',
-      env: { ...process.env, DATABASE_URL: TEST_URL },
-    },
-  );
+  const res = spawnSync(process.execPath, ['./node_modules/drizzle-kit/bin.cjs', 'migrate'], {
+    stdio: 'inherit',
+    env: { ...process.env, DATABASE_URL: TEST_URL },
+  });
   if (res.status !== 0) {
     console.error('[test-db] drizzle-kit migrate failed');
     process.exit(res.status ?? 1);

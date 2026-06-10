@@ -24,12 +24,10 @@ export default function Error({
 
   return (
     <section className="flex flex-col gap-3">
-      <h1 className="text-xl font-semibold text-red-700 dark:text-red-300">
-        Something went wrong
-      </h1>
+      <h1 className="text-xl font-semibold text-red-700 dark:text-red-300">Something went wrong</h1>
       <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        The page hit an unexpected error. You can retry — most often this is
-        a transient network or OAuth-token issue.
+        The page hit an unexpected error. You can retry — most often this is a transient network or
+        OAuth-token issue.
       </p>
       {error.digest && (
         <p className="text-xs text-zinc-500">

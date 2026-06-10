@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { PostGenActions, mergeChild } from './PostGenActions';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mergeChild, PostGenActions } from './PostGenActions';
 
 /* -------------------------------------------------------------------------- */
 /* mergeChild — pure helper                                                    */
@@ -40,9 +40,7 @@ describe('mergeChild', () => {
         steps: [
           {
             output: {
-              blobs: [
-                { url: 'https://cdn.test/clip.mp4', mimeType: 'video/mp4' },
-              ],
+              blobs: [{ url: 'https://cdn.test/clip.mp4', mimeType: 'video/mp4' }],
             },
           },
         ],
@@ -97,7 +95,12 @@ describe('PostGenActions SSR', () => {
 
   it('disables animate when isVideo is true', () => {
     const html = renderToStaticMarkup(
-      <PostGenActions workflowId="wf_x" imageIndex={0} isVideo sourceUrl="https://cdn.test/x.mp4" />,
+      <PostGenActions
+        workflowId="wf_x"
+        imageIndex={0}
+        isVideo
+        sourceUrl="https://cdn.test/x.mp4"
+      />,
     );
     // The animate chip is rendered as a disabled <button> with the
     // "already a video" hint and a chip-level testid.

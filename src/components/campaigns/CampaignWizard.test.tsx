@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EnhancedPrompt } from '@/lib/promptBuilder';
 
 /* -------------------------------------------------------------------------- */
@@ -74,11 +74,8 @@ vi.mock('./PresetGrid', () => ({
   },
 }));
 
+import { fetchCampaignPreview, useCampaignPreview } from '@/hooks/useCampaignPreview';
 import { CampaignWizard } from './CampaignWizard';
-import {
-  fetchCampaignPreview,
-  useCampaignPreview,
-} from '@/hooks/useCampaignPreview';
 
 /* -------------------------------------------------------------------------- */
 /* fixtures                                                                   */
@@ -384,23 +381,18 @@ describe('cook submission body', () => {
           headers: { 'content-type': 'application/json' },
         }),
     );
-    const res = await (fetchSpy as unknown as typeof fetch)(
-      '/api/campaigns/cook',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(cookBody),
-      },
-    );
+    const res = await (fetchSpy as unknown as typeof fetch)('/api/campaigns/cook', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(cookBody),
+    });
     expect(res.ok).toBe(true);
     const cookCall = fetchSpy.mock.calls[0];
     if (!cookCall) throw new Error('fetch was not called');
     const [url, init] = cookCall;
     expect(url).toBe('/api/campaigns/cook');
     const parsed = JSON.parse(String(init?.body));
-    expect(parsed.enhancedPrompts['ig-feed'].userOverride).toBe(
-      'my custom override prompt',
-    );
+    expect(parsed.enhancedPrompts['ig-feed'].userOverride).toBe('my custom override prompt');
     expect(parsed.enhancedPrompts['ig-story'].userOverride).toBeUndefined();
     expect(parsed.referenceAssetIds).toEqual(['product:p1']);
     expect(parsed.variantsPerPreset).toBe(2);

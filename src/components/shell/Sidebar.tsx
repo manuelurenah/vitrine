@@ -3,22 +3,16 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BuzzGlyph, cn } from '@/components/ui';
-import { Wordmark } from './Wordmark';
-import { UserMenu } from './UserMenu';
 import { activeNavFromPath, NAV, type NavId } from './nav';
+import { UserMenu } from './UserMenu';
+import { Wordmark } from './Wordmark';
 
 type Props = {
   buzzBalance?: number;
   user: { initials: string; name: string; tier?: string };
 };
 
-function NavRow({
-  active,
-  item,
-}: {
-  active: boolean;
-  item: (typeof NAV)[number];
-}) {
+function NavRow({ active, item }: { active: boolean; item: (typeof NAV)[number] }) {
   const Icon = item.icon;
   return (
     <Link
@@ -37,10 +31,7 @@ function NavRow({
           width={18}
           height={18}
           strokeWidth={1.75}
-          className={cn(
-            'shrink-0',
-            active ? 'text-volt' : 'text-fg-2 group-hover:text-fg-1',
-          )}
+          className={cn('shrink-0', active ? 'text-volt' : 'text-fg-2 group-hover:text-fg-1')}
         />
       ) : null}
       <span className="truncate">{item.label}</span>
