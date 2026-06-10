@@ -560,7 +560,7 @@ function BriefStep(props: BriefStepProps) {
         </section>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-sticky border-t border-line-subtle bg-bg-0/90 backdrop-blur-md">
+      <div className="fixed bottom-0 left-[232px] right-0 z-sticky border-t border-line-subtle bg-bg-0/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1080px] flex-wrap items-center gap-4 px-9 py-4">
           <div className="flex items-center gap-1">
             {RATIOS.map((r) => (
@@ -726,7 +726,7 @@ function ReviewStep(props: ReviewStepProps) {
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-0 z-sticky border-t border-line-subtle bg-bg-0/90 backdrop-blur-md">
+      <div className="fixed bottom-0 left-[232px] right-0 z-sticky border-t border-line-subtle bg-bg-0/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-[960px] flex-wrap items-center gap-4 px-9 py-4">
           <Button variant="ghost" size="md" onClick={onBack} leadingIcon={<ArrowLeft size={14} />}>
             back
