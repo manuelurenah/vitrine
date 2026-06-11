@@ -32,7 +32,7 @@ export function NextChoiceModal() {
       title="your brand DNA is ready."
       maxWidth={760}
     >
-      <div className="flex flex-col gap-6">
+      <div data-testid="next-choice-modal" className="flex flex-col gap-6">
         <p className="text-[14px] leading-[1.5] text-fg-2">
           pick where to start — you can come back for the other any time.
         </p>
@@ -42,6 +42,7 @@ export function NextChoiceModal() {
           {/* Campaigns — recommended */}
           <button
             type="button"
+            data-testid="next-choice-campaigns"
             onClick={handleCampaigns}
             className="group relative flex flex-col gap-4 rounded-[16px] border border-line-volt bg-bg-2 p-5 text-left transition-all duration-150 ease-out hover:-translate-y-[2px] hover:shadow-bloom-volt-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt"
           >
@@ -96,7 +97,10 @@ export function NextChoiceModal() {
 
             <div className="flex items-center justify-between">
               <BuzzPill amount={60} size="compact" />
-              <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-volt opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100">
+              <span
+                data-testid="next-start-campaigns"
+                className="inline-flex items-center gap-1 text-[12.5px] font-medium text-volt opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100"
+              >
                 start <ArrowRight size={13} strokeWidth={2} />
               </span>
             </div>
@@ -105,6 +109,7 @@ export function NextChoiceModal() {
           {/* Photoshoot */}
           <button
             type="button"
+            data-testid="next-choice-photoshoot"
             onClick={handlePhotoshoot}
             className="group flex flex-col gap-4 rounded-[16px] border border-line-subtle bg-bg-2 p-5 text-left transition-all duration-150 ease-out hover:-translate-y-[2px] hover:border-line-volt hover:shadow-bloom-volt-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt"
           >
@@ -137,7 +142,10 @@ export function NextChoiceModal() {
 
             <div className="flex items-center justify-between">
               <BuzzPill amount={36} size="compact" />
-              <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-volt opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100">
+              <span
+                data-testid="next-start-photoshoot"
+                className="inline-flex items-center gap-1 text-[12.5px] font-medium text-volt opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100"
+              >
                 start <ArrowRight size={13} strokeWidth={2} />
               </span>
             </div>
@@ -148,6 +156,7 @@ export function NextChoiceModal() {
         <div className="flex justify-center">
           <button
             type="button"
+            data-testid="next-dashboard-link"
             onClick={() => router.push('/campaigns')}
             className="font-mono text-[11.5px] text-fg-3 transition-colors duration-fast ease-out hover:text-fg-1"
           >

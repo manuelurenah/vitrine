@@ -178,7 +178,10 @@ export function VersionHistory({ campaignId, creativeId, presetId, brandName, ve
   const orderedDesc = useMemo(() => [...versions].reverse(), [versions]);
 
   return (
-    <div className="grid grid-cols-1 gap-6 items-start md:grid-cols-[1fr_320px]">
+    <div
+      data-testid="version-history"
+      className="grid grid-cols-1 gap-6 items-start md:grid-cols-[1fr_320px]"
+    >
       {/* ---------------------------------------------------------------- */}
       {/* LEFT — pill + canvas + thumb strip                               */}
       {/* ---------------------------------------------------------------- */}
@@ -192,6 +195,7 @@ export function VersionHistory({ campaignId, creativeId, presetId, brandName, ve
           </span>
           <button
             type="button"
+            data-testid="version-compare"
             aria-pressed={compareMode}
             onClick={() => {
               setCompareMode((on) => !on);
@@ -219,6 +223,7 @@ export function VersionHistory({ campaignId, creativeId, presetId, brandName, ve
           {/* version badge — volt + bloom for current */}
           <div className="absolute left-3 top-3">
             <span
+              data-testid={isCurrent ? 'version-current-badge' : undefined}
               className={
                 isCurrent
                   ? 'inline-flex items-center gap-1.5 rounded-pill bg-volt px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.06em] text-fg-on-volt shadow-bloom-volt'
@@ -271,6 +276,7 @@ export function VersionHistory({ campaignId, creativeId, presetId, brandName, ve
               <button
                 key={entry.version}
                 type="button"
+                data-testid={`version-thumb-${entry.version}`}
                 onClick={() => handleThumbClick(entry.version)}
                 aria-pressed={isSelected || isBaseline}
                 aria-label={`version ${entry.version}, ${versionTitle(entry)}, ${relativeTime(entry.createdAt)}`}
@@ -316,7 +322,10 @@ export function VersionHistory({ campaignId, creativeId, presetId, brandName, ve
       {/* RIGHT — diff + actions                                           */}
       {/* ---------------------------------------------------------------- */}
       <div className="flex flex-col gap-3">
-        <div className="rounded-[12px] border border-line-subtle bg-bg-2 p-3.5">
+        <div
+          data-testid="version-diff"
+          className="rounded-[12px] border border-line-subtle bg-bg-2 p-3.5"
+        >
           <div className="flex items-baseline justify-between">
             <span className="font-display text-[13px] font-semibold text-fg-0">
               {compareMode ? 'comparison' : 'changes'}
@@ -370,6 +379,7 @@ export function VersionHistory({ campaignId, creativeId, presetId, brandName, ve
         <div className="flex flex-col gap-2">
           <Button
             variant="primary"
+            data-testid="version-restore"
             disabled={busy || isCurrent || !selected}
             onClick={() => selected && handleRestore(selected.version)}
             aria-label={`restore version ${selected?.version}`}
@@ -391,6 +401,7 @@ export function VersionHistory({ campaignId, creativeId, presetId, brandName, ve
 
           <button
             type="button"
+            data-testid="version-delete"
             disabled={busy || isCurrent || !selected || versions.length <= 1}
             onClick={() => selected && handleDelete(selected.version)}
             aria-label={`delete version ${selected?.version}`}
@@ -411,7 +422,7 @@ export function VersionHistory({ campaignId, creativeId, presetId, brandName, ve
             </p>
           )}
           {actionError && (
-            <p className="text-[11.5px] text-danger" role="alert">
+            <p data-testid="version-error" className="text-[11.5px] text-danger" role="alert">
               {actionError}
             </p>
           )}

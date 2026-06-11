@@ -58,7 +58,10 @@ export function ScreenFrame({
   const contentPb = 76 + (stickyCta ? 72 : 0);
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden bg-bg-0 font-body text-fg-0">
+    <div
+      data-testid="screen-frame"
+      className="relative flex h-full w-full flex-col overflow-hidden bg-bg-0 font-body text-fg-0"
+    >
       {/* Optional volt/ultraviolet bloom */}
       {bloom && (
         <div
@@ -94,6 +97,7 @@ export function ScreenFrame({
       {/* Sticky CTA — floats just above the tab bar */}
       {stickyCta && (
         <div
+          data-testid="screen-sticky-cta"
           className="absolute left-3 right-3 z-[15] rounded-[14px] border border-line p-[10px] backdrop-blur-[14px]"
           style={{
             bottom: 76,

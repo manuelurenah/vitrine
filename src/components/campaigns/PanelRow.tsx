@@ -12,6 +12,8 @@ type PanelRowProps = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   children?: React.ReactNode;
+  /** If provided, sets data-testid on the header button. */
+  testId?: string;
 };
 
 export function PanelRow({
@@ -20,6 +22,7 @@ export function PanelRow({
   open: controlledOpen,
   onOpenChange,
   children,
+  testId,
 }: PanelRowProps) {
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
@@ -38,6 +41,7 @@ export function PanelRow({
         type="button"
         onClick={toggle}
         aria-expanded={isOpen}
+        data-testid={testId}
         className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2.5 text-left transition-colors duration-fast ease-out hover:bg-bg-3"
       >
         <ChevronRight

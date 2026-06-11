@@ -58,7 +58,10 @@ export function Sidebar({ buzzBalance, user }: Props) {
   );
 
   return (
-    <aside className="flex h-full w-[232px] shrink-0 flex-col gap-1 border-r border-line-subtle bg-bg-1 p-[18px_12px_12px]">
+    <aside
+      data-testid="desktop-sidebar"
+      className="flex h-full w-[232px] shrink-0 flex-col gap-1 border-r border-line-subtle bg-bg-1 p-[18px_12px_12px]"
+    >
       <div className="flex items-center justify-between px-2 pb-4 pt-1">
         <Wordmark />
         <span className="rounded-[4px] border border-line px-[6px] py-[2px] font-mono text-[9px] uppercase tracking-[0.08em] text-fg-3">

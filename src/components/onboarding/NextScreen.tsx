@@ -19,7 +19,11 @@ export function NextScreen({ payload }: Props) {
   return (
     <>
       {/* DNA screen — dimmed, non-interactive */}
-      <div className="pointer-events-none select-none opacity-30" aria-hidden>
+      <div
+        data-testid="next-dna-behind"
+        className="pointer-events-none select-none opacity-30"
+        aria-hidden
+      >
         <DnaStep payload={payload} />
       </div>
 

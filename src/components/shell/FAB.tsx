@@ -73,6 +73,7 @@ export function FAB({ label, icon, className, ...rest }: Props) {
     return (
       <Link
         href={rest.href}
+        data-testid="fab"
         aria-label={ariaLabel}
         className={cn(fabClass, className)}
         style={fabStyle}
@@ -85,6 +86,7 @@ export function FAB({ label, icon, className, ...rest }: Props) {
   return (
     <button
       type="button"
+      data-testid="fab"
       aria-label={ariaLabel}
       onClick={(rest as ButtonProps).onClick}
       className={cn(fabClass, className)}

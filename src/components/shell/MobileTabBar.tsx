@@ -49,6 +49,7 @@ type Props = {
 export function MobileTabBar({ active }: Props) {
   return (
     <nav
+      data-testid="mobile-tab-bar"
       aria-label="primary"
       className="absolute bottom-0 left-0 right-0 z-20 grid grid-cols-4 items-center border-t border-line-subtle backdrop-blur-[14px]"
       style={{
@@ -66,6 +67,7 @@ export function MobileTabBar({ active }: Props) {
           <Link
             key={tab.id}
             href={tab.href}
+            data-testid={`mobile-tab-${tab.label}`}
             aria-label={tab.label}
             aria-current={isActive ? 'page' : undefined}
             className={cn(

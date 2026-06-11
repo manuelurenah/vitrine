@@ -281,7 +281,9 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
       {/* 3-col header: source product | title + status | actions */}
       <header className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr_280px]">
         {/* LEFT — source product card */}
-        <SourceProductCard shoot={shoot} sourceProduct={sourceProduct} />
+        <div data-testid="pshoot-source-product">
+          <SourceProductCard shoot={shoot} sourceProduct={sourceProduct} />
+        </div>
 
         {/* CENTER — title + status */}
         <div className="flex flex-col items-start gap-3 lg:items-center lg:text-center">
@@ -317,7 +319,9 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
 
       {/* Filter chips + layout toggle */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <FilterPills options={filterOptions} active={activeFilter} onChange={setActiveFilter} />
+        <div data-testid="pshoot-filters">
+          <FilterPills options={filterOptions} active={activeFilter} onChange={setActiveFilter} />
+        </div>
         <div
           role="group"
           aria-label="layout toggle"
@@ -325,6 +329,7 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
         >
           <button
             type="button"
+            data-testid="pshoot-layout-template"
             aria-pressed={layout === 'template'}
             onClick={() => setLayout('template')}
             className="inline-flex h-6 items-center gap-1.5 rounded-[6px] px-2.5 font-mono text-[11px] uppercase tracking-[0.08em] text-fg-2 transition-colors duration-fast ease-out hover:text-fg-0 aria-pressed:bg-bg-1 aria-pressed:text-fg-0 aria-pressed:shadow-sm"
@@ -334,6 +339,7 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
           </button>
           <button
             type="button"
+            data-testid="pshoot-layout-grid"
             aria-pressed={layout === 'grid'}
             onClick={() => setLayout('grid')}
             className="inline-flex h-6 items-center gap-1.5 rounded-[6px] px-2.5 font-mono text-[11px] uppercase tracking-[0.08em] text-fg-2 transition-colors duration-fast ease-out hover:text-fg-0 aria-pressed:bg-bg-1 aria-pressed:text-fg-0 aria-pressed:shadow-sm"
@@ -366,6 +372,7 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
                 action={
                   <button
                     type="button"
+                    data-testid={`regenerate-template-${templateId}`}
                     aria-label={`regenerate template ${tpl?.label ?? templateId}`}
                     disabled={isRegenning}
                     onClick={() => regenerateTemplate(templateId)}
@@ -384,21 +391,22 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
                 {tiles.map((tile) => {
                   const tileAssetId = tileAssetById.get(tile.id) ?? null;
                   return (
-                    <CreativeCard
-                      key={tile.id}
-                      workflowId={tile.workflowId}
-                      presetId={presetId}
-                      initialStatus={tile.status}
-                      quantity={tile.quantity}
-                      regenerate={{ kind: 'photoshoot', id: shoot.id, tileId: tile.id }}
-                      context="photoshoot"
-                      tileAssetId={tileAssetId}
-                      selectMode={selecting}
-                      selected={selectedTileIds.has(tile.id)}
-                      onToggleSelect={() => toggleTile(tile.id)}
-                      onUseAsProduct={(assetId) => openProductDialog([assetId])}
-                      onUseInCampaign={(assetId) => startCampaignWith([assetId])}
-                    />
+                    <div key={tile.id} data-testid={`pshoot-tile-${tile.id}`}>
+                      <CreativeCard
+                        workflowId={tile.workflowId}
+                        presetId={presetId}
+                        initialStatus={tile.status}
+                        quantity={tile.quantity}
+                        regenerate={{ kind: 'photoshoot', id: shoot.id, tileId: tile.id }}
+                        context="photoshoot"
+                        tileAssetId={tileAssetId}
+                        selectMode={selecting}
+                        selected={selectedTileIds.has(tile.id)}
+                        onToggleSelect={() => toggleTile(tile.id)}
+                        onUseAsProduct={(assetId) => openProductDialog([assetId])}
+                        onUseInCampaign={(assetId) => startCampaignWith([assetId])}
+                      />
+                    </div>
                   );
                 })}
               </div>
@@ -415,7 +423,11 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
             // CreativeCard mounted (polling must continue for cooking tiles).
             const visible = tileMatchesFilter(tile);
             return (
-              <div key={tile.id} className={visible ? undefined : 'hidden'}>
+              <div
+                key={tile.id}
+                data-testid={`pshoot-tile-${tile.id}`}
+                className={visible ? undefined : 'hidden'}
+              >
                 <CreativeCard
                   workflowId={tile.workflowId}
                   presetId={presetId}

@@ -198,15 +198,22 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
   const canvasAdCopy = currentVersion?.adCopy ?? tile.adCopy;
 
   return (
-    <div className="grid grid-cols-1 gap-6 items-start md:grid-cols-[1fr_320px]">
+    <div
+      data-testid="creative-editor"
+      className="grid grid-cols-1 gap-6 items-start md:grid-cols-[1fr_320px]"
+    >
       {/* ------------------------------------------------------------------ */}
       {/* LEFT — canvas + version pill + action bar                          */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex flex-col items-center gap-3.5">
         {/* version pill */}
-        <div className="flex items-center gap-2 rounded-pill border border-line-subtle bg-bg-2 px-3 py-1.5 text-[12.5px] text-fg-1">
+        <div
+          data-testid="editor-version-pill"
+          className="flex items-center gap-2 rounded-pill border border-line-subtle bg-bg-2 px-3 py-1.5 text-[12.5px] text-fg-1"
+        >
           <Link
             href={`/campaigns/${campaignId}/c/${tile.id}/history`}
+            data-testid="editor-history-link"
             aria-label="open version history"
             title="version history"
             className="grid size-5 place-items-center rounded-[5px] text-fg-3 transition-colors hover:bg-bg-3 hover:text-fg-1"
@@ -214,11 +221,12 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
             <History size={13} strokeWidth={1.75} />
           </Link>
           <span>version history</span>
-          <span className="ml-1 font-mono text-[11px] text-fg-2">
+          <span data-testid="editor-version-label" className="ml-1 font-mono text-[11px] text-fg-2">
             {displayVersionNum} / {displayVersionTotal}
           </span>
           <button
             type="button"
+            data-testid="editor-version-prev"
             aria-label="previous version"
             disabled={versionIdx <= 0}
             onClick={() => setVersionIdx((i) => Math.max(0, i - 1))}
@@ -228,6 +236,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
           </button>
           <button
             type="button"
+            data-testid="editor-version-next"
             aria-label="next version"
             disabled={versionIdx >= totalVersions - 1}
             onClick={() => setVersionIdx((i) => Math.min(totalVersions - 1, i + 1))}
@@ -320,6 +329,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
           <Button
             variant="primary"
             size="sm"
+            data-testid="editor-fix-layout"
             disabled={regenerating}
             onClick={() => handleRegenerate(true)}
             aria-label="fix layout"
@@ -330,6 +340,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
           </Button>
           <button
             type="button"
+            data-testid="editor-regenerate"
             aria-label="regenerate"
             disabled={regenerating || pollStatus === 'cooking'}
             onClick={() => handleRegenerate(false)}
@@ -343,6 +354,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
           </button>
           <button
             type="button"
+            data-testid="editor-download"
             aria-label="download"
             disabled={!firstImageUrl}
             onClick={handleDownload}
@@ -352,6 +364,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
           </button>
           <button
             type="button"
+            data-testid="editor-share"
             aria-label="share"
             disabled
             title="coming soon"
@@ -361,6 +374,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
           </button>
           <button
             type="button"
+            data-testid="editor-animate"
             aria-label="animate"
             disabled
             title="coming soon"
@@ -399,6 +413,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
             <FieldLabel htmlFor="ce-headline">headline</FieldLabel>
             <Input
               id="ce-headline"
+              data-testid="editor-field-header"
               value={headline}
               onChange={(e) => setHeadline(e.target.value)}
               placeholder="precision in every drop."
@@ -413,6 +428,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
             <FieldLabel htmlFor="ce-subhead">subhead</FieldLabel>
             <Textarea
               id="ce-subhead"
+              data-testid="editor-field-description"
               value={subhead}
               onChange={(e) => setSubhead(e.target.value)}
               placeholder="automated · zero variability"
@@ -428,6 +444,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
             <FieldLabel htmlFor="ce-cta">cta text</FieldLabel>
             <Input
               id="ce-cta"
+              data-testid="editor-field-cta"
               value={cta}
               onChange={(e) => setCta(e.target.value)}
               placeholder="shop now"
@@ -449,6 +466,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
             <FieldLabel htmlFor="ce-prompt">image prompt</FieldLabel>
             <Textarea
               id="ce-prompt"
+              data-testid="editor-field-background"
               value={promptValue}
               onChange={(e) => setPromptValue(e.target.value)}
               placeholder="describe the background scene…"
@@ -461,6 +479,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
         {/* save button */}
         <Button
           variant="primary"
+          data-testid="editor-save"
           disabled={saving}
           onClick={handleSave}
           aria-label="save changes"

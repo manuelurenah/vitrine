@@ -75,6 +75,7 @@ export function BottomSheet({ open, onClose, title, eyebrow, children, footer, c
       <div
         role="dialog"
         aria-modal
+        data-testid="bottom-sheet"
         data-state={enter ? 'open' : 'closed'}
         className={cn(
           'relative flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-[18px] border border-line bg-bg-1 shadow-xl',
