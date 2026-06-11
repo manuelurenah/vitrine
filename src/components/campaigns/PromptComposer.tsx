@@ -1,10 +1,15 @@
 'use client';
 
-import { ImageIcon, ShoppingBag, Sparkles } from 'lucide-react';
+import { ImageIcon, Mic, ShoppingBag, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { type KeyboardEvent, useMemo, useState } from 'react';
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
-import { Button, Chip, Modal } from '@/components/ui';
+import { Button, Chip, IconButton, Modal } from '@/components/ui';
+
+// Static per-generation buzz estimate shown on the CTA before a full preview
+// is available. Matches the design spec (hifi-campaigns-screens-a.jsx "· 8 buzz")
+// and aligns with the ~7–9 buzz range seen in preview API test fixtures.
+const COMPOSER_BUZZ_ESTIMATE = 8;
 
 type Props = {
   placeholder?: string;
@@ -12,11 +17,46 @@ type Props = {
 
 type PickerTab = 'products' | 'assets';
 
+// Minimal Web Speech API types — not universally present in lib.dom.d.ts.
+interface SpeechRecognitionInstance extends EventTarget {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  start(): void;
+  stop(): void;
+  onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+}
+
+interface SpeechRecognitionResultEvent {
+  results: { 0: { transcript: string } }[];
+}
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
+function getSpeechRecognition(): SpeechRecognitionConstructor | null {
+  if (typeof window === 'undefined') return null;
+  const w = window as unknown as Record<string, unknown>;
+  return (
+    (w['SpeechRecognition'] as SpeechRecognitionConstructor | undefined) ??
+    (w['webkitSpeechRecognition'] as SpeechRecognitionConstructor | undefined) ??
+    null
+  );
+}
+
 export function PromptComposer({ placeholder = 'describe the campaign you want to cook' }: Props) {
   const router = useRouter();
   const [value, setValue] = useState('');
   const [refs, setRefs] = useState<string[]>([]);
   const [pickerTab, setPickerTab] = useState<PickerTab | null>(null);
+  const [listening, setListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+
+  useEffect(() => {
+    setSpeechSupported(getSpeechRecognition() !== null);
+  }, []);
 
   const canSubmit = value.trim().length > 0;
 
@@ -36,6 +76,45 @@ export function PromptComposer({ placeholder = 'describe the campaign you want t
       e.preventDefault();
       handleSubmit();
     }
+  }
+
+  function handleMicClick() {
+    const SR = getSpeechRecognition();
+    if (!SR) return;
+
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const rec = new SR();
+    rec.lang = 'en-US';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+
+    rec.onresult = (event: SpeechRecognitionResultEvent) => {
+      const transcript = event.results[0]?.[0]?.transcript ?? '';
+      if (transcript) {
+        setValue((prev) => {
+          const trimmed = prev.trimEnd();
+          return trimmed ? `${trimmed} ${transcript}` : transcript;
+        });
+      }
+    };
+
+    rec.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+    };
+
+    rec.onerror = () => {
+      setListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognitionRef.current = rec;
+    rec.start();
+    setListening(true);
   }
 
   return (
@@ -65,6 +144,29 @@ export function PromptComposer({ placeholder = 'describe the campaign you want t
             placeholder={placeholder}
             rows={2}
             className="min-h-[60px] flex-1 resize-none bg-transparent text-[14px] leading-[1.5] text-fg-0 outline-none placeholder:text-fg-3"
+          />
+          <IconButton
+            icon={<Mic size={14} strokeWidth={1.75} />}
+            aria-label={
+              speechSupported
+                ? listening
+                  ? 'stop listening'
+                  : 'dictate prompt'
+                : 'voice input not supported in this browser'
+            }
+            aria-pressed={listening}
+            disabled={!speechSupported}
+            onClick={handleMicClick}
+            variant="ghost"
+            size="sm"
+            className={listening ? 'text-volt' : undefined}
+            title={
+              speechSupported
+                ? listening
+                  ? 'stop listening'
+                  : 'dictate prompt'
+                : 'voice input not supported in this browser'
+            }
           />
         </div>
         <div className="relative mt-4 flex flex-wrap items-center gap-2">
@@ -99,7 +201,10 @@ export function PromptComposer({ placeholder = 'describe the campaign you want t
             onClick={handleSubmit}
             leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
           >
-            generate brief
+            generate
+            <span className="font-mono text-[11px] opacity-70">
+              · {COMPOSER_BUZZ_ESTIMATE} buzz
+            </span>
           </Button>
         </div>
       </div>
