@@ -1,3 +1,4 @@
+export { AppShell } from './AppShell';
 export { activeNavFromPath, NAV, type NavId, type NavItem } from './nav';
 export { Shell } from './Shell';
 export { Sidebar } from './Sidebar';
