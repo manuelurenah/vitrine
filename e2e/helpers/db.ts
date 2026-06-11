@@ -225,6 +225,117 @@ export async function getAssetCollection(assetId: string): Promise<string | null
   return res.rows[0]?.collection ?? null;
 }
 
+export type SeedCampaignInput = {
+  title?: string;
+  presetId?: string;
+  adCopy?: { headline: string; subhead: string; cta?: string };
+  prompt?: string;
+  versions?: number;
+};
+
+/**
+ * Seed a campaign with one tile already in `done` status, linked to a freshly-
+ * seeded `generated` asset, and N `tile_versions` rows. Mirrors the
+ * post-cook/post-regenerate state. Returns the campaign id, tile id, asset id,
+ * and the number of versions inserted.
+ */
+export async function seedDoneCampaign(
+  input: SeedCampaignInput = {},
+  userId: string = TEST_USER_ID,
+): Promise<{ id: string; tileId: string; assetId: string; versionCount: number }> {
+  const pool = getPool();
+  const title = input.title ?? 'e2e campaign';
+  const presetId = input.presetId ?? 'ig-feed';
+  const prompt = input.prompt ?? 'a product on a table';
+  const adCopy = input.adCopy ?? { headline: 'old head', subhead: 'old sub', cta: 'shop now' };
+  const versionCount = input.versions ?? 1;
+
+  // Ensure the users row exists (same pattern as markOnboardingComplete).
+  await pool.query(
+    `INSERT INTO users (id, civitai_id, username, last_seen_at)
+     VALUES ($1, $2, $3, now())
+     ON CONFLICT (id) DO UPDATE SET last_seen_at = now()`,
+    [userId, Number.isFinite(Number(userId)) ? Number(userId) : null, null],
+  );
+
+  // Insert the campaign row.
+  const campaignRes = await pool.query<{ id: string }>(
+    `INSERT INTO campaigns
+       (user_id, title, brief, preset_ids, estimated_buzz)
+     VALUES ($1, $2, '{}'::jsonb, ARRAY[$3]::text[], 60)
+     RETURNING id`,
+    [userId, title, presetId],
+  );
+  const id = campaignRes.rows[0]!.id;
+
+  // Seed a generated asset linked to this campaign tile.
+  const rand = Math.random().toString(36).slice(2, 10);
+  const storageKey = `e2e/generated/campaign-${id}-${rand}.png`;
+  const publicUrl = `https://image.mock/seed/${rand}.png`;
+  const assetRes = await pool.query<{ id: string }>(
+    `INSERT INTO assets
+       (user_id, kind, bucket, storage_key, public_url, content_type, metadata)
+     VALUES ($1, 'generated'::asset_kind, 'assets', $2, $3, 'image/png', '{}'::jsonb)
+     RETURNING id`,
+    [userId, storageKey, publicUrl],
+  );
+  const assetId = assetRes.rows[0]!.id;
+
+  // Insert the campaign tile.
+  const workflowId = `mock-seed-${Math.random().toString(36).slice(2, 10)}`;
+  const tileRes = await pool.query<{ id: string }>(
+    `INSERT INTO campaign_tiles
+       (campaign_id, preset_id, workflow_id, prompt, status, ad_copy, asset_id, estimated_buzz)
+     VALUES ($1, $2, $3, $4, 'done'::tile_status, $5::jsonb, $6, 60)
+     RETURNING id`,
+    [id, presetId, workflowId, prompt, JSON.stringify(adCopy), assetId],
+  );
+  const tileId = tileRes.rows[0]!.id;
+
+  // Insert tile_versions rows (version 1..N).
+  for (let n = 1; n <= versionCount; n++) {
+    const versionAdCopy = { headline: `head v${n}`, subhead: 'old sub', cta: 'shop now' };
+    const changeNote = n === 1 ? 'cooked' : 'regenerated';
+    await pool.query(
+      `INSERT INTO tile_versions
+         (tile_id, version, workflow_id, prompt, ad_copy, asset_id, change_note)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7)`,
+      [tileId, n, workflowId, prompt, JSON.stringify(versionAdCopy), assetId, changeNote],
+    );
+  }
+
+  return { id, tileId, assetId, versionCount };
+}
+
+/**
+ * Count the number of tile_versions rows for a given tile.
+ */
+export async function countTileVersions(tileId: string): Promise<number> {
+  const pool = getPool();
+  const res = await pool.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM tile_versions WHERE tile_id = $1`,
+    [tileId],
+  );
+  return res.rows[0]?.n ?? 0;
+}
+
+/**
+ * Fetch the current status, prompt, and ad_copy for a campaign tile.
+ * Returns null if the tile does not exist.
+ */
+export async function getTile(
+  tileId: string,
+): Promise<{ status: string; prompt: string; adCopy: unknown } | null> {
+  const pool = getPool();
+  const res = await pool.query<{ status: string; prompt: string; ad_copy: unknown }>(
+    `SELECT status, prompt, ad_copy FROM campaign_tiles WHERE id = $1`,
+    [tileId],
+  );
+  const row = res.rows[0];
+  if (!row) return null;
+  return { status: row.status, prompt: row.prompt, adCopy: row.ad_copy };
+}
+
 export async function closeDb(): Promise<void> {
   if (cached) {
     await cached.end();
