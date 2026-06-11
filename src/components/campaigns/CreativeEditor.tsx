@@ -67,7 +67,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
 
   // ---- workflow polling -----------------------------------------------------
   const [workflowId, setWorkflowId] = useState(tile.workflowId);
-  const [imgUrls, setImgUrls] = useState<string[]>([]);
+  const [imgUrls, setImgUrls] = useState<string[]>(tile.assetUrl ? [tile.assetUrl] : []);
   const [pollStatus, setPollStatus] = useState<CardStatus>(tile.status);
 
   useEffect(() => {

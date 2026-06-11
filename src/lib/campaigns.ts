@@ -29,6 +29,7 @@ export type CampaignTile = {
   prompt: string;
   quantity: number;
   adCopy: AdCopy | null;
+  assetUrl: string | null;
 };
 
 export type Campaign = {
@@ -47,7 +48,7 @@ export type Campaign = {
   createdAt: number;
 };
 
-function toTile(row: CampaignTileRow): CampaignTile {
+function toTile(row: CampaignTileRow, assetUrl?: string | null): CampaignTile {
   return {
     id: row.id,
     presetId: row.presetId as PresetId,
@@ -56,10 +57,15 @@ function toTile(row: CampaignTileRow): CampaignTile {
     prompt: row.prompt,
     quantity: row.quantity,
     adCopy: (row.adCopy as AdCopy | null) ?? null,
+    assetUrl: assetUrl ?? null,
   };
 }
 
-function toCampaign(row: CampaignRow, tiles: CampaignTileRow[]): Campaign {
+function toCampaign(
+  row: CampaignRow,
+  tiles: CampaignTileRow[],
+  assetUrlByTileId: Map<string, string> = new Map(),
+): Campaign {
   return {
     id: row.id,
     userId: row.userId,
@@ -69,7 +75,7 @@ function toCampaign(row: CampaignRow, tiles: CampaignTileRow[]): Campaign {
     referenceAssetIds: row.referenceAssetIds,
     variantsPerPreset: row.variantsPerPreset,
     enhancedPrompts: (row.enhancedPrompts as Record<string, unknown> | null) ?? null,
-    tiles: tiles.map(toTile),
+    tiles: tiles.map((t) => toTile(t, assetUrlByTileId.get(t.id))),
     estimatedBuzz: row.estimatedBuzz,
     audience: row.audience,
     aesthetics: row.aesthetics,
@@ -159,12 +165,32 @@ async function loadCampaign(userId: string, id: string): Promise<Campaign | null
     .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
     .limit(1);
   if (!row) return null;
-  const tiles = await db
+  const tileRows = await db
     .select()
     .from(campaignTilesTable)
     .where(eq(campaignTilesTable.campaignId, row.id))
     .orderBy(campaignTilesTable.createdAt);
-  return toCampaign(row, tiles);
+
+  // Build a tileId → publicUrl map for tiles that already have a linked asset.
+  const assetUrlByTileId = new Map<string, string>();
+  const tileIdsWithAsset = tileRows
+    .filter((t) => t.assetId !== null)
+    .map((t) => t.assetId as string);
+  if (tileIdsWithAsset.length > 0) {
+    const assetRows = await db
+      .select({ id: assetsTable.id, publicUrl: assetsTable.publicUrl })
+      .from(assetsTable)
+      .where(and(inArray(assetsTable.id, tileIdsWithAsset), isNull(assetsTable.deletedAt)));
+    const urlById = new Map(assetRows.map((a) => [a.id, a.publicUrl]));
+    for (const t of tileRows) {
+      if (t.assetId) {
+        const url = urlById.get(t.assetId);
+        if (url) assetUrlByTileId.set(t.id, url);
+      }
+    }
+  }
+
+  return toCampaign(row, tileRows, assetUrlByTileId);
 }
 
 export function getCampaign(userId: string, id: string): Promise<Campaign | null> {
