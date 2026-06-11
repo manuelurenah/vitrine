@@ -27,19 +27,21 @@ export function OnboardingFrame({ step, children, skipHref = '/onboarding/dna' }
         }}
       />
 
-      <header className="relative z-card flex items-center justify-between px-10 py-6">
+      {/* Reduced horizontal padding on mobile (px-4) vs desktop (px-10) */}
+      <header className="relative z-card flex items-center justify-between px-4 py-5 sm:px-10 sm:py-6">
         <Link href="/onboarding/welcome">
           <Wordmark size={26} />
         </Link>
-        <div className="flex items-center gap-4">
-          <div className="hidden items-center gap-[6px] sm:flex">
+        <div className="flex items-center gap-3">
+          {/* Progress dots — always visible on mobile (was hidden sm:flex) */}
+          <div className="flex items-center gap-[5px]">
             {ONBOARDING_STEPS.map((s, i) => (
               <span
                 key={s}
                 className="rounded-pill transition-all duration-[280ms] ease-out"
                 style={{
-                  width: i === stepIndex ? '26px' : '8px',
-                  height: '8px',
+                  width: i === stepIndex ? '22px' : '7px',
+                  height: '7px',
                   background:
                     i === stepIndex ? 'var(--volt)' : i < stepIndex ? 'var(--fg-3)' : 'var(--bg-3)',
                   boxShadow: i === stepIndex ? '0 0 12px -2px var(--volt-glow)' : undefined,
@@ -56,7 +58,10 @@ export function OnboardingFrame({ step, children, skipHref = '/onboarding/dna' }
         </div>
       </header>
 
-      <main className="relative z-card mx-auto w-full max-w-[1080px] px-10 pb-16">{children}</main>
+      {/* px-4 on mobile, px-10 on sm+ */}
+      <main className="relative z-card mx-auto w-full max-w-[1080px] px-4 pb-16 sm:px-10">
+        {children}
+      </main>
     </div>
   );
 }
