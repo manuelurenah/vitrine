@@ -3,12 +3,12 @@ import {
   DnaStep,
   InputStep,
   isOnboardingStep,
-  NextStep,
   OnboardingFrame,
   type OnboardingStep,
   ProcessingStep,
   WelcomeStep,
 } from '@/components/onboarding';
+import { NextScreen } from '@/components/onboarding/NextScreen';
 import { getOnboarding, type OnboardingPayload, recordOnboardingStep } from '@/lib/onboarding';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
@@ -50,6 +50,6 @@ function Screen({ step, payload }: { step: OnboardingStep; payload: OnboardingPa
     case 'dna':
       return <DnaStep payload={payload} />;
     case 'next':
-      return <NextStep />;
+      return <NextScreen payload={payload} />;
   }
 }

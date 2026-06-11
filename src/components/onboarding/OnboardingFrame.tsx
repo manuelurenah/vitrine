@@ -1,7 +1,10 @@
+'use client';
+
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Wordmark } from '@/components/shell';
 import { ONBOARDING_STEPS, type OnboardingStep } from './steps';
+import { useOnboardingKeyboardNav } from './useOnboardingKeyboardNav';
 
 type Props = {
   step: OnboardingStep;
@@ -10,6 +13,7 @@ type Props = {
 };
 
 export function OnboardingFrame({ step, children, skipHref = '/onboarding/dna' }: Props) {
+  useOnboardingKeyboardNav(step);
   const stepIndex = ONBOARDING_STEPS.indexOf(step);
   return (
     <div className="relative min-h-screen overflow-hidden bg-bg-0">
