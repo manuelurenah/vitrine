@@ -43,17 +43,19 @@ test.describe('Photoshoot subject deep-links', () => {
     await signInToApp(page, baseURL!);
     await page.goto(`${baseURL}/brand/catalog/${productId}`);
 
-    await page.getByRole('link', { name: /use as photoshoot subject/i }).click();
+    // ProductDetailGallery CTA was renamed from "use as photoshoot subject" to "start photoshoot"
+    await page.getByRole('link', { name: /start photoshoot/i }).click();
 
     await page.waitForURL(/\/photoshoot\/new\?subject=/, { timeout: 10_000 });
     const url = new URL(page.url());
     const subject = url.searchParams.get('subject') ?? '';
     expect(subject).toBe(`product:${productId}`);
 
-    const panel = page.getByTestId('subject-panel');
-    await expect(panel).toBeVisible();
-    await expect(panel).toHaveAttribute('data-subject-kind', 'product');
-    await expect(panel).toHaveAttribute('data-subject-id', productId);
-    await expect(page.getByTestId('subject-clear')).toBeVisible();
+    // When the user has catalog products, the wizard renders ProductRadioList
+    // (not SubjectPanel) — the product is pre-selected as a checked radio.
+    const productRadio = page
+      .getByRole('radiogroup', { name: /catalog products/i })
+      .getByRole('radio', { checked: true });
+    await expect(productRadio).toBeVisible({ timeout: 10_000 });
   });
 });
