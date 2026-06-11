@@ -27,17 +27,19 @@ function ratioToPresetId(ratio: string): 'li' | 'ig-feed' | 'ig-story' | 'yt' {
 
 /**
  * Estimate the buzz cost for regenerating all tiles in a template group.
- * Uses each tile's share of the shoot's estimated buzz if available; falls
- * back to 20 when no estimate exists (matches per-tile regenerate display).
+ * Apportions the shoot's total estimated buzz by group size:
+ *   cost = round(estimatedBuzz * groupTileCount / totalTileCount)
+ * Falls back to 20 when no estimate exists (matches per-tile regenerate display).
  */
-function computeTemplateCost(tiles: PhotoshootTile[], shootEstimatedBuzz: number): number {
-  if (tiles.length === 0) return 20;
-  if (shootEstimatedBuzz > 0) {
-    // Apportion the total shoot estimate evenly across all tiles.
-    // This is approximate but consistent with how the cook route records it.
-    return Math.round(shootEstimatedBuzz);
-  }
-  return 20;
+function computeTemplateCost(
+  groupTiles: PhotoshootTile[],
+  allTiles: PhotoshootTile[],
+  shootEstimatedBuzz: number,
+): number {
+  const totalTileCount = allTiles.length;
+  if (totalTileCount === 0) return 0;
+  if (!shootEstimatedBuzz) return 20;
+  return Math.round((shootEstimatedBuzz * groupTiles.length) / totalTileCount);
 }
 
 /**
@@ -212,7 +214,11 @@ export function PhotoshootResults({ shoot, products }: Props) {
 
         // Cost estimate: sum estimatedBuzz across tiles in the group when available,
         // otherwise fall back to 20 buzz (matching the per-tile regenerate display).
-        const groupCost = computeTemplateCost(tiles as PhotoshootTile[], shoot.estimatedBuzz);
+        const groupCost = computeTemplateCost(
+          tiles as PhotoshootTile[],
+          shoot.tiles,
+          shoot.estimatedBuzz,
+        );
 
         return (
           <section key={templateId} className="mt-10">
