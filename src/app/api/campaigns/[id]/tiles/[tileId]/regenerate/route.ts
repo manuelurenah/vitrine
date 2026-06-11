@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getPublicUrls, MissingReferenceError } from '@/lib/assets';
 import { getDefaultBrand } from '@/lib/brand';
 import { recordBuzzEvent } from '@/lib/buzz';
@@ -12,15 +13,21 @@ import { getUserKey } from '@/lib/userKey';
 
 type Params = Promise<{ id: string; tileId: string }>;
 
+const bodySchema = z.object({ promptHint: z.string().max(400).optional() }).optional();
+
 function isEnhancedPrompt(value: unknown): value is EnhancedPrompt {
   if (!value || typeof value !== 'object') return false;
   const v = value as Record<string, unknown>;
   return typeof v.finalPrompt === 'string' && typeof v.aspectRatio === 'string';
 }
 
-export async function POST(_: NextRequest, ctx: { params: Params }) {
+export async function POST(req: NextRequest, ctx: { params: Params }) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'not_authenticated' }, { status: 401 });
+
+  const rawBody = await req.json().catch(() => ({}));
+  const parsedBody = bodySchema.safeParse(rawBody);
+  const promptHint = parsedBody.success ? parsedBody.data?.promptHint : undefined;
 
   const userKey = await getUserKey(session);
   const { id, tileId } = await ctx.params;
@@ -71,7 +78,8 @@ export async function POST(_: NextRequest, ctx: { params: Params }) {
 
   const variation = Math.floor(Math.random() * 1000);
   const basePrompt = resolveFinalPrompt(enhanced);
-  const promptWithVariation = `${basePrompt} · variation ${variation}`;
+  const baseWithHint = promptHint ? `${basePrompt}\n\n${promptHint}` : basePrompt;
+  const promptWithVariation = `${baseWithHint} · variation ${variation}`;
 
   const quantity = tile.quantity ?? campaign.variantsPerPreset ?? 1;
 

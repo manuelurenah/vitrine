@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { CreativeEditor } from '@/components/campaigns/CreativeEditor';
 import { getCampaign } from '@/lib/campaigns';
 import { getDefaultBrand } from '@/lib/brand';
@@ -14,7 +14,7 @@ type Params = Promise<{ id: string; creativeId: string }>;
 
 export default async function CreativeEditorPage({ params }: { params: Params }) {
   const session = await getSession();
-  if (!session) notFound();
+  if (!session) redirect('/');
 
   const userKey = await getUserKey(session);
   const { id, creativeId } = await params;

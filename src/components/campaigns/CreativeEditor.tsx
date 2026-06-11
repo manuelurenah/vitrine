@@ -159,7 +159,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
     try {
       const body: Record<string, unknown> = {};
       if (fixLayout) {
-        body.prompt = `${tile.prompt}\n\n[fix layout: improve composition, balance, legibility]`;
+        body.promptHint = '[fix layout: improve composition, balance, legibility]';
       }
       const res = await fetch(`/api/campaigns/${campaignId}/tiles/${tile.id}/regenerate`, {
         method: 'POST',
@@ -249,12 +249,12 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
           {canvasAdCopy && (
             <div className="absolute inset-0 flex flex-col justify-between p-4">
               <div>
-                {canvasAdCopy.subhead && (
+                {(brandName ?? preset?.id) && (
                   <p
                     className="font-mono text-[9px] uppercase tracking-[0.08em] text-white/70"
                     style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
                   >
-                    {canvasAdCopy.subhead}
+                    {brandName ?? preset.id}
                   </p>
                 )}
               </div>
@@ -345,14 +345,18 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
           <button
             type="button"
             aria-label="share"
-            className="grid size-8 place-items-center rounded-[8px] border border-line-subtle bg-bg-2 text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0"
+            disabled
+            title="coming soon"
+            className="grid size-8 place-items-center rounded-[8px] border border-line-subtle bg-bg-2 text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0 disabled:opacity-40"
           >
             <Share2 size={14} strokeWidth={1.75} />
           </button>
           <button
             type="button"
             aria-label="animate"
-            className="grid size-8 place-items-center rounded-[8px] border border-line-subtle bg-bg-2 text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0"
+            disabled
+            title="coming soon"
+            className="grid size-8 place-items-center rounded-[8px] border border-line-subtle bg-bg-2 text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0 disabled:opacity-40"
           >
             <Wand2 size={14} strokeWidth={1.75} />
           </button>

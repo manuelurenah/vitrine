@@ -24,7 +24,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Params }) {
   const userKey = await getUserKey(session);
   const { id, tileId } = await ctx.params;
 
-  const body = await req.json().catch(() => null);
+  const body = await req.json().catch(() => ({}));
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
