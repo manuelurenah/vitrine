@@ -32,6 +32,8 @@ export type PhotoshootTile = {
 export type Photoshoot = {
   id: string;
   userId: string;
+  /** UUID of the source product this shoot was generated for. Null when no product was linked. */
+  productId: string | null;
   title: string;
   brief: PhotoshootBrief;
   referenceAssetIds: string[];
@@ -68,6 +70,7 @@ function toPhotoshoot(
   return {
     id: row.id,
     userId: row.userId,
+    productId: row.productId ?? null,
     title: row.title,
     brief: row.brief as PhotoshootBrief,
     referenceAssetIds: row.referenceAssetIds,
