@@ -1,10 +1,8 @@
 import { Layers, Plus } from 'lucide-react';
 import Link from 'next/link';
-import { GradientThumb, type ThumbTone } from '@/components/campaigns';
-import { Badge, Button, Chip } from '@/components/ui';
+import { Button } from '@/components/ui';
 import type { Product } from '@/lib/catalog';
-
-const TONES: ThumbTone[] = ['volt', 'ion', 'ultraviolet', 'flux', 'buzz'];
+import { CatalogControls } from './CatalogControls';
 
 type Props = { products: Product[] };
 
@@ -26,12 +24,6 @@ export function CatalogGrid({ products }: Props) {
           </Button>
         </Link>
       </header>
-
-      <div className="mt-6 flex flex-wrap items-center gap-2">
-        <Chip active>all · {products.length}</Chip>
-        <Chip>live · {products.filter((p) => p.status === 'live').length}</Chip>
-        <Chip>archived · {products.filter((p) => p.status === 'archived').length}</Chip>
-      </div>
 
       {!hasItems ? (
         <div className="mt-10 flex flex-col items-center gap-4 rounded-[18px] border border-dashed border-line bg-bg-1 p-10 text-center">
@@ -63,43 +55,7 @@ export function CatalogGrid({ products }: Props) {
           </p>
         </div>
       ) : (
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {products.map((p, i) => (
-            <Link
-              key={p.id}
-              href={`/brand/catalog/${p.id}`}
-              className="group flex flex-col gap-3 rounded-[14px] border border-line-subtle bg-bg-2 p-3 transition-all duration-base ease-out hover:-translate-y-[2px] hover:border-line-strong"
-            >
-              {p.heroUrl ? (
-                <div className="relative aspect-square overflow-hidden rounded-[10px] border border-line bg-bg-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={p.heroUrl}
-                    alt={p.name}
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                </div>
-              ) : (
-                <GradientThumb tone={TONES[i % TONES.length]} className="aspect-square" />
-              )}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-[14px] font-medium text-fg-0">{p.name}</span>
-                  <Badge
-                    kind={
-                      p.status === 'live' ? 'live' : p.status === 'archived' ? 'archived' : 'draft'
-                    }
-                  >
-                    {p.status}
-                  </Badge>
-                </div>
-                <div className="font-mono text-[10.5px] text-fg-3">
-                  {p.tags.length} tag{p.tags.length === 1 ? '' : 's'}
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <CatalogControls products={products} />
       )}
     </div>
   );
