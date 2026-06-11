@@ -181,7 +181,14 @@ export async function seedDonePhotoshoot(
     [
       userId,
       title,
-      JSON.stringify({ productNotes: 'e2e photoshoot', ratio, templates: [templateId] }),
+      JSON.stringify({
+        productName: 'e2e product',
+        productNotes: 'e2e photoshoot',
+        ratio,
+        variantsPerTemplate: 1,
+        templateIds: [templateId],
+      }),
+      ratio,
       templateId,
     ],
   );
