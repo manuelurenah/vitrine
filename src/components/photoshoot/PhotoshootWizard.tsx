@@ -492,7 +492,7 @@ function BriefStep(props: BriefStepProps) {
 
   return (
     <form onSubmit={onSubmit} data-testid="brief-step">
-      <div className="mx-auto mt-10 grid w-full max-w-[1080px] grid-cols-1 gap-6 md:grid-cols-[1fr_1.4fr]">
+      <div className="mx-auto mt-10 grid w-full max-w-[1080px] grid-cols-1 gap-6 pb-36 md:grid-cols-[1fr_1.4fr] md:pb-24">
         {/* LEFT COLUMN */}
         <section className="flex flex-col gap-4">
           {/* Product radio list — shown when there are catalog products */}
@@ -638,7 +638,7 @@ function BriefStep(props: BriefStepProps) {
       </div>
 
       {/* STICKY ACTION BAR */}
-      <div className="fixed bottom-0 left-[232px] right-0 z-sticky border-t border-line-subtle bg-bg-0/90 backdrop-blur-md">
+      <div className="fixed bottom-[76px] left-0 right-0 z-sticky border-t border-line-subtle bg-bg-0/90 backdrop-blur-md md:bottom-0 md:left-[232px]">
         <div className="mx-auto flex max-w-[1080px] flex-wrap items-center gap-3 px-9 py-4">
           {/* Ratio chips */}
           <div className="flex items-center gap-1" role="group" aria-label="aspect ratio">
@@ -838,7 +838,7 @@ function ReviewStep(props: ReviewStepProps) {
         </div>
       )}
 
-      <div className="fixed bottom-0 left-[232px] right-0 z-sticky border-t border-line-subtle bg-bg-0/90 backdrop-blur-md">
+      <div className="fixed bottom-[76px] left-0 right-0 z-sticky border-t border-line-subtle bg-bg-0/90 backdrop-blur-md md:bottom-0 md:left-[232px]">
         <div className="mx-auto flex max-w-[960px] flex-wrap items-center gap-4 px-9 py-4">
           <Button variant="ghost" size="md" onClick={onBack} leadingIcon={<ArrowLeft size={14} />}>
             back

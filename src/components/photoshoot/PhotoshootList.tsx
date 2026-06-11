@@ -1,7 +1,11 @@
+'use client';
+
 import { Camera, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { GradientThumb } from '@/components/campaigns';
+import { FAB } from '@/components/shell';
 import { Button } from '@/components/ui';
+import { useMediaQuery } from '@/components/ui/useMediaQuery';
 import type { Photoshoot } from '@/lib/photoshoots';
 
 const TONES = ['volt', 'ion', 'ultraviolet', 'flux', 'buzz'] as const;
@@ -13,6 +17,8 @@ function formatDate(ms: number): string {
 }
 
 export function PhotoshootList({ shoots }: Props) {
+  const isMobile = useMediaQuery('(max-width: 767px)');
+
   return (
     <div className="relative">
       <div
@@ -45,7 +51,7 @@ export function PhotoshootList({ shoots }: Props) {
             }}
           />
 
-          <div className="relative flex items-center gap-4">
+          <div className="relative flex flex-wrap items-center gap-4">
             {/* icon bloom */}
             <div
               aria-hidden
@@ -64,8 +70,12 @@ export function PhotoshootList({ shoots }: Props) {
               </div>
             </div>
 
-            {/* CTA */}
-            <Link href="/photoshoot/new" aria-label="start a new photoshoot">
+            {/* CTA — hidden on mobile (FAB handles new shoot) */}
+            <Link
+              href="/photoshoot/new"
+              aria-label="start a new photoshoot"
+              className="hidden sm:block"
+            >
               <Button
                 variant="primary"
                 leadingIcon={<Plus size={14} strokeWidth={2} aria-hidden />}
@@ -76,7 +86,7 @@ export function PhotoshootList({ shoots }: Props) {
           </div>
         </div>
 
-        <div className="mt-3 flex justify-center gap-2 font-mono text-[12.5px] text-fg-3">
+        <div className="mt-3 flex flex-wrap justify-center gap-2 font-mono text-[12.5px] text-fg-3">
           <span>just want to edit or generate a single image?</span>
           <Link href="/brand/assets" className="text-fg-1 hover:text-fg-0">
             → assets · generate or edit
@@ -152,6 +162,9 @@ export function PhotoshootList({ shoots }: Props) {
           )}
         </section>
       </div>
+
+      {/* Mobile FAB — new photoshoot */}
+      {isMobile && <FAB href="/photoshoot/new" label="new" aria-label="new photoshoot" />}
     </div>
   );
 }
