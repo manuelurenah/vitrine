@@ -14,7 +14,17 @@ import {
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
-import { Badge, Button, BuzzPill, Chip, cn, FieldLabel, Input, Textarea } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  BuzzPill,
+  Chip,
+  cn,
+  FieldLabel,
+  Input,
+  Select,
+  Textarea,
+} from '@/components/ui';
 import {
   type CampaignPreviewResponse,
   type FetchPreviewArgs,
@@ -578,6 +588,41 @@ function VariantsStepper({
 }
 
 /* -------------------------------------------------------------------------- */
+/* goal select                                                                 */
+/* -------------------------------------------------------------------------- */
+
+const GOAL_OPTIONS = [
+  'promote a new product',
+  'drive signups',
+  'announce a launch',
+  'seasonal sale',
+  'build awareness',
+] as const;
+
+function GoalSelect({
+  id,
+  value,
+  onChange,
+}: {
+  id?: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+}) {
+  const isCustom =
+    value.trim() !== '' && !GOAL_OPTIONS.includes(value as (typeof GOAL_OPTIONS)[number]);
+  return (
+    <Select id={id} value={value} onChange={onChange}>
+      {isCustom && <option value={value}>{value}</option>}
+      {GOAL_OPTIONS.map((opt) => (
+        <option key={opt} value={opt}>
+          {opt}
+        </option>
+      ))}
+    </Select>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
 /* step 2: brief                                                               */
 /* -------------------------------------------------------------------------- */
 
@@ -699,6 +744,18 @@ function BriefStep({
         </div>
       )}
 
+      {brief.prompt.trim() && (
+        <div
+          className="rounded-[10px] border border-line-subtle bg-bg-2 p-[10px]"
+          data-testid="submitted-prompt-sidecar"
+        >
+          <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-fg-3 mb-1">
+            // your prompt
+          </span>
+          <p className="text-[13.5px] leading-[1.4] text-fg-0">{brief.prompt}</p>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <FieldLabel htmlFor="brief-title">campaign title</FieldLabel>
@@ -710,11 +767,10 @@ function BriefStep({
         </div>
         <div>
           <FieldLabel htmlFor="brief-goal">campaign goal</FieldLabel>
-          <Input
+          <GoalSelect
             id="brief-goal"
             value={brief.goal}
             onChange={(e) => update('goal', e.target.value)}
-            placeholder="launch · awareness · sale · lifestyle"
           />
         </div>
       </div>

@@ -9,6 +9,7 @@ export { Chip } from './Chip';
 export { cn } from './cn';
 export { IconButton } from './IconButton';
 export { FieldLabel, Input, Textarea } from './Input';
+export { Select } from './Select';
 export { BottomSheet } from './BottomSheet';
 export { Modal } from './Modal';
 export { useMediaQuery } from './useMediaQuery';
