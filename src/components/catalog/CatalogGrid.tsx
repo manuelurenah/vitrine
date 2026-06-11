@@ -1,6 +1,10 @@
+'use client';
+
 import { Layers, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { FAB } from '@/components/shell';
 import { Button } from '@/components/ui';
+import { useMediaQuery } from '@/components/ui/useMediaQuery';
 import type { Product } from '@/lib/catalog';
 import { CatalogControls } from './CatalogControls';
 
@@ -8,6 +12,8 @@ type Props = { products: Product[] };
 
 export function CatalogGrid({ products }: Props) {
   const hasItems = products.length > 0;
+  const isMobile = useMediaQuery('(max-width: 767px)');
+
   return (
     <div className="relative">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -18,7 +24,8 @@ export function CatalogGrid({ products }: Props) {
             every product becomes a chip in your brief, a source in your photoshoot.
           </p>
         </div>
-        <Link href="/brand/catalog/new">
+        {/* Desktop-only header button; mobile uses FAB */}
+        <Link href="/brand/catalog/new" className="hidden sm:block">
           <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />}>
             new product
           </Button>
@@ -57,6 +64,9 @@ export function CatalogGrid({ products }: Props) {
       ) : (
         <CatalogControls products={products} />
       )}
+
+      {/* Mobile FAB — new product */}
+      {isMobile && <FAB href="/brand/catalog/new" label="new" aria-label="new product" />}
     </div>
   );
 }
