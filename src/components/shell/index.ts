@@ -4,3 +4,9 @@ export { Sidebar } from './Sidebar';
 export { ThemeToggle } from './ThemeToggle';
 export { type Crumb, TopBar } from './TopBar';
 export { Wordmark } from './Wordmark';
+// Mobile shell primitives
+export { type BrandSubTabId, BrandSubTabs } from './BrandSubTabs';
+export { FAB } from './FAB';
+export { type MobileTabId, MobileTabBar } from './MobileTabBar';
+export { MobileTopBar } from './MobileTopBar';
+export { ScreenFrame } from './ScreenFrame';
