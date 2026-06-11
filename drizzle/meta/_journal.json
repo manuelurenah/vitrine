@@ -43,6 +43,13 @@
       "when": 1781187276215,
       "tag": "0005_square_moonstone",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781193806293,
+      "tag": "0006_overconfident_thunderbolt_ross",
+      "breakpoints": true
     }
   ]
 }

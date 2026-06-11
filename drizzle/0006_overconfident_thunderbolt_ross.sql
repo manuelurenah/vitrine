@@ -1,0 +1,2 @@
+ALTER TABLE "brand_profiles" ADD COLUMN "values" text[] DEFAULT ARRAY[]::text[] NOT NULL;--> statement-breakpoint
+ALTER TABLE "brand_profiles" ADD COLUMN "aesthetic" text[] DEFAULT ARRAY[]::text[] NOT NULL;

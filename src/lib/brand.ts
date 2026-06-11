@@ -16,6 +16,8 @@ export type BrandProfile = {
   tagline: string | null;
   font: string | null;
   logoUrl: string | null;
+  values: string[];
+  aesthetic: string[];
   isDefault: boolean;
   createdAt: number;
   updatedAt: number;
@@ -34,6 +36,8 @@ function toBrand(row: BrandRow): BrandProfile {
     tagline: row.tagline,
     font: row.font,
     logoUrl: row.logoUrl,
+    values: Array.isArray(row.values) ? row.values : [],
+    aesthetic: Array.isArray(row.aesthetic) ? row.aesthetic : [],
     isDefault: row.isDefault,
     createdAt: row.createdAt.getTime(),
     updatedAt: row.updatedAt.getTime(),
@@ -51,6 +55,8 @@ export type CreateBrandInput = {
   tagline?: string | null;
   font?: string | null;
   logoUrl?: string | null;
+  values?: string[];
+  aesthetic?: string[];
   isDefault?: boolean;
 };
 
@@ -68,6 +74,8 @@ export async function createBrand(input: CreateBrandInput): Promise<BrandProfile
       tagline: input.tagline ?? null,
       font: input.font ?? null,
       logoUrl: input.logoUrl ?? null,
+      values: input.values ?? [],
+      aesthetic: input.aesthetic ?? [],
       isDefault: input.isDefault ?? false,
     })
     .returning();
@@ -180,6 +188,8 @@ export async function updateBrand(
   if (patch.tagline !== undefined) set.tagline = patch.tagline;
   if (patch.font !== undefined) set.font = patch.font;
   if (patch.logoUrl !== undefined) set.logoUrl = patch.logoUrl;
+  if (patch.values !== undefined) set.values = patch.values;
+  if (patch.aesthetic !== undefined) set.aesthetic = patch.aesthetic;
   if (patch.isDefault !== undefined) set.isDefault = patch.isDefault;
 
   const [row] = await db

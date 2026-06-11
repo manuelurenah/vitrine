@@ -89,6 +89,8 @@ export const brandProfiles = pgTable(
     tagline: text('tagline'),
     font: text('font'),
     logoUrl: text('logo_url'),
+    values: text('values').array().default(sql`ARRAY[]::text[]`).notNull(),
+    aesthetic: text('aesthetic').array().default(sql`ARRAY[]::text[]`).notNull(),
     isDefault: boolean('is_default').default(false).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

@@ -28,6 +28,8 @@ const fullBrand: BrandProfile = {
   tagline: 'sip something brighter',
   font: null,
   logoUrl: null,
+  values: [],
+  aesthetic: [],
   isDefault: true,
   createdAt: 0,
   updatedAt: 0,

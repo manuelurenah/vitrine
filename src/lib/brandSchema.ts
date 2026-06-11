@@ -25,6 +25,8 @@ export const brandUpdateSchema = z.object({
   font: z.string().trim().max(120).nullable().optional(),
   logoUrl: nullableUrl,
   palette: z.array(hex).max(12).optional(),
+  values: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
+  aesthetic: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
 });
 
 export type BrandUpdateInput = z.infer<typeof brandUpdateSchema>;
