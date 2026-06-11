@@ -32,13 +32,16 @@ export function OnboardingFrame({ step, children, skipHref = '/onboarding/dna' }
           <Wordmark size={26} />
         </Link>
         <div className="flex items-center gap-4">
-          <div className="hidden items-center gap-2 sm:flex">
+          <div className="hidden items-center gap-[6px] sm:flex">
             {ONBOARDING_STEPS.map((s, i) => (
               <span
                 key={s}
-                className="h-[6px] w-[28px] rounded-pill"
+                className="rounded-pill transition-all duration-[280ms] ease-out"
                 style={{
-                  background: i <= stepIndex ? 'var(--volt)' : 'var(--line-subtle)',
+                  width: i === stepIndex ? '26px' : '8px',
+                  height: '8px',
+                  background:
+                    i === stepIndex ? 'var(--volt)' : i < stepIndex ? 'var(--fg-3)' : 'var(--bg-3)',
                   boxShadow: i === stepIndex ? '0 0 12px -2px var(--volt-glow)' : undefined,
                 }}
               />

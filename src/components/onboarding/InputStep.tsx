@@ -156,7 +156,7 @@ export function InputStep({ payload = {} }: Props) {
               fastest path. we extract your logo, palette, fonts, copy, and tone.
             </p>
           </div>
-          <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-fg-3 sm:inline">
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-volt">
             recommended
           </span>
         </div>

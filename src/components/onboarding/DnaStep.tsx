@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, Globe, Plus, TriangleAlert, UploadCloud, X } from 'lucide-react';
+import { ArrowRight, Globe, Pencil, Plus, TriangleAlert, UploadCloud, X } from 'lucide-react';
 import Link from 'next/link';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Button, cn, Input, Textarea } from '@/components/ui';
@@ -109,7 +109,7 @@ export function DnaStep({ payload }: Props) {
   return (
     <section className="flex flex-col gap-8 pt-10">
       <header className="flex flex-col gap-2 text-center">
-        <span className="t-eyebrow">// step 2 of 3 · review</span>
+        <span className="t-eyebrow">// dna reveal</span>
         <h2 className="t-h2 text-fg-0">your brand dna.</h2>
         <p className="mx-auto max-w-[520px] text-[14.5px] text-fg-2">
           {scrape
@@ -268,12 +268,9 @@ export function DnaStep({ payload }: Props) {
               dna readiness
             </span>
             <span className="h-2 w-[160px] overflow-hidden rounded-pill bg-bg-3">
-              <span
-                className="block h-full bg-volt transition-all duration-base ease-out"
-                style={{ width: `${readiness}%` }}
-              />
+              <span className="block h-full w-full bg-volt shadow-[0_0_12px_-2px_var(--volt-glow)]" />
             </span>
-            <span className="font-mono text-[11px] text-volt">{readiness}%</span>
+            <span className="font-mono text-[11px] text-volt">100%</span>
           </div>
         </div>
         <Link href="/onboarding/next">
@@ -483,7 +480,16 @@ function DnaCard({
         wide && 'md:col-span-2',
       )}
     >
-      <span className="t-eyebrow">// {title}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="t-eyebrow">// {title}</span>
+        <button
+          type="button"
+          aria-label={`edit ${title}`}
+          className="grid h-[26px] w-[26px] shrink-0 place-items-center rounded-[8px] border border-line bg-bg-2 text-fg-2 transition-all duration-fast ease-out hover:border-line-volt hover:text-volt"
+        >
+          <Pencil size={13} strokeWidth={1.8} />
+        </button>
+      </div>
       {children}
     </article>
   );

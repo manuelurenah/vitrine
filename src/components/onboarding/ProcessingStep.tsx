@@ -11,6 +11,15 @@ type Props = {
   payload: OnboardingPayload;
 };
 
+// Task labels cycle — exact design copy per gap-plan §2.3
+const GEN_LABELS = [
+  'reading your site',
+  'extracting palette',
+  'tasting your tone of voice',
+  'sketching your audience',
+  'naming the read',
+] as const;
+
 type TaskKey = 'logo' | 'scrape' | 'palette' | 'font' | 'finalize';
 type TaskStatus = 'pending' | 'running' | 'done' | 'skipped' | 'error';
 
@@ -104,33 +113,141 @@ export function ProcessingStep({ payload }: Props) {
     }
   }, [payload, router]);
 
-  const currentLabel = tasks.find((t) => t.status === 'running')?.label;
+  // Cycle through design label copy at ~850ms each, independent of actual task progress
+  const [labelTick, setLabelTick] = useState(0);
+  const labelTickRef = useRef(false);
+  useEffect(() => {
+    if (labelTickRef.current) return;
+    labelTickRef.current = true;
+    let i = 0;
+    const id = setInterval(() => {
+      i += 1;
+      setLabelTick(i);
+      if (i >= GEN_LABELS.length) clearInterval(id);
+    }, 850);
+    return () => clearInterval(id);
+  }, []);
+
+  const currentGenLabel = GEN_LABELS[Math.min(labelTick, GEN_LABELS.length - 1)];
 
   return (
-    <section className="flex flex-col items-center gap-12 pt-16 text-center">
-      <div className="relative">
+    <section className="flex flex-col items-center gap-8 pt-16 text-center">
+      <span className="t-eyebrow">// extracting your brand dna</span>
+
+      {/* Orb with pulse rings — pulse-ring 2.4s, second ring +1.2s delay, dna-rotate 6s linear */}
+      <div className="relative grid h-[96px] w-[96px] place-items-center">
+        {/* outer glow */}
         <div
           aria-hidden
-          className="absolute inset-[-30px] rounded-pill opacity-90"
+          className="pointer-events-none absolute inset-[-30px] rounded-pill opacity-90"
           style={{
             background: 'radial-gradient(circle at center, var(--volt-glow) 0%, transparent 65%)',
             filter: 'blur(30px)',
           }}
         />
+        {/* pulse ring 1 */}
+        <span
+          aria-hidden
+          className="absolute inset-0 rounded-pill border border-line-volt"
+          style={{ animation: 'pulse-ring 2.4s ease-out infinite' }}
+        />
+        {/* pulse ring 2 — delayed */}
+        <span
+          aria-hidden
+          className="absolute inset-0 rounded-pill border border-line-volt"
+          style={{ animation: 'pulse-ring 2.4s ease-out 1.2s infinite' }}
+        />
+        {/* orb body */}
         <div className="relative grid h-[96px] w-[96px] place-items-center rounded-pill border border-line-volt bg-volt-soft text-volt shadow-bloom-volt">
-          <Dna size={36} strokeWidth={1.75} />
+          <Dna
+            size={36}
+            strokeWidth={1.75}
+            style={{ animation: 'dna-rotate 6s linear infinite' }}
+          />
         </div>
       </div>
 
-      <header className="flex flex-col items-center gap-3">
-        <span className="t-eyebrow">// extracting your brand dna</span>
-        <h2 className="t-h2 text-fg-0">cooking your brand dna.</h2>
+      <header className="flex flex-col items-center gap-2">
+        <h2 className="t-h2 text-fg-0">
+          we&apos;re{' '}
+          <span className="bg-gradient-to-br from-volt to-ion bg-clip-text text-transparent">
+            cooking
+          </span>{' '}
+          your brand DNA.
+        </h2>
         <p className="font-mono text-[12px] uppercase tracking-[0.14em] text-fg-2">
-          {error ? 'something went wrong' : (currentLabel ?? 'almost there')}…
+          {error ? 'something went wrong' : currentGenLabel}
+          {!error && <span className="inline-block animate-pulse">…</span>}
         </p>
       </header>
 
-      <ul className="flex w-full max-w-[460px] flex-col gap-2 text-left">
+      {/* Browser preview with scanner + shimmer skeleton */}
+      <div
+        className="w-[420px] max-w-full overflow-hidden rounded-[14px] border border-line"
+        style={{ background: 'var(--bg-2)' }}
+        aria-hidden="true"
+      >
+        {/* browser chrome */}
+        <div className="flex h-8 items-center gap-[6px] border-b border-white/[0.06] px-3 bg-bg-3">
+          <span className="h-2 w-2 rounded-pill bg-fg-3 opacity-50" />
+          <span className="h-2 w-2 rounded-pill bg-fg-3 opacity-50" />
+          <span className="h-2 w-2 rounded-pill bg-fg-3 opacity-50" />
+          <span className="ml-auto font-mono text-[11px] text-fg-2">your-shop.co</span>
+        </div>
+        {/* preview body */}
+        <div className="relative h-[150px] overflow-hidden bg-bg-1">
+          {/* skeleton lines */}
+          <div className="absolute inset-[14px] flex flex-col gap-2">
+            <div
+              className="h-2 rounded-[4px]"
+              style={{
+                width: '40%',
+                background: 'linear-gradient(90deg, var(--bg-2), var(--bg-3), var(--bg-2))',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 2s linear infinite',
+              }}
+            />
+            <div
+              className="h-2 rounded-[4px]"
+              style={{
+                width: '70%',
+                background: 'linear-gradient(90deg, var(--bg-2), var(--bg-3), var(--bg-2))',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 2s linear infinite 0.3s',
+              }}
+            />
+            <div
+              className="flex-1 rounded-[6px]"
+              style={{
+                background: 'linear-gradient(120deg, var(--bg-2), var(--bg-3), var(--bg-2))',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 2.4s linear infinite',
+              }}
+            />
+            <div
+              className="h-2 rounded-[4px]"
+              style={{
+                width: '55%',
+                background: 'linear-gradient(90deg, var(--bg-2), var(--bg-3), var(--bg-2))',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 2s linear infinite 0.6s',
+              }}
+            />
+          </div>
+          {/* scanner line — scan 0→100% 2.6s ease-in-out */}
+          <div
+            className="absolute left-0 right-0 h-px"
+            style={{
+              background: 'linear-gradient(90deg, transparent, var(--volt), transparent)',
+              boxShadow: '0 0 8px var(--volt)',
+              animation: 'scan 2.6s ease-in-out infinite',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Checklist — mirrors actual task progress */}
+      <ul className="flex w-full max-w-[420px] flex-col gap-[10px] text-left">
         {tasks.map((task) => (
           <TaskRow key={task.key} task={task} />
         ))}
@@ -162,35 +279,38 @@ function TaskRow({ task }: { task: Task }) {
   return (
     <li
       className={cn(
-        'flex items-center gap-3 rounded-[10px] border px-3 py-[10px] transition-colors duration-fast ease-out',
-        done && 'border-line-volt bg-volt-soft text-fg-0',
-        live && 'border-line-strong bg-bg-2 text-fg-0',
-        skip && 'border-line-subtle bg-bg-1 text-fg-3',
-        err && 'border-danger bg-danger-soft text-fg-0',
-        !done && !live && !skip && !err && 'border-line-subtle bg-bg-1 text-fg-2',
+        'flex items-center gap-[10px] text-[14px] transition-colors duration-[240ms] ease-out',
+        done && 'text-fg-1',
+        live && 'text-fg-0',
+        skip && 'text-fg-3',
+        err && 'text-fg-0',
+        !done && !live && !skip && !err && 'text-fg-3',
       )}
     >
       <span
         className={cn(
-          'grid h-5 w-5 place-items-center rounded-pill border',
+          'grid h-[18px] w-[18px] shrink-0 place-items-center rounded-pill border transition-all duration-[240ms] ease-out',
           done && 'border-line-volt bg-volt text-fg-on-volt',
-          live && 'border-line-volt bg-volt-soft text-volt',
+          live && 'border-line-volt bg-volt-soft',
           skip && 'border-line bg-bg-3 text-fg-3',
           err && 'border-danger bg-danger text-fg-on-volt',
           !done && !live && !skip && !err && 'border-line bg-bg-3 text-fg-3',
         )}
       >
         {done ? (
-          <Check size={12} strokeWidth={3} />
+          <Check size={10} strokeWidth={3.5} />
         ) : live ? (
-          <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+          <span
+            className="h-[7px] w-[7px] rounded-pill bg-volt"
+            style={{ animation: 'dot-pulse 1s ease-in-out infinite' }}
+          />
         ) : err ? (
           <TriangleAlert size={11} strokeWidth={2.5} />
         ) : (
           <span className="h-[6px] w-[6px] rounded-pill bg-current" />
         )}
       </span>
-      <span className="flex-1 text-[13.5px]">{task.label}</span>
+      <span className="flex-1">{task.label}</span>
       {skip && (
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-fg-3">skipped</span>
       )}
@@ -200,7 +320,7 @@ function TaskRow({ task }: { task: Task }) {
 
 function initialTasks(payload: OnboardingPayload): Task[] {
   return [
-    { key: 'logo', label: 'uploading logo', status: payload.logoUrl ? 'pending' : 'pending' },
+    { key: 'logo', label: 'uploading logo', status: 'pending' },
     { key: 'scrape', label: 'reading your site', status: 'pending' },
     { key: 'palette', label: 'extracting palette', status: 'pending' },
     { key: 'font', label: 'detecting brand font', status: 'pending' },
