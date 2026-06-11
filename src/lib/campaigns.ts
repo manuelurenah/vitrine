@@ -8,6 +8,13 @@ import {
   campaigns as campaignsTable,
   campaignTiles as campaignTilesTable,
 } from '@/lib/db/schema';
+
+export type CampaignSummary = {
+  id: string;
+  title: string;
+  createdAt: number;
+  thumbUrl: string | null;
+};
 import type { AdCopy } from './adCopy';
 import type { BriefForPresets, PresetId } from './presets';
 import { recordTileVersion } from './tileVersions';
@@ -282,6 +289,58 @@ export async function updateTileFields(
 
     return toTile(row);
   });
+}
+
+export async function listCampaignsUsingProduct(
+  userId: string,
+  productId: string,
+): Promise<CampaignSummary[]> {
+  // Load campaigns where productId matches and owned by userId.
+  const rows = await db
+    .select({
+      id: campaignsTable.id,
+      title: campaignsTable.title,
+      createdAt: campaignsTable.createdAt,
+    })
+    .from(campaignsTable)
+    .where(and(eq(campaignsTable.userId, userId), eq(campaignsTable.productId, productId)))
+    .orderBy(desc(campaignsTable.createdAt))
+    .limit(24);
+
+  if (rows.length === 0) return [];
+
+  // Fetch one "done" tile asset per campaign for a thumbnail.
+  const ids = rows.map((r) => r.id);
+  const thumbRows = await db
+    .select({
+      campaignId: campaignTilesTable.campaignId,
+      publicUrl: assetsTable.publicUrl,
+    })
+    .from(campaignTilesTable)
+    .innerJoin(assetsTable, eq(assetsTable.id, campaignTilesTable.assetId))
+    .where(
+      and(
+        inArray(campaignTilesTable.campaignId, ids),
+        eq(campaignTilesTable.status, 'done'),
+        isNull(assetsTable.deletedAt),
+      ),
+    )
+    .limit(ids.length * 4);
+
+  // Keep only the first thumb per campaign.
+  const thumbByCampaign = new Map<string, string>();
+  for (const t of thumbRows) {
+    if (t.publicUrl && !thumbByCampaign.has(t.campaignId)) {
+      thumbByCampaign.set(t.campaignId, t.publicUrl);
+    }
+  }
+
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    createdAt: r.createdAt.getTime(),
+    thumbUrl: thumbByCampaign.get(r.id) ?? null,
+  }));
 }
 
 export async function swapTileWorkflow(

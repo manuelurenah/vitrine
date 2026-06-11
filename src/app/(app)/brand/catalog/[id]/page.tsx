@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { ProductDetail } from '@/components/catalog';
 import { listAssetsForProduct } from '@/lib/assets';
+import { listCampaignsUsingProduct } from '@/lib/campaigns';
 import { getProduct } from '@/lib/catalog';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
@@ -14,13 +15,14 @@ export default async function ProductDetailPage({ params }: { params: Params }) 
   if (!session) notFound();
   const userKey = await getUserKey(session);
   const { id } = await params;
-  const [product, attached] = await Promise.all([
+  const [product, attached, campaigns] = await Promise.all([
     getProduct(userKey, id),
     listAssetsForProduct(id),
+    listCampaignsUsingProduct(userKey, id),
   ]);
   if (!product) notFound();
   const images = attached
     .filter((a) => (a.contentType ?? '').startsWith('image/') || !a.contentType)
     .map((a) => ({ id: a.id, publicUrl: a.publicUrl ?? null, name: a.storageKey }));
-  return <ProductDetail product={product} images={images} />;
+  return <ProductDetail product={product} images={images} campaigns={campaigns} />;
 }
