@@ -16,10 +16,6 @@ type Props = {
  * the context they just completed, but interaction is locked to the modal.
  */
 export function NextScreen({ payload }: Props) {
-  function handleClose() {
-    // Navigation is handled by NextChoiceModal (router.push('/campaigns'))
-  }
-
   return (
     <>
       {/* DNA screen — dimmed, non-interactive */}
@@ -28,7 +24,7 @@ export function NextScreen({ payload }: Props) {
       </div>
 
       {/* Choice modal — always open on this screen */}
-      <NextChoiceModal onClose={handleClose} />
+      <NextChoiceModal />
     </>
   );
 }

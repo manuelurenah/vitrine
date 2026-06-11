@@ -4,20 +4,15 @@ import { ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { BuzzPill, Modal } from '@/components/ui';
 
-type Props = {
-  onClose: () => void;
-};
-
 /**
  * "What's next?" choice modal overlaying the DNA screen.
  * Two cards: campaigns (recommended) + photoshoot.
  * Closing / Esc / outside-click navigates to /campaigns (dashboard fallback).
  */
-export function NextChoiceModal({ onClose }: Props) {
+export function NextChoiceModal() {
   const router = useRouter();
 
   function handleClose() {
-    onClose();
     router.push('/campaigns');
   }
 
