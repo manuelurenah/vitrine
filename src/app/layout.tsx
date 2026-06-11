@@ -12,14 +12,21 @@ export const viewport: Viewport = {
   themeColor: '#0a0a0f',
 };
 
+// Runs before first paint — reads localStorage and sets data-theme to avoid a
+// flash of the wrong theme. Must stay tiny and inline.
+const noFlashScript = `(function(){try{var t=localStorage.getItem('vitrine-theme');document.documentElement.dataset.theme=t==='light'?'light':'dark';}catch(e){}})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
-      data-theme="dark"
       suppressHydrationWarning
       className={`${fontDisplay.variable} ${fontBody.variable} ${fontMono.variable}`}
     >
+      {/* eslint-disable-next-line react/no-danger */}
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: noFlashScript }} />
+      </head>
       <body className="bg-bg-0 text-fg-0 antialiased">{children}</body>
     </html>
   );

@@ -1,5 +1,8 @@
+'use client';
+
 import { ArrowLeft, MoreHorizontal, Search } from 'lucide-react';
 import { BuzzPill, IconButton } from '@/components/ui';
+import { ThemeToggle } from './ThemeToggle';
 
 export type Crumb = { label: string; href?: string };
 
@@ -47,6 +50,7 @@ export function TopBar({ crumbs = [], back, buzzBalance }: Props) {
           <span className="ml-auto font-mono text-[10.5px] text-fg-3">⌘k</span>
         </div>
         {typeof buzzBalance === 'number' && <BuzzPill amount={buzzBalance} />}
+        <ThemeToggle />
         <IconButton variant="secondary" aria-label="more" icon={<MoreHorizontal size={16} />} />
       </div>
     </header>
