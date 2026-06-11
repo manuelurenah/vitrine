@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronRight, ListChecks, Sparkles, X } from 'lucide-react';
+import { ChevronRight, ListChecks, Loader2, RefreshCw, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
@@ -9,7 +9,7 @@ import { ProductPickerDialog } from '@/components/catalog';
 import { Button, BuzzPill } from '@/components/ui';
 import { buildCampaignNewHref } from '@/lib/campaignHref';
 import type { Product } from '@/lib/catalog';
-import type { Photoshoot } from '@/lib/photoshoots';
+import type { Photoshoot, PhotoshootTile } from '@/lib/photoshoots';
 import { PHOTOSHOOT_TEMPLATES } from '@/lib/photoshootTemplates';
 
 type Props = {
@@ -23,6 +23,21 @@ function ratioToPresetId(ratio: string): 'li' | 'ig-feed' | 'ig-story' | 'yt' {
   if (ratio === '4:5') return 'ig-feed';
   if (ratio === '9:16') return 'ig-story';
   return 'yt';
+}
+
+/**
+ * Estimate the buzz cost for regenerating all tiles in a template group.
+ * Uses each tile's share of the shoot's estimated buzz if available; falls
+ * back to 20 when no estimate exists (matches per-tile regenerate display).
+ */
+function computeTemplateCost(tiles: PhotoshootTile[], shootEstimatedBuzz: number): number {
+  if (tiles.length === 0) return 20;
+  if (shootEstimatedBuzz > 0) {
+    // Apportion the total shoot estimate evenly across all tiles.
+    // This is approximate but consistent with how the cook route records it.
+    return Math.round(shootEstimatedBuzz);
+  }
+  return 20;
 }
 
 /**
@@ -49,6 +64,8 @@ export function PhotoshootResults({ shoot, products }: Props) {
   const [selecting, setSelecting] = useState(false);
   const [selectedTileIds, setSelectedTileIds] = useState<Set<string>>(() => new Set());
   const [dialogAssetIds, setDialogAssetIds] = useState<string[]>([]);
+  // Map from templateId → whether a template-level regenerate is in flight.
+  const [templateRegenerating, setTemplateRegenerating] = useState<Record<string, boolean>>({});
 
   const tilesByTemplate = useMemo(() => {
     const map = new Map<string, typeof shoot.tiles>();
@@ -128,6 +145,23 @@ export function PhotoshootResults({ shoot, products }: Props) {
     router.push(buildCampaignNewHref(assetIds));
   }
 
+  async function regenerateTemplate(templateId: string) {
+    if (templateRegenerating[templateId]) return;
+    setTemplateRegenerating((prev) => ({ ...prev, [templateId]: true }));
+    try {
+      const res = await fetch(`/api/photoshoot/${shoot.id}/templates/${templateId}/regenerate`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        // Server returns new workflowIds; router.refresh re-fetches the shoot
+        // so CreativeCards remount with updated tile data and resume polling.
+        router.refresh();
+      }
+    } finally {
+      setTemplateRegenerating((prev) => ({ ...prev, [templateId]: false }));
+    }
+  }
+
   return (
     <div className="relative">
       <nav aria-label="breadcrumb" className="flex items-center gap-1.5 text-[12px] text-fg-3">
@@ -174,11 +208,33 @@ export function PhotoshootResults({ shoot, products }: Props) {
 
       {Array.from(tilesByTemplate.entries()).map(([templateId, tiles]) => {
         const tpl = PHOTOSHOOT_TEMPLATES[templateId as keyof typeof PHOTOSHOOT_TEMPLATES];
+        const isRegenning = Boolean(templateRegenerating[templateId]);
+
+        // Cost estimate: sum estimatedBuzz across tiles in the group when available,
+        // otherwise fall back to 20 buzz (matching the per-tile regenerate display).
+        const groupCost = computeTemplateCost(tiles as PhotoshootTile[], shoot.estimatedBuzz);
+
         return (
           <section key={templateId} className="mt-10">
             <SectionHead
               title={tpl?.label ?? templateId}
               count={`${tiles.length} variant${tiles.length === 1 ? '' : 's'}`}
+              action={
+                <button
+                  type="button"
+                  aria-label={`regenerate template ${tpl?.label ?? templateId}`}
+                  disabled={isRegenning}
+                  onClick={() => regenerateTemplate(templateId)}
+                  className="inline-flex items-center gap-1.5 rounded-[6px] px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-fg-3 transition-colors duration-fast ease-out hover:bg-bg-2 hover:text-fg-1 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {isRegenning ? (
+                    <Loader2 size={11} strokeWidth={1.75} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={11} strokeWidth={1.75} />
+                  )}
+                  regenerate template · {groupCost} buzz
+                </button>
+              }
             />
             <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
               {tiles.map((tile) => {

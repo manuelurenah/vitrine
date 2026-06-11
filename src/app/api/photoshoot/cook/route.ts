@@ -2,10 +2,9 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getPublicUrls, MissingReferenceError } from '@/lib/assets';
 import { getDefaultBrand } from '@/lib/brand';
-import { recordBuzzEvent } from '@/lib/buzz';
 import { OrchestratorError, submitImageGen, type VitrineImageGenInput } from '@/lib/civitai';
-import { recordGeneration } from '@/lib/generations';
 import { photoshootBriefSchema } from '@/lib/photoshootSchema';
+import { recordPhotoshootTileAudit } from '@/lib/photoshootCook';
 import { createPhotoshoot } from '@/lib/photoshoots';
 import { PHOTOSHOOT_TEMPLATES, type PhotoshootTemplateId } from '@/lib/photoshootTemplates';
 import {
@@ -159,25 +158,16 @@ export async function POST(req: NextRequest) {
   await Promise.all(
     successes.map(async (r) => {
       const tile = shoot.tiles.find((t) => t.workflowId === r.workflowId);
-      await Promise.all([
-        recordGeneration({
-          workflowId: r.workflowId,
-          userId: userKey,
-          source: 'photoshoot',
-          sourceId: shoot.id,
-          tileId: tile?.id,
-          prompt: r.prompt,
-          input: r.input as unknown as Record<string, unknown>,
-          estimatedBuzz: r.estimatedCost,
-        }),
-        recordBuzzEvent({
-          userId: userKey,
-          workflowId: r.workflowId,
-          kind: 'estimate',
-          estimated: r.estimatedCost,
-          note: 'cook',
-        }),
-      ]);
+      await recordPhotoshootTileAudit({
+        workflowId: r.workflowId,
+        userId: userKey,
+        photoshootId: shoot.id,
+        tileId: tile?.id ?? '',
+        prompt: r.prompt,
+        input: r.input,
+        estimatedCost: r.estimatedCost,
+        note: 'cook',
+      });
     }),
   );
 

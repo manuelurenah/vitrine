@@ -1,10 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getPublicUrls, MissingReferenceError } from '@/lib/assets';
+import { MissingReferenceError, getPublicUrls } from '@/lib/assets';
 import { getDefaultBrand } from '@/lib/brand';
-import { recordBuzzEvent } from '@/lib/buzz';
-import { OrchestratorError, submitImageGen, type VitrineImageGenInput } from '@/lib/civitai';
-import { recordGeneration } from '@/lib/generations';
-import { getPhotoshoot, swapPhotoshootTileWorkflow } from '@/lib/photoshoots';
+import { regeneratePhotoshootTile } from '@/lib/photoshootCook';
+import { getPhotoshoot } from '@/lib/photoshoots';
 import { PHOTOSHOOT_TEMPLATES } from '@/lib/photoshootTemplates';
 import {
   buildPhotoshootPrompt,
@@ -68,7 +66,7 @@ export async function POST(_: NextRequest, ctx: { params: Params }) {
 
   const quantity = tile.quantity ?? shoot.brief.variantsPerTemplate ?? 1;
 
-  const input: VitrineImageGenInput = {
+  const input = {
     prompt: promptWithVariation,
     aspectRatio: enhanced.aspectRatio,
     numImages: quantity,
@@ -76,31 +74,18 @@ export async function POST(_: NextRequest, ctx: { params: Params }) {
     ...(refUrls.length > 0 ? { images: refUrls } : {}),
   };
 
-  try {
-    const snap = await submitImageGen(session, input);
-    const updated = await swapPhotoshootTileWorkflow(userKey, id, tileId, snap.id);
-    await recordGeneration({
-      workflowId: snap.id,
-      userId: userKey,
-      source: 'photoshoot',
-      sourceId: id,
-      tileId,
-      prompt: promptWithVariation,
-      input: input as unknown as Record<string, unknown>,
-      estimatedBuzz: snap.cost?.total ?? 0,
-    });
-    await recordBuzzEvent({
-      userId: userKey,
-      workflowId: snap.id,
-      kind: 'estimate',
-      estimated: snap.cost?.total ?? 0,
-      note: 'regenerate',
-    });
-    return NextResponse.json({ tile: updated, workflowId: snap.id });
-  } catch (err) {
-    if (err instanceof OrchestratorError) {
-      return NextResponse.json({ error: 'orchestrator_error' }, { status: err.status });
-    }
-    return NextResponse.json({ error: 'submit_failed' }, { status: 502 });
+  const result = await regeneratePhotoshootTile({
+    session,
+    userId: userKey,
+    photoshootId: id,
+    tileId,
+    input,
+    prompt: promptWithVariation,
+  });
+
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
+
+  return NextResponse.json({ tile: result.tile, workflowId: result.workflowId });
 }
