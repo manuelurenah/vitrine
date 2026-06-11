@@ -269,6 +269,54 @@ export function CreativeCard({
         )}
         {tileMenu}
         {selectOverlay}
+        {/*
+          Hover-reveal action overlay: animate + download sit at the bottom of
+          the image area, hidden by default, revealed on group-hover /
+          group-focus-within (keyboard accessible). Only shown in done state.
+        */}
+        {status === 'done' && !selectMode && (
+          <div
+            className={cn(
+              'pointer-events-none absolute inset-x-0 bottom-0 z-card flex items-center gap-1 rounded-b-[10px] bg-gradient-to-t from-bg-0/80 to-transparent px-2 pb-2 pt-8',
+              'opacity-0 transition-opacity duration-fast ease-out',
+              'group-hover:pointer-events-auto group-hover:opacity-100',
+              'group-focus-within:pointer-events-auto group-focus-within:opacity-100',
+            )}
+          >
+            <span className="flex-1" />
+            {editHref && (
+              <Link
+                href={editHref}
+                aria-label="edit creative"
+                className="inline-flex h-7 items-center gap-[4px] rounded-[7px] px-[6px] text-[11.5px] text-fg-0 transition-colors duration-fast ease-out hover:bg-bg-3/80"
+              >
+                <Pencil size={12} strokeWidth={1.75} />
+                edit
+              </Link>
+            )}
+            <button
+              type="button"
+              aria-label="animate"
+              className="inline-flex h-7 items-center gap-[4px] rounded-[7px] px-[6px] text-[11.5px] text-fg-0 transition-colors duration-fast ease-out hover:bg-bg-3/80"
+            >
+              <Sparkles size={12} strokeWidth={1.75} />
+              animate
+            </button>
+            <button
+              type="button"
+              aria-label={imgUrls.length > 1 ? 'download all as zip' : 'download'}
+              disabled={imgUrls.length === 0 || zipping}
+              onClick={() => downloadAll()}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[7px] text-fg-0 transition-colors duration-fast ease-out hover:bg-bg-3/80 disabled:pointer-events-none disabled:opacity-40"
+            >
+              {zipping ? (
+                <RefreshCw size={12} strokeWidth={1.75} className="animate-spin" />
+              ) : (
+                <Download size={12} strokeWidth={1.75} />
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       {adCopy && (adCopy.headline || adCopy.subhead) && (
@@ -296,16 +344,6 @@ export function CreativeCard({
         <span className="font-mono text-[10.5px] text-fg-3">v1</span>
         <PresetBadge preset={preset} inline />
         <span className="flex-1" />
-        {editHref && status === 'done' && (
-          <Link
-            href={editHref}
-            aria-label="edit creative"
-            className="inline-flex h-7 items-center gap-[4px] rounded-[7px] px-[6px] text-[11.5px] text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0"
-          >
-            <Pencil size={12} strokeWidth={1.75} />
-            edit
-          </Link>
-        )}
         {regenerate && (
           <button
             type="button"
@@ -322,21 +360,6 @@ export function CreativeCard({
             redo
           </button>
         )}
-        <button
-          type="button"
-          aria-label={imgUrls.length > 1 ? 'download all as zip' : 'download'}
-          disabled={status !== 'done' || imgUrls.length === 0 || zipping}
-          onClick={() => downloadAll()}
-          className={cn(
-            'inline-flex h-7 w-7 items-center justify-center rounded-[7px] text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0 disabled:pointer-events-none disabled:opacity-40',
-          )}
-        >
-          {zipping ? (
-            <Sparkles size={12} strokeWidth={1.75} className="animate-pulse" />
-          ) : (
-            <Download size={12} strokeWidth={1.75} />
-          )}
-        </button>
       </footer>
     </article>
   );
@@ -645,7 +668,7 @@ function StatusOverlay({
             'grid h-9 w-9 place-items-center rounded-pill border',
             status === 'failed'
               ? 'border-danger bg-danger-soft text-danger'
-              : 'border-line-volt bg-volt-soft text-volt',
+              : 'border-line-volt bg-volt-soft text-volt shadow-bloom-volt-sm',
           )}
         >
           <Sparkles size={16} strokeWidth={1.75} />
