@@ -74,7 +74,11 @@ test.describe('Catalog + uploader library picker', () => {
     await page.getByRole('tab', { name: /pick from library/i }).click();
 
     await expect(page.getByTestId('asset-catalog-picker')).toBeVisible();
-    const option = page.getByRole('option').first();
+    // The picker listbox is role="listbox"; each card is role="option".
+    // Scope to the picker container to avoid matching <option> elements inside
+    // the collection <select> that also match getByRole('option') globally.
+    const picker = page.getByTestId('asset-catalog-picker');
+    const option = picker.getByRole('option').first();
     await option.click();
     await expect(option).toHaveAttribute('aria-selected', 'true');
 
