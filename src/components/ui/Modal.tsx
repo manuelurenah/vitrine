@@ -49,7 +49,7 @@ export function Modal({
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || isMobile) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -60,7 +60,7 @@ export function Modal({
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose]);
+  }, [open, onClose, isMobile]);
 
   // On mobile, delegate to BottomSheet
   if (isMobile) {
@@ -102,7 +102,7 @@ export function Modal({
         className={cn(
           'relative flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[18px] border border-line bg-bg-1 shadow-xl',
           'transition-[opacity,transform] duration-[160ms] ease-out',
-          visible ? 'scale-100 opacity-100' : 'scale-95 opacity-0',
+          visible ? 'scale-100 opacity-100' : 'scale-[0.96] opacity-0',
           className,
         )}
         style={{ maxWidth }}
