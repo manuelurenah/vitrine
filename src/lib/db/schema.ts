@@ -235,6 +235,28 @@ export const campaignTiles = pgTable(
   }),
 );
 
+export const tileVersions = pgTable(
+  'tile_versions',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tileId: uuid('tile_id')
+      .references(() => campaignTiles.id, { onDelete: 'cascade' })
+      .notNull(),
+    version: integer('version').notNull(),
+    workflowId: text('workflow_id').notNull(),
+    prompt: text('prompt').notNull(),
+    adCopy: jsonb('ad_copy'),
+    assetId: uuid('asset_id').references(() => assets.id, { onDelete: 'set null' }),
+    changeNote: text('change_note'),
+    generationId: text('generation_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    tileIdx: index('tile_versions_tile_idx').on(t.tileId, t.version),
+    tileVersionUidx: uniqueIndex('tile_versions_tile_version_uidx').on(t.tileId, t.version),
+  }),
+);
+
 export const photoshoots = pgTable(
   'photoshoots',
   {
@@ -358,3 +380,5 @@ export type NewGeneration = typeof generations.$inferInsert;
 export type BuzzEvent = typeof buzzEvents.$inferSelect;
 export type NewBuzzEvent = typeof buzzEvents.$inferInsert;
 export type OnboardingState = typeof onboardingState.$inferSelect;
+export type TileVersion = typeof tileVersions.$inferSelect;
+export type NewTileVersion = typeof tileVersions.$inferInsert;

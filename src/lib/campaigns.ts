@@ -10,6 +10,7 @@ import {
 } from '@/lib/db/schema';
 import type { AdCopy } from './adCopy';
 import type { BriefForPresets, PresetId } from './presets';
+import { recordTileVersion } from './tileVersions';
 
 export type TileStatus = 'queued' | 'cooking' | 'done' | 'failed';
 
@@ -124,6 +125,21 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Campai
           )
           .returning()
       : [];
+
+    // Record version 1 for every newly inserted tile.
+    for (let i = 0; i < tileRows.length; i++) {
+      const tileRow = tileRows[i];
+      const tileInput = input.tiles[i];
+      if (tileRow && tileInput) {
+        await recordTileVersion(tx, {
+          tileId: tileRow.id,
+          workflowId: tileInput.workflowId,
+          prompt: tileInput.prompt,
+          adCopy: tileInput.adCopy ?? null,
+          changeNote: 'cooked',
+        });
+      }
+    }
 
     return toCampaign(campaignRow, tileRows);
   });
@@ -251,5 +267,16 @@ export async function swapTileWorkflow(
     .set(update)
     .where(and(eq(campaignTilesTable.id, tileId), eq(campaignTilesTable.campaignId, campaignId)))
     .returning();
+
+  if (row) {
+    await recordTileVersion(db, {
+      tileId: row.id,
+      workflowId: newWorkflowId,
+      prompt: row.prompt,
+      adCopy: row.adCopy ?? null,
+      changeNote: 'regenerated',
+    });
+  }
+
   return row ? toTile(row) : null;
 }

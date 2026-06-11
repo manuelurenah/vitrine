@@ -36,6 +36,13 @@
       "when": 1780426806230,
       "tag": "0004_petite_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781187276215,
+      "tag": "0005_square_moonstone",
+      "breakpoints": true
     }
   ]
 }
