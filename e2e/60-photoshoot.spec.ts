@@ -19,7 +19,9 @@ test.describe('Photoshoot list + wizard', () => {
     await page.goto(`${baseURL}/photoshoot/new`);
     await expect(page.getByTestId('photoshoot-wizard')).toBeVisible();
     await expect(page.getByTestId('brief-step')).toBeVisible();
-    await expect(page.getByRole('button', { name: /preview & review/i })).toBeVisible();
+    // The sticky action bar's submit button says "generate" (the brief step
+    // calls fetchPreview + goStep('review') on submit). No "preview & review" label.
+    await expect(page.getByRole('button', { name: /^generate/i })).toBeVisible();
   });
 
   test('brief → review → cook → /photoshoot/[id] with populated tiles', async ({
@@ -30,8 +32,8 @@ test.describe('Photoshoot list + wizard', () => {
     await page.goto(`${baseURL}/photoshoot/new`);
 
     // Defaults: templates from defaultOn are pre-selected; variants=1; ratio=4:5.
-    // Click "preview & review" — fires POST /api/photoshoot/preview.
-    await page.getByRole('button', { name: /preview & review/i }).click();
+    // Click "generate" — fires POST /api/photoshoot/preview and advances to review.
+    await page.getByRole('button', { name: /^generate/i }).click();
 
     // Step 2: review — enhanced prompt + brand layer + cook button.
     await expect(page.getByTestId('review-step')).toBeVisible({ timeout: 20_000 });
@@ -43,9 +45,11 @@ test.describe('Photoshoot list + wizard', () => {
     expect(firstTemplateId).toBeTruthy();
 
     // Open brand-layer disclosure on the first template card to verify the
-    // brand DNA layer surfaces in the review UI.
+    // prompt layer breakdown surfaces in the review UI. The "style" layer is
+    // always present (sourced from template.styleNotes); brand layer is only
+    // non-empty when brand DNA is configured.
     await templateCards.first().getByTestId('brand-toggle').click();
-    await expect(templateCards.first().getByText(/^brand$/i)).toBeVisible();
+    await expect(templateCards.first().getByText(/^style$/i)).toBeVisible();
 
     // Override the raw prompt — debounced re-preview happens server-side.
     await templateCards.first().getByTestId('edit-toggle').click();
