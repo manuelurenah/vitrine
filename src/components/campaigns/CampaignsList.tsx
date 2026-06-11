@@ -1,5 +1,9 @@
+'use client';
+
 import Link from 'next/link';
 import type { BadgeKind } from '@/components/ui';
+import { FAB } from '@/components/shell';
+import { useMediaQuery } from '@/components/ui/useMediaQuery';
 import { GradientThumb, type ThumbTone } from './GradientThumb';
 import { PastRow } from './PastRow';
 import { PromptComposer } from './PromptComposer';
@@ -35,6 +39,8 @@ export { relativeDate };
 export function CampaignsList({ past }: Props) {
   const pastItems: PastCampaign[] = past ?? [];
   const hasPast = pastItems.length > 0;
+  const isMobile = useMediaQuery('(max-width: 767px)');
+
   return (
     <div className="relative">
       <div
@@ -87,6 +93,9 @@ export function CampaignsList({ past }: Props) {
           </section>
         )}
       </div>
+
+      {/* Mobile FAB — new campaign */}
+      {isMobile && <FAB href="/campaigns/new" label="new" aria-label="new campaign" />}
     </div>
   );
 }

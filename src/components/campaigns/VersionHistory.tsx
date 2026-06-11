@@ -178,7 +178,7 @@ export function VersionHistory({ campaignId, creativeId, presetId, brandName, ve
   const orderedDesc = useMemo(() => [...versions].reverse(), [versions]);
 
   return (
-    <div className="grid grid-cols-[1fr_320px] gap-6 items-start">
+    <div className="grid grid-cols-1 gap-6 items-start md:grid-cols-[1fr_320px]">
       {/* ---------------------------------------------------------------- */}
       {/* LEFT — pill + canvas + thumb strip                               */}
       {/* ---------------------------------------------------------------- */}

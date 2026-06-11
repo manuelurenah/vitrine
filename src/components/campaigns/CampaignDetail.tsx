@@ -25,11 +25,11 @@ export function CampaignDetail({ campaign }: Props) {
       </nav>
 
       <header className="mt-4 flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="t-eyebrow">
             // {campaign.brief.goal || 'campaign'} · {campaign.tiles.length} creatives
           </span>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <BuzzPill amount={campaign.estimatedBuzz} />
             {isCooking && (
               <span className="inline-flex items-center gap-[5px] font-mono text-[11px] uppercase tracking-[0.1em] text-volt">

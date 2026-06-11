@@ -198,7 +198,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
   const canvasAdCopy = currentVersion?.adCopy ?? tile.adCopy;
 
   return (
-    <div className="grid grid-cols-[1fr_320px] gap-6 items-start">
+    <div className="grid grid-cols-1 gap-6 items-start md:grid-cols-[1fr_320px]">
       {/* ------------------------------------------------------------------ */}
       {/* LEFT — canvas + version pill + action bar                          */}
       {/* ------------------------------------------------------------------ */}

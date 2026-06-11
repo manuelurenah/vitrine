@@ -20,7 +20,12 @@ export function FilterPills({ options, active, onChange, className }: Props) {
     <div
       role="group"
       aria-label="filter creatives"
-      className={cn('flex flex-wrap items-center gap-2', className)}
+      className={cn(
+        'flex items-center gap-2',
+        // Mobile: single-row horizontal scroll strip; wider: normal wrapping
+        'overflow-x-auto pb-0.5 [scrollbar-width:none] [-webkit-overflow-scrolling:touch] sm:flex-wrap sm:overflow-visible',
+        className,
+      )}
     >
       {options.map((opt) => {
         const isActive = opt.key === active;
