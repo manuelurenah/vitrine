@@ -341,7 +341,6 @@ export function CreativeCard({
         <Badge kind={status === 'done' ? 'live' : status === 'failed' ? 'archived' : 'cooking'}>
           {status === 'done' ? 'ready' : status === 'failed' ? 'failed' : status}
         </Badge>
-        <span className="font-mono text-[10.5px] text-fg-3">v1</span>
         <PresetBadge preset={preset} inline />
         <span className="flex-1" />
         {regenerate && (
