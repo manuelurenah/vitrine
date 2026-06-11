@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react';
 import { forwardRef, type SelectHTMLAttributes } from 'react';
 import { cn } from './cn';
 
@@ -15,12 +16,18 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   ref,
 ) {
   return (
-    <select
-      ref={ref}
-      className={cn(fieldBase, 'h-[38px] px-3 pr-8 appearance-none cursor-pointer', className)}
-      {...rest}
-    >
-      {children}
-    </select>
+    <div className="relative w-full">
+      <select
+        ref={ref}
+        className={cn(fieldBase, 'h-[38px] px-3 pr-8 appearance-none cursor-pointer', className)}
+        {...rest}
+      >
+        {children}
+      </select>
+      <ChevronDown
+        size={16}
+        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-fg-2"
+      />
+    </div>
   );
 });
