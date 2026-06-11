@@ -262,21 +262,23 @@ export async function swapTileWorkflow(
   if (options?.prompt !== undefined) update.prompt = options.prompt;
   if (options?.adCopy !== undefined) update.adCopy = options.adCopy;
 
-  const [row] = await db
-    .update(campaignTilesTable)
-    .set(update)
-    .where(and(eq(campaignTilesTable.id, tileId), eq(campaignTilesTable.campaignId, campaignId)))
-    .returning();
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(campaignTilesTable)
+      .set(update)
+      .where(and(eq(campaignTilesTable.id, tileId), eq(campaignTilesTable.campaignId, campaignId)))
+      .returning();
 
-  if (row) {
-    await recordTileVersion(db, {
-      tileId: row.id,
-      workflowId: newWorkflowId,
-      prompt: row.prompt,
-      adCopy: row.adCopy ?? null,
-      changeNote: 'regenerated',
-    });
-  }
+    if (row) {
+      await recordTileVersion(tx, {
+        tileId: row.id,
+        workflowId: newWorkflowId,
+        prompt: row.prompt,
+        adCopy: row.adCopy ?? null,
+        changeNote: 'regenerated',
+      });
+    }
 
-  return row ? toTile(row) : null;
+    return row ? toTile(row) : null;
+  });
 }

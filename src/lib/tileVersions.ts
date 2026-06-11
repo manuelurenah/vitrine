@@ -119,25 +119,49 @@ export type RecordTileVersionInput = {
  * computed as max(version) + 1 for the tile, defaulting to 1 on first insert.
  *
  * `executor` may be the `db` client or a drizzle transaction.
+ *
+ * Concurrent regenerations of the same tile can race and both compute the same
+ * version number. On a unique-constraint violation (pg code 23505) we recompute
+ * the next version and retry up to 3 times total before rethrowing.
  */
 export async function recordTileVersion(
   executor: DbLike,
   input: RecordTileVersionInput,
 ): Promise<number> {
-  const version = await nextVersionNumber(executor, input.tileId);
+  const maxAttempts = 3;
 
-  await executor.insert(tileVersionsTable).values({
-    tileId: input.tileId,
-    version,
-    workflowId: input.workflowId,
-    prompt: input.prompt,
-    adCopy: input.adCopy ?? null,
-    assetId: input.assetId ?? null,
-    changeNote: input.changeNote ?? null,
-    generationId: input.generationId ?? null,
-  });
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const version = await nextVersionNumber(executor, input.tileId);
 
-  return version;
+    try {
+      await executor.insert(tileVersionsTable).values({
+        tileId: input.tileId,
+        version,
+        workflowId: input.workflowId,
+        prompt: input.prompt,
+        adCopy: input.adCopy ?? null,
+        assetId: input.assetId ?? null,
+        changeNote: input.changeNote ?? null,
+        generationId: input.generationId ?? null,
+      });
+
+      return version;
+    } catch (err) {
+      const isUniqueViolation =
+        err &&
+        typeof err === 'object' &&
+        'code' in err &&
+        (err as { code?: string }).code === '23505';
+
+      if (!isUniqueViolation || attempt === maxAttempts) {
+        throw err;
+      }
+      // Unique-constraint race: recompute version on next iteration.
+    }
+  }
+
+  // Unreachable — the loop always returns or throws, but TypeScript needs this.
+  throw new Error('recordTileVersion: exhausted retry attempts');
 }
 
 /**
