@@ -215,6 +215,7 @@ export async function restoreTileVersion(
     .select({
       prompt: tileVersionsTable.prompt,
       adCopy: tileVersionsTable.adCopy,
+      assetId: tileVersionsTable.assetId,
     })
     .from(tileVersionsTable)
     .where(and(eq(tileVersionsTable.tileId, tileId), eq(tileVersionsTable.version, version)))
@@ -223,6 +224,7 @@ export async function restoreTileVersion(
   if (!target) return null;
 
   const restoredAdCopy = (target.adCopy as AdCopy | null) ?? null;
+  const restoredAssetId = target.assetId ?? null;
 
   return db.transaction(async (tx) => {
     await tx
@@ -230,6 +232,7 @@ export async function restoreTileVersion(
       .set({
         prompt: target.prompt,
         adCopy: restoredAdCopy,
+        assetId: restoredAssetId,
         updatedAt: new Date(),
       })
       .where(and(eq(campaignTilesTable.id, tileId), eq(campaignTilesTable.campaignId, campaignId)));
@@ -239,7 +242,8 @@ export async function restoreTileVersion(
       workflowId: tile.workflowId,
       prompt: target.prompt,
       adCopy: restoredAdCopy,
-      changeNote: `restored from v${version}`,
+      assetId: restoredAssetId,
+      changeNote: `restored v${version}`,
     });
 
     return {
@@ -248,8 +252,8 @@ export async function restoreTileVersion(
       workflowId: tile.workflowId,
       prompt: target.prompt,
       adCopy: restoredAdCopy,
-      assetId: null,
-      changeNote: `restored from v${version}`,
+      assetId: restoredAssetId,
+      changeNote: `restored v${version}`,
       createdAt: Date.now(),
     } satisfies TileVersionEntry;
   });
