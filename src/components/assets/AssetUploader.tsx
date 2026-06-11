@@ -2,6 +2,7 @@
 
 import {
   Check,
+  FileText,
   Image as ImageIcon,
   Library,
   Plus,
@@ -579,33 +580,59 @@ export function AssetUploader({ redirectTo = '/brand/assets', libraryAssets }: A
 
 function StagedRow({ item, onRemove }: { item: Staged; onRemove: () => void }) {
   const kind = fileKind(item.file);
-  const Icon = kind === 'video' ? Video : ImageIcon;
-  const showProgress = item.status === 'uploading' || item.status === 'saving';
+  const Icon = kind === 'video' ? Video : kind === 'image' ? ImageIcon : FileText;
+  const isImage = kind === 'image';
+  const previewUrl = isImage ? URL.createObjectURL(item.file) : null;
+  const showProgress =
+    item.status === 'uploading' || item.status === 'saving' || item.status === 'signing';
+
+  // Format + size string: e.g. "svg · 1.2 mb"
+  const ext = item.file.name.split('.').pop()?.toLowerCase() ?? 'file';
+  const size = formatBytes(item.file.size);
+  const formatSize = `${ext} · ${size}`;
 
   return (
-    <div className="flex items-center gap-3 rounded-[12px] border border-line-subtle bg-bg-2 px-3 py-2">
-      <div className="grid h-9 w-9 place-items-center rounded-[8px] border border-line bg-bg-3">
-        <Icon size={15} strokeWidth={1.75} />
+    <div className="flex items-center gap-3 rounded-[12px] border border-line-subtle bg-bg-2 px-3 py-2.5">
+      {/* Thumb: image preview or icon fallback */}
+      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[8px] border border-line bg-bg-3">
+        {isImage && previewUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={previewUrl} alt={item.file.name} className="h-full w-full object-cover" />
+        ) : (
+          <span className="absolute inset-0 grid place-items-center text-fg-2">
+            <Icon size={16} strokeWidth={1.75} />
+          </span>
+        )}
       </div>
+
       <div className="min-w-0 flex-1">
+        {/* File name */}
         <div className="truncate text-[13px] text-fg-0">{item.file.name}</div>
-        <div
-          className={cn(
-            'font-mono text-[10.5px] uppercase tracking-[0.08em]',
-            item.status === 'failed' ? 'text-danger' : 'text-fg-3',
-          )}
-        >
-          {statusLabel(item)}
+        {/* Format + size */}
+        <div className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-fg-3">
+          {formatSize}
         </div>
+        {/* Per-file progress bar */}
         {showProgress && (
-          <div className="mt-1.5 h-1 w-full overflow-hidden rounded-pill bg-bg-3">
-            <div
-              className="h-full bg-volt transition-[width] duration-fast ease-out"
-              style={{ width: `${item.progress}%` }}
-            />
+          <div className="mt-1.5 flex items-center gap-2">
+            <div className="h-1 flex-1 overflow-hidden rounded-pill bg-bg-3">
+              <div
+                className="h-full bg-volt transition-[width] duration-fast ease-out"
+                style={{ width: `${item.progress}%` }}
+              />
+            </div>
+            <span className="shrink-0 font-mono text-[10px] tabular-nums text-fg-3">
+              {item.progress}%
+            </span>
+          </div>
+        )}
+        {item.status === 'failed' && (
+          <div className="mt-0.5 font-mono text-[10.5px] uppercase tracking-[0.08em] text-danger">
+            {item.error ?? 'failed'}
           </div>
         )}
       </div>
+
       {item.status === 'done' ? (
         <span className="grid h-7 w-7 place-items-center rounded-pill border border-line-volt text-volt">
           <Check size={12} strokeWidth={3} />
