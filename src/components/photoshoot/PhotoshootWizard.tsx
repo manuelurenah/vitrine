@@ -9,19 +9,22 @@ import type { Asset } from '@/lib/assets';
 import type { Product } from '@/lib/catalog';
 import {
   PHOTOSHOOT_TEMPLATES,
+  recommendedTemplateIds,
   type PhotoshootRatio,
   type PhotoshootTemplate,
   type PhotoshootTemplateId,
 } from '@/lib/photoshootTemplates';
 import type { EnhancedPrompt } from '@/lib/promptBuilder';
 
-const RATIOS: PhotoshootRatio[] = ['1:1', '4:5', '9:16', '16:9'];
+const RATIOS: PhotoshootRatio[] = ['4:5', '9:16', '1:1'];
 
 const GROUP_LABEL: Record<PhotoshootTemplate['group'], string> = {
   studio: 'studio',
   lifestyle: 'lifestyle · in use',
   hero: 'hero',
 };
+
+const RECOMMENDED_IDS: ReadonlySet<PhotoshootTemplateId> = new Set(recommendedTemplateIds());
 
 const ALL_TEMPLATES: PhotoshootTemplate[] = Object.values(PHOTOSHOOT_TEMPLATES);
 
@@ -360,6 +363,7 @@ export function PhotoshootWizard({
           libraryAssets={libraryAssets}
           libraryProducts={libraryProducts}
           totalShots={totalShots}
+          totalBuzz={totalBuzz}
           previewing={previewing}
           previewError={previewError}
           onSubmit={onContinueToReview}
@@ -436,6 +440,7 @@ type BriefStepProps = {
   libraryAssets: Asset[];
   libraryProducts: Product[];
   totalShots: number;
+  totalBuzz: number;
   previewing: boolean;
   previewError: string | null;
   onSubmit: (e: React.FormEvent) => void;
@@ -461,21 +466,51 @@ function BriefStep(props: BriefStepProps) {
     libraryAssets,
     libraryProducts,
     totalShots,
+    totalBuzz,
     previewing,
     previewError,
     onSubmit,
   } = props;
 
+  // The selected product name for labelling the recommended group
+  const selectedProductName = useMemo(() => {
+    if (subject?.kind === 'product') {
+      const p = libraryProducts.find((x) => x.id === subject.id);
+      return p?.name ?? productName;
+    }
+    return productName;
+  }, [subject, libraryProducts, productName]);
+
+  const recommendedLabel = selectedProductName
+    ? `recommended for ${selectedProductName}`
+    : 'recommended';
+
+  const recommendedTemplates = useMemo(
+    () => Array.from(RECOMMENDED_IDS).map((id) => PHOTOSHOOT_TEMPLATES[id]),
+    [],
+  );
+
   return (
     <form onSubmit={onSubmit} data-testid="brief-step">
       <div className="mx-auto mt-10 grid w-full max-w-[1080px] grid-cols-1 gap-6 md:grid-cols-[1fr_1.4fr]">
+        {/* LEFT COLUMN */}
         <section className="flex flex-col gap-4">
-          <SubjectPanel
-            subject={subject}
-            setSubject={setSubject}
-            libraryAssets={libraryAssets}
-            libraryProducts={libraryProducts}
-          />
+          {/* Product radio list — shown when there are catalog products */}
+          {libraryProducts.length > 0 ? (
+            <ProductRadioList
+              products={libraryProducts}
+              subject={subject}
+              setSubject={setSubject}
+              setProductName={setProductName}
+            />
+          ) : (
+            <SubjectPanel
+              subject={subject}
+              setSubject={setSubject}
+              libraryAssets={libraryAssets}
+              libraryProducts={libraryProducts}
+            />
+          )}
 
           <h2 className="t-eyebrow">// product</h2>
           <div>
@@ -512,7 +547,52 @@ function BriefStep(props: BriefStepProps) {
           </div>
         </section>
 
+        {/* RIGHT COLUMN */}
         <section className="flex flex-col gap-6">
+          {/* Recommended group — prepended before the standard groups */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <h3 className="font-display text-[14.5px] font-semibold tracking-[-0.015em] text-fg-0">
+                {recommendedLabel}
+              </h3>
+              <span className="rounded-[4px] border border-line-volt bg-volt-soft px-[7px] py-[2px] font-mono text-[9.5px] uppercase tracking-[0.08em] text-volt">
+                based on brand dna
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {recommendedTemplates.map((t) => {
+                const on = templateIds.has(t.id);
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => toggleTemplate(t.id)}
+                    aria-pressed={on}
+                    className={cn(
+                      'group relative flex flex-col gap-2 rounded-[14px] border bg-bg-2 p-4 text-left transition-all duration-fast ease-out',
+                      on
+                        ? 'border-line-volt shadow-bloom-volt-sm'
+                        : 'border-line-subtle hover:border-line-strong',
+                    )}
+                  >
+                    {on && (
+                      <span className="absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-pill bg-volt text-fg-on-volt">
+                        <Check size={12} strokeWidth={3} />
+                      </span>
+                    )}
+                    <span className="font-display text-[15px] font-semibold tracking-[-0.015em] text-fg-0">
+                      {t.label}
+                    </span>
+                    <span className="text-[12.5px] leading-[1.45] text-fg-2">
+                      {t.styleNotes.split(',').slice(0, 2).join(',')}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Standard groups */}
           {(['studio', 'lifestyle', 'hero'] as const).map((group) => (
             <div key={group} className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
@@ -557,21 +637,33 @@ function BriefStep(props: BriefStepProps) {
         </section>
       </div>
 
+      {/* STICKY ACTION BAR */}
       <div className="fixed bottom-0 left-[232px] right-0 z-sticky border-t border-line-subtle bg-bg-0/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-[1080px] flex-wrap items-center gap-4 px-9 py-4">
-          <div className="flex items-center gap-1">
+        <div className="mx-auto flex max-w-[1080px] flex-wrap items-center gap-3 px-9 py-4">
+          {/* Ratio chips */}
+          <div className="flex items-center gap-1" role="group" aria-label="aspect ratio">
             {RATIOS.map((r) => (
-              <Chip key={r} active={ratio === r} onClick={() => setRatio(r)}>
+              <Chip
+                key={r}
+                active={ratio === r}
+                onClick={() => setRatio(r)}
+                role="radio"
+                aria-checked={ratio === r}
+              >
                 {r}
               </Chip>
             ))}
           </div>
 
+          {/* Divider */}
+          <span aria-hidden className="h-5 w-px shrink-0 bg-line-subtle" />
+
+          {/* Variants stepper */}
           <div className="flex items-center gap-2 rounded-pill border border-line-subtle bg-bg-2 px-3 py-1 font-mono text-[11.5px] text-fg-1">
             variants
             <button
               type="button"
-              aria-label="decrement"
+              aria-label="decrement variants"
               onClick={() => setVariants((v) => Math.max(1, v - 1))}
               className="px-2 text-fg-2 hover:text-fg-0"
             >
@@ -580,7 +672,7 @@ function BriefStep(props: BriefStepProps) {
             <span className="w-4 text-center text-fg-0">{variants}</span>
             <button
               type="button"
-              aria-label="increment"
+              aria-label="increment variants"
               onClick={() => setVariants((v) => Math.min(4, v + 1))}
               className="px-2 text-fg-2 hover:text-fg-0"
             >
@@ -588,6 +680,19 @@ function BriefStep(props: BriefStepProps) {
             </button>
           </div>
 
+          {/* Divider */}
+          <span aria-hidden className="h-5 w-px shrink-0 bg-line-subtle" />
+
+          {/* Estimate copy */}
+          <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-fg-2">
+            {templateIds.size} template{templateIds.size === 1 ? '' : 's'} × {variants} variant
+            {variants === 1 ? '' : 's'}
+          </span>
+
+          {/* Divider */}
+          <span aria-hidden className="h-5 w-px shrink-0 bg-line-subtle" />
+
+          {/* Total shots */}
           <span className="font-mono text-[12px] text-fg-3">
             {totalShots} shot{totalShots === 1 ? '' : 's'}
           </span>
@@ -605,7 +710,16 @@ function BriefStep(props: BriefStepProps) {
             disabled={previewing || templateIds.size === 0}
             leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
           >
-            {previewing ? 'estimating…' : 'preview & review'}
+            {previewing ? (
+              'estimating…'
+            ) : (
+              <>
+                generate
+                {totalBuzz > 0 && (
+                  <span className="ml-1 font-mono text-[11px] opacity-70">· {totalBuzz} buzz</span>
+                )}
+              </>
+            )}
           </Button>
 
           <span
@@ -692,7 +806,11 @@ function ReviewStep(props: ReviewStepProps) {
               template={template}
               enhanced={enhanced}
               buzz={buzz}
-              ratio={enhanced?.aspectRatio ?? brief.ratio}
+              ratio={
+                (enhanced?.aspectRatio && RATIOS.includes(enhanced.aspectRatio as PhotoshootRatio)
+                  ? (enhanced.aspectRatio as PhotoshootRatio)
+                  : null) ?? brief.ratio
+              }
               error={errorForId}
               override={override}
               onOverrideChange={(value) =>
@@ -1063,6 +1181,79 @@ function SubjectPanel({ subject, setSubject, libraryAssets, libraryProducts }: S
             skip · describe in text
           </span>
         </button>
+      </div>
+    </section>
+  );
+}
+
+type ProductRadioListProps = {
+  products: Product[];
+  subject: Subject | null;
+  setSubject: (s: Subject | null) => void;
+  setProductName: (v: string) => void;
+};
+
+/**
+ * Compact radio-style product picker sourced from the user's catalog.
+ * Selecting a product sets it as the shoot subject and pre-fills the name field.
+ */
+function ProductRadioList({
+  products,
+  subject,
+  setSubject,
+  setProductName,
+}: ProductRadioListProps) {
+  const selectedId = subject?.kind === 'product' ? subject.id : null;
+
+  function select(p: Product) {
+    setSubject({ kind: 'product', id: p.id });
+    setProductName(p.name);
+  }
+
+  return (
+    <section aria-label="select product" className="flex flex-col gap-2">
+      <h2 className="t-eyebrow">// product · from catalog</h2>
+      <div
+        role="radiogroup"
+        aria-label="catalog products"
+        className="flex flex-col gap-1 rounded-[12px] border border-line-subtle bg-bg-2 p-2"
+      >
+        {products.map((p) => {
+          const on = selectedId === p.id;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => select(p)}
+              className={cn(
+                'flex items-center gap-3 rounded-[10px] border px-3 py-2 text-left transition-colors duration-fast',
+                on
+                  ? 'border-line-volt bg-volt-soft/30'
+                  : 'border-transparent hover:border-line-subtle hover:bg-bg-3',
+              )}
+            >
+              {/* Thumb placeholder */}
+              <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-[7px] border border-line-subtle bg-bg-3">
+                <Box size={14} strokeWidth={1.5} className="text-fg-3" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-medium text-fg-0">{p.name}</div>
+                {p.notes && (
+                  <div className="truncate font-mono text-[10px] uppercase tracking-[0.05em] text-fg-3">
+                    {p.notes.split(' ').slice(0, 4).join(' ')}
+                  </div>
+                )}
+              </div>
+              {on && (
+                <span className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-pill bg-volt text-fg-on-volt">
+                  <Check size={10} strokeWidth={3} />
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </section>
   );

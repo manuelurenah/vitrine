@@ -7,7 +7,7 @@ export type PhotoshootTemplateId =
   | 'lifestyle-flatlay'
   | 'hero-wide';
 
-export type PhotoshootRatio = '1:1' | '4:5' | '9:16' | '16:9';
+export type PhotoshootRatio = '1:1' | '4:5' | '9:16';
 
 export type PhotoshootTemplate = {
   id: PhotoshootTemplateId;
@@ -76,6 +76,14 @@ export const PHOTOSHOOT_TEMPLATES: Record<PhotoshootTemplateId, PhotoshootTempla
 
 export function isPhotoshootTemplateId(value: string): value is PhotoshootTemplateId {
   return value in PHOTOSHOOT_TEMPLATES;
+}
+
+/**
+ * Returns a curated subset of template ids to show in the "recommended" group —
+ * one representative per group: studio, lifestyle, hero.
+ */
+export function recommendedTemplateIds(): PhotoshootTemplateId[] {
+  return ['studio-clean', 'lifestyle-handheld', 'hero-wide'];
 }
 
 export type PhotoshootBrief = {
