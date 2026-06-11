@@ -11,6 +11,7 @@ import {
   Sparkles,
   Wand2,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button, FieldLabel, Input, Textarea } from '@/components/ui';
@@ -204,7 +205,14 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
       <div className="flex flex-col items-center gap-3.5">
         {/* version pill */}
         <div className="flex items-center gap-2 rounded-pill border border-line-subtle bg-bg-2 px-3 py-1.5 text-[12.5px] text-fg-1">
-          <History size={13} strokeWidth={1.75} className="text-fg-3" />
+          <Link
+            href={`/campaigns/${campaignId}/c/${tile.id}/history`}
+            aria-label="open version history"
+            title="version history"
+            className="grid size-5 place-items-center rounded-[5px] text-fg-3 transition-colors hover:bg-bg-3 hover:text-fg-1"
+          >
+            <History size={13} strokeWidth={1.75} />
+          </Link>
           <span>version history</span>
           <span className="ml-1 font-mono text-[11px] text-fg-2">
             {displayVersionNum} / {displayVersionTotal}
