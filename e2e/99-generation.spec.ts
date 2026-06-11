@@ -4,12 +4,16 @@ import { markOnboardingComplete, resetUserData } from './helpers/db';
 
 /**
  * Smoke pass over the full generation pipeline against deterministic MSW
- * mocks: preview → cook → poll → upscale → animate.
+ * mocks: prompt → draft → brief (preview) → cook → poll → upscale → animate.
  *
  * This spec is the regression net for the imageGen workstream — if any step
  * in the cook flow regresses (preview cost surfacing, cook payload shape,
  * polling progression, or post-gen action wiring) this is the first thing
  * to fail.
+ *
+ * Wizard flow (CampaignWizard):
+ *   prompt step  →  [draft brief]  →  brief step  →  [cook]  →  submit step  →  /campaigns/[id]
+ *   testids:  prompt-step / prompt-continue         brief-step / brief-cook
  */
 
 test.describe('Generation pipeline smoke', () => {
@@ -22,23 +26,36 @@ test.describe('Generation pipeline smoke', () => {
     test.setTimeout(180_000);
     await signInToApp(page, baseURL!);
 
-    // ----- preview: hit /api/campaigns/preview via the wizard's continue btn
+    // ----- prompt step: fill prompt, click "draft brief"
     await page.goto(`${baseURL}/campaigns/new`);
-    await expect(page.getByTestId('brief-step')).toBeVisible();
+    await expect(page.getByTestId('prompt-step')).toBeVisible();
 
-    // Capture the preview network call so we can assert the cost number is
-    // > 0 (MSW returns deterministic 60 × numImages for whatif=true).
+    await page
+      .getByTestId('prompt-input')
+      .fill('chili oil summer launch — warm tones, bold copy, festival energy');
+
+    // Set up the preview response interceptor before clicking prompt-continue
+    // so we don't miss the POST /api/campaigns/preview that auto-fires when
+    // the brief step mounts (the brief-step useEffect calls schedule()).
     const previewResponsePromise = page.waitForResponse(
       (r) => r.url().includes('/api/campaigns/preview') && r.request().method() === 'POST',
-      { timeout: 20_000 },
+      { timeout: 90_000 },
     );
-    await page.getByTestId('brief-continue').click();
+
+    // Click "draft brief" — fires POST /api/campaigns/draft (real server route).
+    // The LLM chain may fall back across models (up to ~30s), then navigates
+    // to ?step=brief which triggers the preview useEffect.
+    await page.getByTestId('prompt-continue').click();
+
+    // ----- brief step: wait for the step + verify preview cost > 0
+    // (MSW returns 60 × numImages for the whatif workflow estimate).
+    await expect(page.getByTestId('brief-step')).toBeVisible({ timeout: 60_000 });
+
     const previewResp = await previewResponsePromise;
     expect(previewResp.status()).toBe(200);
     const previewBody = (await previewResp.json()) as { totalBuzz?: number };
     expect(previewBody.totalBuzz ?? 0).toBeGreaterThan(0);
 
-    await expect(page.getByTestId('review-step')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('total-buzz')).toBeVisible();
 
     // ----- cook: hit /api/campaigns/cook + redirect to detail page
@@ -46,7 +63,7 @@ test.describe('Generation pipeline smoke', () => {
       (r) => r.url().includes('/api/campaigns/cook') && r.request().method() === 'POST',
       { timeout: 30_000 },
     );
-    await page.getByTestId('review-cook').click();
+    await page.getByTestId('brief-cook').click();
     const cookResp = await cookResponsePromise;
     expect(cookResp.status()).toBe(200);
     const cookBody = (await cookResp.json()) as { campaignId?: string };
@@ -59,13 +76,20 @@ test.describe('Generation pipeline smoke', () => {
     const firstImage = page.locator('[data-image-overlay] img').first();
     await expect(firstImage).toBeVisible({ timeout: 30_000 });
 
-    // ----- upscale: hover the first image and confirm the post-gen action
+    // ----- upscale: open the actions menu (hamburger MoreHorizontal button,
+    // aria-label="image actions") then click the upscale chip. The chips live
+    // in a dropdown that is hidden until the menu button is clicked — hover
+    // alone does not reveal them.
     const overlays = page.locator('[data-image-overlay]');
     const upscaleOverlay = overlays.first();
-    await upscaleOverlay.hover();
+    await upscaleOverlay.getByRole('button', { name: /image actions/i }).click();
     await upscaleOverlay.getByTestId('post-gen-chip-upscale-2-').click();
     await upscaleOverlay.getByTestId('post-gen-confirm-upscale-go').click();
-    await expect(upscaleOverlay.getByTestId('post-gen-upscaled')).toBeVisible({
+    // post-gen-upscaled img lives inside the image overlay absolute container.
+    // The child card is absolutely positioned; check the container card instead
+    // to avoid overflow-clipping false-negatives from the ImageSlot's
+    // overflow:hidden parent.
+    await expect(page.getByTestId('post-gen-child-upscale').first()).toBeVisible({
       timeout: 60_000,
     });
 
@@ -74,11 +98,14 @@ test.describe('Generation pipeline smoke', () => {
     // overlay if only one image rendered.
     const overlayCount = await overlays.count();
     const animateOverlay = overlayCount > 1 ? overlays.nth(1) : upscaleOverlay;
-    await animateOverlay.hover();
+    await animateOverlay.getByRole('button', { name: /image actions/i }).click();
     await animateOverlay.getByTestId('post-gen-chip-animate').click();
     await animateOverlay.getByTestId('post-gen-confirm-animate-go').click();
-    const videoEl = animateOverlay.getByTestId('post-gen-video');
-    await expect(videoEl).toBeVisible({ timeout: 60_000 });
+    // Check the animate child card container, then the video element inside it.
+    await expect(page.getByTestId('post-gen-child-animate').first()).toBeVisible({
+      timeout: 60_000,
+    });
+    const videoEl = page.getByTestId('post-gen-video').first();
     await expect(videoEl).toHaveAttribute('controls', '');
   });
 });
