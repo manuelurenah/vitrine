@@ -5,12 +5,20 @@ import { markOnboardingComplete, resetUserData } from './helpers/db';
 /**
  * Post-generation actions — upscale + animate. Starts from a fresh campaign
  * cook, waits for the first tile to land an image, then exercises the
- * hover-overlay → confirm → child-card polling flow for both actions.
+ * actions-menu → confirm → child-card polling flow for both actions.
  *
  * The MSW handlers in `src/mocks/handlers.ts` ship distinct response shapes
  * per step type:
  *   - imageUpscaler → single `images[0].url` on succeeded snapshot
  *   - videoGen      → `images[0]` poster + `blobs[0]` with mimeType `video/mp4`
+ *
+ * The post-gen chips live in a dropdown opened by the "image actions" button
+ * (MoreHorizontal hamburger in the top-right of each overlay). Hover alone
+ * does NOT reveal them — the menu button must be explicitly clicked.
+ *
+ * Child cards are absolutely positioned inside the image overlay container
+ * which has overflow:hidden; assert the container card testid for visibility,
+ * not the inner <img> / <video>, to avoid overflow-clipping false-negatives.
  */
 
 test.describe('Post-generation actions (upscale + animate)', () => {
@@ -23,74 +31,69 @@ test.describe('Post-generation actions (upscale + animate)', () => {
     test.setTimeout(120_000);
     await signInToApp(page, baseURL!);
 
-    // ----- cook a campaign -----
+    // ----- cook a campaign (CampaignWizard: prompt-step → brief-step → cook) -----
+    // The draft call hits the LLM chain which can fall back across models (up
+    // to ~30s); allow 60s for brief-step to appear, matching 99-generation.
     await page.goto(`${baseURL}/campaigns/new`);
-    await page.getByTestId('brief-continue').click();
-    await expect(page.getByTestId('review-step')).toBeVisible({ timeout: 20_000 });
-    await page.getByTestId('review-cook').click();
+    await expect(page.getByTestId('prompt-step')).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId('prompt-input').fill('chili oil summer launch — warm tones, bold copy');
+    await page.getByTestId('prompt-continue').click();
+    await expect(page.getByTestId('brief-step')).toBeVisible({ timeout: 60_000 });
+    await page.getByTestId('brief-cook').click();
     await page.waitForURL(/\/campaigns\/[\w-]+$/, { timeout: 30_000 });
 
     // ----- wait for the first generated image to render -----
     const firstImage = page.locator('[data-image-overlay] img').first();
     await expect(firstImage).toBeVisible({ timeout: 30_000 });
 
-    // ----- hover overlay reveals the post-gen action chips -----
-    const overlay = page.locator('[data-image-overlay]').first();
-    await overlay.hover();
+    // ----- upscale: open the actions menu, click the upscale chip -----
+    const overlays = page.locator('[data-image-overlay]');
+    const upscaleOverlay = overlays.first();
+    await upscaleOverlay.getByRole('button', { name: /image actions/i }).click();
 
-    const upscaleChip = overlay.getByTestId('post-gen-chip-upscale-2-');
+    const upscaleChip = upscaleOverlay.getByTestId('post-gen-chip-upscale-2-');
     await expect(upscaleChip).toBeVisible();
     // Buzz cost preview is rendered as part of the chip — "buzz" suffix or
     // "estimate…" prelude.
     await expect(upscaleChip).toContainText(/buzz|estimat/i);
-
-    // ----- upscale flow -----
     await upscaleChip.click();
-    const upscaleConfirm = overlay.getByTestId('post-gen-confirm-upscale');
+
+    const upscaleConfirm = upscaleOverlay.getByTestId('post-gen-confirm-upscale');
     await expect(upscaleConfirm).toBeVisible();
     // Cost preview surfaces inside the confirm panel.
     await expect(upscaleConfirm).toContainText(/buzz|estimat/i);
-    await overlay.getByTestId('post-gen-confirm-upscale-go').click();
+    await upscaleOverlay.getByTestId('post-gen-confirm-upscale-go').click();
 
-    // Child card appears + polls; eventually swaps the skeleton for an image.
-    const upscaleChild = overlay.getByTestId('post-gen-child-upscale');
-    await expect(upscaleChild).toBeVisible({ timeout: 30_000 });
-    await expect(upscaleChild.getByTestId('post-gen-upscaled')).toBeVisible({
+    // Child card container appears + polls. Assert the container, not the inner
+    // <img>, to avoid overflow-clipping false-negatives.
+    await expect(page.getByTestId('post-gen-child-upscale').first()).toBeVisible({
       timeout: 60_000,
     });
 
-    // ----- animate flow on a sibling image (or fall back to same image if
-    // only 1 was rendered). Find a different overlay where the chip is still
-    // enabled (not already used). -----
-    const overlays = page.locator('[data-image-overlay]');
+    // ----- animate: pick a sibling overlay if available -----
     const overlayCount = await overlays.count();
-    let animateOverlay = overlays.nth(0);
-    if (overlayCount > 1) {
-      animateOverlay = overlays.nth(1);
-    } else {
-      // Only one image — close the previous interaction by moving the mouse
-      // away first, then re-hover. The upscale child card sits over the
-      // bottom; the animate chip should still be reachable via hover.
-      await page.mouse.move(0, 0);
-    }
-    await animateOverlay.hover();
+    const animateOverlay = overlayCount > 1 ? overlays.nth(1) : upscaleOverlay;
+    await animateOverlay.getByRole('button', { name: /image actions/i }).click();
+
     const animateChip = animateOverlay.getByTestId('post-gen-chip-animate');
     await expect(animateChip).toBeVisible();
     await expect(animateChip).toContainText(/buzz|estimat/i);
     await animateChip.click();
+
     const animateConfirm = animateOverlay.getByTestId('post-gen-confirm-animate');
     await expect(animateConfirm).toBeVisible();
     await expect(animateConfirm).toContainText(/buzz|estimat/i);
     await animateOverlay.getByTestId('post-gen-confirm-animate-go').click();
 
-    const animateChild = animateOverlay.getByTestId('post-gen-child-animate');
-    await expect(animateChild).toBeVisible({ timeout: 30_000 });
+    // Assert the animate child card container is visible.
+    await expect(page.getByTestId('post-gen-child-animate').first()).toBeVisible({
+      timeout: 60_000,
+    });
 
     // The mocked videoGen blob URL is a fake `.mp4` — the browser may not
     // actually play it, but the <video> element must mount with controls +
     // the right src. Assert on the DOM, not on playback.
-    const videoEl = animateChild.getByTestId('post-gen-video');
-    await expect(videoEl).toBeVisible({ timeout: 60_000 });
+    const videoEl = page.getByTestId('post-gen-video').first();
     await expect(videoEl).toHaveAttribute('controls', '');
     const src = await videoEl.getAttribute('src');
     expect(src).toBeTruthy();
