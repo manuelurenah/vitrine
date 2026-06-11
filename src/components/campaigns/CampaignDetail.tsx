@@ -2,7 +2,7 @@ import { ChevronRight, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { BuzzPill } from '@/components/ui';
 import type { Campaign } from '@/lib/campaigns';
-import { CreativeCard } from './CreativeCard';
+import { CampaignCreativeGrid } from './CampaignCreativeGrid';
 import { ExportCampaignButton } from './ExportCampaignButton';
 import { SectionHead } from './SectionHead';
 
@@ -55,20 +55,7 @@ export function CampaignDetail({ campaign }: Props) {
             <span className="font-mono text-[10.5px] uppercase tracking-[0.1em]">live polling</span>
           }
         />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {campaign.tiles.map((tile) => (
-            <CreativeCard
-              key={tile.id}
-              workflowId={tile.workflowId}
-              presetId={tile.presetId}
-              initialStatus={tile.status}
-              quantity={tile.quantity}
-              regenerate={{ kind: 'campaign', id: campaign.id, tileId: tile.id }}
-              adCopy={tile.adCopy}
-              editHref={`/campaigns/${campaign.id}/c/${tile.id}`}
-            />
-          ))}
-        </div>
+        <CampaignCreativeGrid campaignId={campaign.id} tiles={campaign.tiles} />
       </section>
     </div>
   );
