@@ -1,6 +1,6 @@
 import { CampaignsList } from '@/components/campaigns';
-import { relativeDate } from '@/components/campaigns/CampaignsList';
 import { listCampaigns } from '@/lib/campaigns';
+import { relativeDate } from '@/lib/relativeDate';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
 
