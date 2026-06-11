@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { Layers, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { GradientThumb, type ThumbTone } from '@/components/campaigns';
 import { Badge, Button, Chip } from '@/components/ui';
@@ -34,16 +34,33 @@ export function CatalogGrid({ products }: Props) {
       </div>
 
       {!hasItems ? (
-        <div className="mt-10 flex flex-col items-center gap-3 rounded-[18px] border border-dashed border-line bg-bg-1 p-10 text-center">
-          <div className="font-display text-[18px] font-semibold text-fg-0">no products yet.</div>
-          <p className="max-w-[420px] text-[13.5px] text-fg-2">
-            add your first product. notes feed every campaign prompt and photoshoot template.
-          </p>
+        <div className="mt-10 flex flex-col items-center gap-4 rounded-[18px] border border-dashed border-line bg-bg-1 p-10 text-center">
+          <span
+            className="flex items-center justify-center rounded-[14px] bg-volt-soft p-4"
+            aria-hidden="true"
+          >
+            <Layers size={28} strokeWidth={1.5} className="text-volt" />
+          </span>
+          <div>
+            <div className="font-display text-[18px] font-semibold text-fg-0">no products yet.</div>
+            <p className="mt-1 max-w-[420px] text-[13.5px] text-fg-2">
+              add your first product. notes feed every campaign prompt and photoshoot template.
+            </p>
+          </div>
           <Link href="/brand/catalog/new">
             <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />}>
               new product
             </Button>
           </Link>
+          <p className="text-[12.5px] text-fg-3">
+            or skip for now —{' '}
+            <Link
+              href="/brand/assets/new"
+              className="text-fg-2 underline underline-offset-2 hover:text-fg-0"
+            >
+              upload to assets instead →
+            </Link>
+          </p>
         </div>
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
