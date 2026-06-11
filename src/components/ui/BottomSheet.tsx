@@ -2,10 +2,8 @@
 
 import { X } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
-import { BottomSheet } from './BottomSheet';
 import { cn } from './cn';
 import { IconButton } from './IconButton';
-import { useMediaQuery } from './useMediaQuery';
 
 type Props = {
   open: boolean;
@@ -14,22 +12,16 @@ type Props = {
   eyebrow?: string;
   children: ReactNode;
   footer?: ReactNode;
-  maxWidth?: number;
   className?: string;
 };
 
-export function Modal({
-  open,
-  onClose,
-  title,
-  eyebrow,
-  children,
-  footer,
-  maxWidth = 720,
-  className,
-}: Props) {
-  const isMobile = useMediaQuery('(max-width: 767px)');
-
+/**
+ * Mobile bottom-sheet primitive.
+ * Slides up from the bottom with a blurred scrim behind it.
+ * Shares the same prop shape as Modal (minus maxWidth).
+ * Renders nothing when not mounted.
+ */
+export function BottomSheet({ open, onClose, title, eyebrow, children, footer, className }: Props) {
   // mounted keeps the DOM around during the exit animation
   const [mounted, setMounted] = useState(false);
   // visible drives the CSS classes for open/closed states
@@ -62,26 +54,10 @@ export function Modal({
     };
   }, [open, onClose]);
 
-  // On mobile, delegate to BottomSheet
-  if (isMobile) {
-    return (
-      <BottomSheet
-        open={open}
-        onClose={onClose}
-        title={title}
-        eyebrow={eyebrow}
-        footer={footer}
-        className={className}
-      >
-        {children}
-      </BottomSheet>
-    );
-  }
-
   if (!mounted) return null;
 
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center px-6 py-10">
+    <div className="fixed inset-0 z-modal flex flex-col justify-end">
       {/* Scrim */}
       <button
         type="button"
@@ -94,19 +70,23 @@ export function Modal({
         )}
       />
 
-      {/* Dialog panel */}
+      {/* Sheet panel */}
       <div
         role="dialog"
         aria-modal
         data-state={visible ? 'open' : 'closed'}
         className={cn(
-          'relative flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[18px] border border-line bg-bg-1 shadow-xl',
-          'transition-[opacity,transform] duration-[160ms] ease-out',
-          visible ? 'scale-100 opacity-100' : 'scale-95 opacity-0',
+          'relative flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-[18px] border border-line bg-bg-1 shadow-xl',
+          'transition-transform duration-[160ms] ease-out',
+          visible ? 'translate-y-0' : 'translate-y-full',
           className,
         )}
-        style={{ maxWidth }}
       >
+        {/* Drag handle */}
+        <div className="flex justify-center pb-1 pt-3">
+          <div className="h-1 w-9 rounded-pill bg-line" />
+        </div>
+
         <header className="flex items-start gap-4 border-b border-line-subtle px-6 py-5">
           <div className="flex-1">
             {eyebrow && <span className="t-eyebrow">{eyebrow}</span>}
@@ -119,7 +99,9 @@ export function Modal({
             onClick={onClose}
           />
         </header>
+
         <div className="flex-1 overflow-auto px-6 py-5">{children}</div>
+
         {footer && (
           <footer className="border-t border-line-subtle bg-bg-0/60 px-6 py-4">{footer}</footer>
         )}

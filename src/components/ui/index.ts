@@ -9,6 +9,8 @@ export { Chip } from './Chip';
 export { cn } from './cn';
 export { IconButton } from './IconButton';
 export { FieldLabel, Input, Textarea } from './Input';
+export { BottomSheet } from './BottomSheet';
 export { Modal } from './Modal';
+export { useMediaQuery } from './useMediaQuery';
 export type { TabStripProps, TabStripTab } from './TabStrip';
 export { TabStrip, tabId } from './TabStrip';
