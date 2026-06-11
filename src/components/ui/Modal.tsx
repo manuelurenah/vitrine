@@ -30,21 +30,22 @@ export function Modal({
 }: Props) {
   const isMobile = useMediaQuery('(max-width: 767px)');
 
-  // mounted keeps the DOM around during the exit animation
-  const [mounted, setMounted] = useState(false);
-  // visible drives the CSS classes for open/closed states
-  const [visible, setVisible] = useState(false);
+  // render keeps the DOM around during the exit animation; initialized to `open`
+  // so an initially-open modal is present on the very first render (SSR-safe).
+  const [render, setRender] = useState(open);
+  // enter drives the CSS classes for open/closed transition states
+  const [enter, setEnter] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setMounted(true);
-      // Defer visible so the opening transition is seen (browser needs one frame)
-      const raf = requestAnimationFrame(() => setVisible(true));
+      setRender(true);
+      // Defer enter so the opening transition is seen (browser needs one frame)
+      const raf = requestAnimationFrame(() => setEnter(true));
       return () => cancelAnimationFrame(raf);
     }
-    // Start exit: remove visible, then unmount after transition (~160ms)
-    setVisible(false);
-    const t = setTimeout(() => setMounted(false), 160);
+    // Start exit: remove enter, then unmount after transition (>160ms)
+    setEnter(false);
+    const t = setTimeout(() => setRender(false), 180);
     return () => clearTimeout(t);
   }, [open]);
 
@@ -78,7 +79,7 @@ export function Modal({
     );
   }
 
-  if (!mounted) return null;
+  if (!render) return null;
 
   return (
     <div className="fixed inset-0 z-modal flex items-center justify-center px-6 py-10">
@@ -90,7 +91,7 @@ export function Modal({
         className={cn(
           'absolute inset-0 cursor-default bg-black/55 backdrop-blur-[6px]',
           'transition-opacity duration-[160ms] ease-out',
-          visible ? 'opacity-100' : 'opacity-0',
+          enter ? 'opacity-100' : 'opacity-0',
         )}
       />
 
@@ -98,11 +99,11 @@ export function Modal({
       <div
         role="dialog"
         aria-modal
-        data-state={visible ? 'open' : 'closed'}
+        data-state={enter ? 'open' : 'closed'}
         className={cn(
           'relative flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[18px] border border-line bg-bg-1 shadow-xl',
           'transition-[opacity,transform] duration-[160ms] ease-out',
-          visible ? 'scale-100 opacity-100' : 'scale-[0.96] opacity-0',
+          enter ? 'scale-100 opacity-100' : 'scale-[0.96] opacity-0',
           className,
         )}
         style={{ maxWidth }}

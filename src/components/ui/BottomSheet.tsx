@@ -22,21 +22,22 @@ type Props = {
  * Renders nothing when not mounted.
  */
 export function BottomSheet({ open, onClose, title, eyebrow, children, footer, className }: Props) {
-  // mounted keeps the DOM around during the exit animation
-  const [mounted, setMounted] = useState(false);
-  // visible drives the CSS classes for open/closed states
-  const [visible, setVisible] = useState(false);
+  // render keeps the DOM around during the exit animation; initialized to `open`
+  // so an initially-open sheet is present on the very first render (SSR-safe).
+  const [render, setRender] = useState(open);
+  // enter drives the CSS classes for open/closed transition states
+  const [enter, setEnter] = useState(false);
 
   useEffect(() => {
     if (open) {
-      setMounted(true);
-      // Defer visible so the opening transition is seen (browser needs one frame)
-      const raf = requestAnimationFrame(() => setVisible(true));
+      setRender(true);
+      // Defer enter so the opening transition is seen (browser needs one frame)
+      const raf = requestAnimationFrame(() => setEnter(true));
       return () => cancelAnimationFrame(raf);
     }
-    // Start exit: remove visible, then unmount after transition (~160ms)
-    setVisible(false);
-    const t = setTimeout(() => setMounted(false), 160);
+    // Start exit: remove enter, then unmount after transition (>160ms)
+    setEnter(false);
+    const t = setTimeout(() => setRender(false), 180);
     return () => clearTimeout(t);
   }, [open]);
 
@@ -54,7 +55,7 @@ export function BottomSheet({ open, onClose, title, eyebrow, children, footer, c
     };
   }, [open, onClose]);
 
-  if (!mounted) return null;
+  if (!render) return null;
 
   return (
     <div className="fixed inset-0 z-modal flex flex-col justify-end">
@@ -66,7 +67,7 @@ export function BottomSheet({ open, onClose, title, eyebrow, children, footer, c
         className={cn(
           'absolute inset-0 cursor-default bg-black/55 backdrop-blur-[6px]',
           'transition-opacity duration-[160ms] ease-out',
-          visible ? 'opacity-100' : 'opacity-0',
+          enter ? 'opacity-100' : 'opacity-0',
         )}
       />
 
@@ -74,11 +75,11 @@ export function BottomSheet({ open, onClose, title, eyebrow, children, footer, c
       <div
         role="dialog"
         aria-modal
-        data-state={visible ? 'open' : 'closed'}
+        data-state={enter ? 'open' : 'closed'}
         className={cn(
           'relative flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-[18px] border border-line bg-bg-1 shadow-xl',
           'transition-transform duration-[160ms] ease-out',
-          visible ? 'translate-y-0' : 'translate-y-full',
+          enter ? 'translate-y-0' : 'translate-y-full',
           className,
         )}
       >
