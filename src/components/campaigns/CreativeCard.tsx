@@ -1,7 +1,8 @@
 'use client';
 
 import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
-import { Check, Download, MoreVertical, RefreshCw, Sparkles } from 'lucide-react';
+import { Check, Download, MoreVertical, Pencil, RefreshCw, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { PostGenActions } from '@/components/generations/PostGenActions';
@@ -47,6 +48,12 @@ type Props = {
   onToggleSelect?: () => void;
   onUseAsProduct?: (assetId: string) => void;
   onUseInCampaign?: (assetId: string) => void;
+  /**
+   * When provided and the tile is done, an "edit" link is shown in the
+   * campaign card footer that navigates to the single creative editor.
+   * Only used in campaign context.
+   */
+  editHref?: string;
 };
 
 type CardStatus = 'queued' | 'cooking' | 'done' | 'failed';
@@ -99,6 +106,7 @@ export function CreativeCard({
   onToggleSelect,
   onUseAsProduct,
   onUseInCampaign,
+  editHref,
 }: Props) {
   const router = useRouter();
   const preset = PRESETS[presetId];
@@ -288,6 +296,16 @@ export function CreativeCard({
         <span className="font-mono text-[10.5px] text-fg-3">v1</span>
         <PresetBadge preset={preset} inline />
         <span className="flex-1" />
+        {editHref && status === 'done' && (
+          <Link
+            href={editHref}
+            aria-label="edit creative"
+            className="inline-flex h-7 items-center gap-[4px] rounded-[7px] px-[6px] text-[11.5px] text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0"
+          >
+            <Pencil size={12} strokeWidth={1.75} />
+            edit
+          </Link>
+        )}
         {regenerate && (
           <button
             type="button"

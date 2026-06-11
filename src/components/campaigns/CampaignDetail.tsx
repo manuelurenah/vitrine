@@ -65,6 +65,7 @@ export function CampaignDetail({ campaign }: Props) {
               quantity={tile.quantity}
               regenerate={{ kind: 'campaign', id: campaign.id, tileId: tile.id }}
               adCopy={tile.adCopy}
+              editHref={`/campaigns/${campaign.id}/c/${tile.id}`}
             />
           ))}
         </div>

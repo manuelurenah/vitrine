@@ -239,6 +239,51 @@ export async function listCampaignAssets(
   );
 }
 
+export async function updateTileFields(
+  userId: string,
+  campaignId: string,
+  tileId: string,
+  patch: { adCopy?: AdCopy; prompt?: string },
+): Promise<CampaignTile | null> {
+  const owner = await db
+    .select({ id: campaignsTable.id })
+    .from(campaignsTable)
+    .where(and(eq(campaignsTable.id, campaignId), eq(campaignsTable.userId, userId)))
+    .limit(1);
+  if (owner.length === 0) return null;
+
+  const [existing] = await db
+    .select()
+    .from(campaignTilesTable)
+    .where(and(eq(campaignTilesTable.id, tileId), eq(campaignTilesTable.campaignId, campaignId)))
+    .limit(1);
+  if (!existing) return null;
+
+  return db.transaction(async (tx) => {
+    const update: Record<string, unknown> = { updatedAt: new Date() };
+    if (patch.adCopy !== undefined) update.adCopy = patch.adCopy;
+    if (patch.prompt !== undefined) update.prompt = patch.prompt;
+
+    const [row] = await tx
+      .update(campaignTilesTable)
+      .set(update)
+      .where(and(eq(campaignTilesTable.id, tileId), eq(campaignTilesTable.campaignId, campaignId)))
+      .returning();
+
+    if (!row) return null;
+
+    await recordTileVersion(tx, {
+      tileId: row.id,
+      workflowId: row.workflowId,
+      prompt: row.prompt,
+      adCopy: row.adCopy ?? null,
+      changeNote: 'edited',
+    });
+
+    return toTile(row);
+  });
+}
+
 export async function swapTileWorkflow(
   userId: string,
   campaignId: string,

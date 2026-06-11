@@ -1,4 +1,5 @@
 export { CampaignDetail } from './CampaignDetail';
+export { CreativeEditor } from './CreativeEditor';
 export { CampaignsList } from './CampaignsList';
 export { CreativeCard } from './CreativeCard';
 export { ExportCampaignButton } from './ExportCampaignButton';
@@ -7,3 +8,4 @@ export { PastRow } from './PastRow';
 export { PresetGrid } from './PresetGrid';
 export { PromptComposer } from './PromptComposer';
 export { SectionHead } from './SectionHead';
+export { PanelRow } from './PanelRow';
