@@ -13,9 +13,11 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { FAB } from '@/components/shell';
 import { cn } from '@/components/ui';
 import { FilterPills } from '@/components/campaigns/FilterPills';
 import type { FilterOption } from '@/components/campaigns/FilterPills';
+import { useMediaQuery } from '@/components/ui/useMediaQuery';
 import type { Asset } from '@/lib/assets';
 import { AdHocGenerationModal } from './AdHocGenerationModal';
 import { AssetsEmptyState } from './AssetsEmptyState';
@@ -30,6 +32,7 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
   const [genOpen, setGenOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const isMobile = useMediaQuery('(max-width: 767px)');
 
   if (assets.length === 0) {
     return (
@@ -91,11 +94,11 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
           options={filterOptions}
           active={activeFilter}
           onChange={setActiveFilter}
-          className="flex-1"
+          className="min-w-0 flex-1"
         />
 
-        {/* Actions */}
-        <div className="flex shrink-0 items-center gap-2">
+        {/* Actions — wrap to new row on very narrow screens */}
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setGenOpen(true)}
@@ -190,6 +193,9 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
         onClose={() => setGenOpen(false)}
         onSaved={() => router.refresh()}
       />
+
+      {/* Mobile FAB — upload */}
+      {isMobile && <FAB href="/brand/assets/new" label="upload" aria-label="upload asset" />}
     </div>
   );
 }
