@@ -42,7 +42,7 @@ export function LoginScreen({ error, notice }: Props) {
         </div>
       )}
 
-      <main className="relative z-card mx-auto grid max-w-[1100px] grid-cols-1 items-center gap-16 px-10 pb-16 pt-8 lg:grid-cols-[1fr_minmax(0,440px)]">
+      <main className="relative z-card mx-auto grid max-w-[1100px] grid-cols-1 items-center gap-16 px-10 pb-16 pt-8 min-[960px]:grid-cols-[1fr_minmax(0,440px)]">
         <LoginPitch />
         <AuthCard />
       </main>
