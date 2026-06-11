@@ -99,16 +99,12 @@ export function AssetsEmptyState({ onGenerate }: AssetsEmptyStateProps) {
             svg · png · jpg · pdf · mp4 — up to 20 mb each
           </span>
         </div>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.preventDefault();
-          }}
-          className="inline-flex items-center gap-2 rounded-[10px] border border-line-volt bg-volt-soft px-4 py-2 font-mono text-[11.5px] uppercase tracking-[0.1em] text-volt hover:bg-volt/15"
-          aria-label="choose files to upload"
+        <span
+          className="inline-flex items-center gap-2 rounded-[10px] border border-line-volt bg-volt-soft px-4 py-2 font-mono text-[11.5px] uppercase tracking-[0.1em] text-volt group-hover:bg-volt/15"
+          aria-hidden="true"
         >
           <Upload size={13} strokeWidth={1.75} aria-hidden="true" /> choose files
-        </button>
+        </span>
       </Link>
 
       {/* generate button kept separate so it doesn't sit inside the dropzone link */}
