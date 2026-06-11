@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { cn } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
 import { AdHocGenerationModal } from './AdHocGenerationModal';
+import { AssetsEmptyState } from './AssetsEmptyState';
 
 export function AssetsGallery({ assets }: { assets: Asset[] }) {
   const router = useRouter();
@@ -15,7 +16,7 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
   if (assets.length === 0) {
     return (
       <>
-        <EmptyState onGenerate={() => setGenOpen(true)} />
+        <AssetsEmptyState onGenerate={() => setGenOpen(true)} />
         <AdHocGenerationModal
           open={genOpen}
           onClose={() => setGenOpen(false)}
@@ -129,43 +130,5 @@ function AssetTile({ item }: { item: Asset }) {
         </div>
       </div>
     </Link>
-  );
-}
-
-function EmptyState({ onGenerate }: { onGenerate: () => void }) {
-  return (
-    <div className="flex flex-col items-center gap-4 rounded-[14px] border border-dashed border-line bg-bg-2/60 px-6 py-14 text-center">
-      <span
-        className="grid h-14 w-14 place-items-center rounded-[14px] border border-line-volt"
-        style={{ background: 'rgba(0,255,157,0.18)' }}
-      >
-        <Upload size={26} strokeWidth={1.5} />
-      </span>
-      <div>
-        <h2 className="font-display text-[26px] font-semibold tracking-[-0.02em] text-fg-0">
-          upload your first <span className="text-volt">asset</span>.
-        </h2>
-        <p className="mt-1 max-w-[460px] text-[13.5px] text-fg-2">
-          drop a file, or pick a collection to start. assets are loose — name + tags are all we
-          need.
-        </p>
-      </div>
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <button
-          type="button"
-          onClick={onGenerate}
-          className="inline-flex items-center gap-2 rounded-[10px] border border-line-volt bg-volt-soft px-4 py-2 font-mono text-[11.5px] uppercase tracking-[0.1em] text-volt hover:bg-volt/15"
-          data-testid="open-generate-modal-empty"
-        >
-          <Sparkles size={14} strokeWidth={1.75} /> generate
-        </button>
-        <Link
-          href="/brand/assets/new"
-          className="inline-flex items-center gap-2 rounded-[10px] border border-line-volt bg-volt-soft px-4 py-2 font-mono text-[11.5px] uppercase tracking-[0.1em] text-volt hover:bg-volt/15"
-        >
-          <Upload size={14} strokeWidth={1.75} /> choose files
-        </Link>
-      </div>
-    </div>
   );
 }
