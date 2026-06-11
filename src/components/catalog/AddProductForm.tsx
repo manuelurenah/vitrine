@@ -105,7 +105,7 @@ export function AddProductForm({
     validPrefillIds.length > 0 ? 'library' : 'upload',
   );
   const [dragOver, setDragOver] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<'live' | 'draft' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const libraryById = useMemo(() => {
@@ -257,18 +257,17 @@ export function AddProductForm({
     }
   }
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function doSubmit(status: 'live' | 'draft') {
     if (submitting) return;
     setError(null);
-    setSubmitting(true);
+    setSubmitting(status);
 
     try {
       const toUpload = images.filter((s) => s.status === 'queued' || s.status === 'failed');
       const uploaded = await Promise.all(toUpload.map((s) => uploadOne(s)));
       if (toUpload.length > 0 && uploaded.every((id) => id === null)) {
         setError('all image uploads failed — try again');
-        setSubmitting(false);
+        setSubmitting(null);
         return;
       }
 
@@ -277,9 +276,9 @@ export function AddProductForm({
         .concat(uploaded.filter((id): id is string => Boolean(id)));
       const dedup = mergeImageAssetIds(allUploadIds, libraryPicked);
 
-      if (dedup.length === 0) {
+      if (dedup.length === 0 && status === 'live') {
         setError('add at least one image — upload or pick from library');
-        setSubmitting(false);
+        setSubmitting(null);
         return;
       }
 
@@ -290,22 +289,27 @@ export function AddProductForm({
           name,
           notes: description.trim() || undefined,
           tags,
-          status: 'live',
+          status,
           imageAssetIds: dedup,
         }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(body?.error ?? `http ${res.status}`);
-        setSubmitting(false);
+        setSubmitting(null);
         return;
       }
       router.push(redirectTo);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'submit failed');
-      setSubmitting(false);
+      setSubmitting(null);
     }
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    await doSubmit('live');
   }
 
   return (
@@ -429,34 +433,19 @@ export function AddProductForm({
       )}
 
       {totalCount > 0 && (
-        <div>
-          <FieldLabel>
-            {totalCount} of {MAX_IMAGES} staged
-          </FieldLabel>
-          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-            {images.map((s, i) => (
-              <ThumbCard
-                key={s.localId}
-                item={s}
-                isHero={i === 0}
-                onRemove={() => removeImage(s.localId)}
-              />
-            ))}
-            {libraryPicked.map((id, i) => {
-              const asset = libraryById.get(id);
-              if (!asset) return null;
-              const isHero = images.length === 0 && i === 0;
-              return (
-                <LibraryThumbCard
-                  key={id}
-                  asset={asset}
-                  isHero={isHero}
-                  onRemove={() => removeLibraryPick(id)}
-                />
-              );
-            })}
-          </div>
-        </div>
+        <PhotoGrid
+          images={images}
+          libraryPicked={libraryPicked}
+          libraryById={libraryById}
+          capReached={capReached}
+          totalCount={totalCount}
+          onRemoveImage={removeImage}
+          onRemoveLibraryPick={removeLibraryPick}
+          onAddMore={() => {
+            setTab('upload');
+            inputRef.current?.click();
+          }}
+        />
       )}
 
       <div className="flex flex-col gap-4 rounded-[14px] border border-line-subtle bg-bg-2 p-4">
@@ -522,24 +511,73 @@ export function AddProductForm({
             variant="secondary"
             size="md"
             onClick={() => router.push(redirectTo)}
-            disabled={submitting}
+            disabled={submitting !== null}
           >
             cancel
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="md"
+            disabled={submitting !== null || name.trim().length === 0}
+            onClick={() => doSubmit('draft')}
+          >
+            {submitting === 'draft' ? 'saving draft…' : 'save as draft'}
           </Button>
           <Button
             type="submit"
             variant="primary"
             size="md"
-            disabled={submitting || name.trim().length === 0}
+            disabled={submitting !== null || name.trim().length === 0}
             leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
           >
-            {submitting ? 'saving…' : 'add to catalog'}
+            {submitting === 'live' ? 'saving…' : 'add to catalog'}
           </Button>
         </div>
       </div>
     </form>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Shared overlay helpers
+// ---------------------------------------------------------------------------
+
+function CoverBadge() {
+  return (
+    <span className="absolute left-1.5 top-1.5 rounded-pill border border-line/40 bg-black/55 px-[8px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.08em] text-fg-0 backdrop-blur-md">
+      cover
+    </span>
+  );
+}
+
+function RemoveButton({
+  label,
+  onClick,
+  offset,
+}: {
+  label: string;
+  onClick: () => void;
+  offset?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className={cn(
+        'absolute top-1.5 grid h-6 w-6 place-items-center rounded-pill border border-line/40 bg-black/55 text-fg-0 opacity-0 backdrop-blur-md transition-opacity duration-fast ease-out hover:bg-bg-3 group-hover:opacity-100 focus:opacity-100',
+        offset ? 'right-[32px]' : 'right-1.5',
+      )}
+    >
+      <X size={11} strokeWidth={1.75} />
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ThumbCard — for a staged (uploaded) image
+// ---------------------------------------------------------------------------
 
 function ThumbCard({
   item,
@@ -551,18 +589,20 @@ function ThumbCard({
   onRemove: () => void;
 }) {
   const showProgress = item.status === 'uploading' || item.status === 'saving';
+  const isInFlight = item.status === 'queued' || item.status === 'signing' || showProgress;
   return (
     <div
       className={cn(
-        'group relative aspect-square overflow-hidden rounded-[10px] border bg-bg-2',
+        'group relative h-full w-full overflow-hidden rounded-[10px] border bg-bg-2',
         item.status === 'failed' ? 'border-danger' : 'border-line-subtle',
       )}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={item.previewUrl} alt={item.file.name} className="h-full w-full object-cover" />
-      {isHero && (
-        <span className="absolute left-1.5 top-1.5 rounded-pill border border-line/40 bg-black/55 px-[8px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.08em] text-fg-0 backdrop-blur-md">
-          hero
+      {isHero && <CoverBadge />}
+      {isInFlight && (
+        <span className="absolute inset-0 flex items-center justify-center bg-black/40">
+          <span className="h-5 w-5 animate-spin rounded-full border-2 border-fg-3 border-t-volt" />
         </span>
       )}
       {item.status === 'done' && (
@@ -583,22 +623,29 @@ function ThumbCard({
           {item.error}
         </span>
       )}
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`remove ${item.file.name}`}
-        className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-pill border border-line/40 bg-black/55 text-fg-0 opacity-0 backdrop-blur-md transition-opacity duration-fast ease-out hover:bg-bg-3 group-hover:opacity-100 aria-[label]:focus:opacity-100"
-        style={item.status === 'done' ? { right: '32px' } : undefined}
-      >
-        {item.status === 'failed' ? (
+      {item.status === 'failed' ? (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`remove ${item.file.name}`}
+          className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-pill border border-line/40 bg-black/55 text-fg-0 opacity-0 backdrop-blur-md transition-opacity duration-fast ease-out hover:bg-bg-3 group-hover:opacity-100 focus:opacity-100"
+        >
           <Trash2 size={11} strokeWidth={1.75} />
-        ) : (
-          <X size={11} strokeWidth={1.75} />
-        )}
-      </button>
+        </button>
+      ) : (
+        <RemoveButton
+          label={`remove ${item.file.name}`}
+          onClick={onRemove}
+          offset={item.status === 'done'}
+        />
+      )}
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// LibraryThumbCard — for a library-picked asset
+// ---------------------------------------------------------------------------
 
 function LibraryThumbCard({
   asset,
@@ -612,7 +659,7 @@ function LibraryThumbCard({
   const filename = asset.storageKey.split('/').pop() ?? asset.id;
   const isImage = asset.contentType?.startsWith('image/') ?? false;
   return (
-    <div className="group relative aspect-square overflow-hidden rounded-[10px] border border-line-subtle bg-bg-3">
+    <div className="group relative h-full w-full overflow-hidden rounded-[10px] border border-line-subtle bg-bg-3">
       {isImage && asset.publicUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -626,22 +673,121 @@ function LibraryThumbCard({
           <Library size={22} strokeWidth={1.5} />
         </span>
       )}
-      {isHero && (
-        <span className="absolute left-1.5 top-1.5 rounded-pill border border-line/40 bg-black/55 px-[8px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.08em] text-fg-0 backdrop-blur-md">
-          hero
-        </span>
-      )}
+      {isHero && <CoverBadge />}
       <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-pill border border-line/40 bg-black/55 px-[8px] py-[3px] font-mono text-[9.5px] uppercase tracking-[0.08em] text-fg-1 backdrop-blur-md">
         <Library size={9} strokeWidth={2} /> from library
       </span>
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label={`remove ${filename}`}
-        className="absolute right-1.5 top-1.5 grid h-6 w-6 place-items-center rounded-pill border border-line/40 bg-black/55 text-fg-0 opacity-0 backdrop-blur-md transition-opacity duration-fast ease-out hover:bg-bg-3 group-hover:opacity-100"
+      <RemoveButton label={`remove ${filename}`} onClick={onRemove} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// PhotoGrid — multi-photo grid: first slot is 2×2 cover; rest are 1×1 singles
+// ---------------------------------------------------------------------------
+
+type PhotoGridItem =
+  | { kind: 'upload'; item: StagedImage; isHero: boolean; onRemove: () => void }
+  | { kind: 'library'; asset: Asset; isHero: boolean; onRemove: () => void }
+  | { kind: 'add'; onAdd: () => void };
+
+function PhotoGrid({
+  images,
+  libraryPicked,
+  libraryById,
+  capReached,
+  totalCount,
+  onRemoveImage,
+  onRemoveLibraryPick,
+  onAddMore,
+}: {
+  images: StagedImage[];
+  libraryPicked: string[];
+  libraryById: Map<string, Asset>;
+  capReached: boolean;
+  totalCount: number;
+  onRemoveImage: (localId: string) => void;
+  onRemoveLibraryPick: (assetId: string) => void;
+  onAddMore: () => void;
+}) {
+  // Build a flat ordered list of items
+  const items: PhotoGridItem[] = [];
+  images.forEach((img, i) =>
+    items.push({
+      kind: 'upload',
+      item: img,
+      isHero: i === 0,
+      onRemove: () => onRemoveImage(img.localId),
+    }),
+  );
+  libraryPicked.forEach((id, i) => {
+    const asset = libraryById.get(id);
+    if (!asset) return;
+    const isHero = images.length === 0 && i === 0;
+    items.push({ kind: 'library', asset, isHero, onRemove: () => onRemoveLibraryPick(id) });
+  });
+
+  // Append an "add more" tile if cap not reached
+  if (!capReached) {
+    items.push({ kind: 'add', onAdd: onAddMore });
+  }
+
+  // We render a CSS grid of 4 columns where the first item spans 2 cols × 2 rows
+  return (
+    <div>
+      <FieldLabel>
+        {totalCount} of {MAX_IMAGES} photos
+        {capReached && (
+          <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.08em] text-fg-3">
+            · max reached
+          </span>
+        )}
+      </FieldLabel>
+      <div
+        className="mt-2 grid gap-2"
+        style={{ gridTemplateColumns: 'repeat(4, 1fr)', gridAutoRows: '80px' }}
       >
-        <X size={11} strokeWidth={1.75} />
-      </button>
+        {items.map((entry, idx) => {
+          const isCoverSlot = idx === 0 && entry.kind !== 'add';
+          return (
+            <div
+              key={
+                entry.kind === 'upload'
+                  ? entry.item.localId
+                  : entry.kind === 'library'
+                    ? entry.asset.id
+                    : 'add'
+              }
+              style={isCoverSlot ? { gridColumn: 'span 2', gridRow: 'span 2' } : undefined}
+            >
+              {entry.kind === 'upload' && (
+                <ThumbCard item={entry.item} isHero={entry.isHero} onRemove={entry.onRemove} />
+              )}
+              {entry.kind === 'library' && (
+                <LibraryThumbCard
+                  asset={entry.asset}
+                  isHero={entry.isHero}
+                  onRemove={entry.onRemove}
+                />
+              )}
+              {entry.kind === 'add' && (
+                <button
+                  type="button"
+                  onClick={entry.onAdd}
+                  aria-label="add more photos"
+                  className="flex h-full w-full flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed border-line bg-bg-2/60 text-fg-3 transition-colors duration-fast ease-out hover:border-line-volt hover:bg-bg-2 hover:text-fg-1"
+                >
+                  <Plus size={16} strokeWidth={1.75} />
+                  <span className="font-mono text-[9.5px] uppercase tracking-[0.08em]">add</span>
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-2 font-mono text-[11px] text-fg-3">
+        first photo is the cover · up to {MAX_IMAGES} total
+      </p>
     </div>
   );
 }
