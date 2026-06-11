@@ -736,7 +736,7 @@ function PhotoGrid({
   return (
     <div>
       <FieldLabel>
-        {totalCount} of {MAX_IMAGES} photos
+        {totalCount} of {MAX_IMAGES} staged
         {capReached && (
           <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.08em] text-fg-3">
             · max reached
