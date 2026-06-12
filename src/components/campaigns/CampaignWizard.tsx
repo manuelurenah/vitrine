@@ -111,6 +111,7 @@ export function CampaignWizard({ initial, fetcher }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const step = parseStep(searchParams.get('step'));
+  const hasInitialPrompt = !!initial?.defaultBrief?.prompt?.trim();
 
   /* ---------------------------------------------------------------- step 1 */
   const [brief, setBrief] = useState<PreviewBrief>(() => ({
@@ -141,6 +142,14 @@ export function CampaignWizard({ initial, fetcher }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  /* ---------------------------------------- prompt-entry vs auto-draft routing */
+  // We auto-draft when the user arrived with a prompt. While that draft is in
+  // flight we show only the overlay. A hard draft failure sets draftError and
+  // reveals the manual prompt entry so the user can retry.
+  const showingPromptEntry = step === 'prompt' && (!hasInitialPrompt || !!draftError);
+  const autoDraftPending = step === 'prompt' && hasInitialPrompt && !draftError;
+  const steps = resolveVisibleSteps({ hasInitialPrompt, showingPromptEntry });
+
   /* ----------------------------------------------------- url step transitions */
   const goToStep = useCallback(
     (next: Step) => {
@@ -155,6 +164,7 @@ export function CampaignWizard({ initial, fetcher }: Props) {
 
   /* ----------------------------------------- step → submit auto-run on enter */
   const submitInFlightRef = useRef(false);
+  const didAutoDraftRef = useRef(false);
   useEffect(() => {
     if (step !== 'submit') return;
     if (submitInFlightRef.current) return;
@@ -240,6 +250,21 @@ export function CampaignWizard({ initial, fetcher }: Props) {
     },
     [brief.prompt, presetIds, referenceAssetIds, variantsPerPreset, fetcher, goToStep, schedule],
   );
+
+  /* ------------------------------- auto-draft on arrival when a prompt exists */
+  // The ref fires the draft once per mount. StrictMode's dev double-invoke keeps
+  // the same ref, so it stays single-fire; only a real remount re-fires, same
+  // trade-off the submit auto-run above accepts. runDraft is idempotent enough
+  // that a stray re-POST is cosmetic, not corrupting.
+  useEffect(() => {
+    if (didAutoDraftRef.current) return;
+    if (step !== 'prompt') return;
+    if (!hasInitialPrompt) return;
+    if (!brief.prompt.trim()) return;
+    didAutoDraftRef.current = true;
+    void runDraft({ navigate: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, hasInitialPrompt]);
 
   async function handleGenerateDraft(e: React.FormEvent) {
     e.preventDefault();
@@ -338,18 +363,21 @@ export function CampaignWizard({ initial, fetcher }: Props) {
   /* --------------------------------------------------------------- rendering */
   return (
     <div className="flex flex-col gap-6">
-      <StepDots steps={STEP_ORDER} step={step} />
-      {step === 'prompt' && (
-        <PromptStep
-          brief={brief}
-          setBrief={setBrief}
-          referenceAssetIds={referenceAssetIds}
-          setReferenceAssetIds={setReferenceAssetIds}
-          drafting={drafting}
-          error={draftError}
-          onContinue={handleGenerateDraft}
-        />
-      )}
+      <StepDots steps={steps} step={step} />
+      {step === 'prompt' &&
+        (autoDraftPending ? (
+          <DraftingOverlay />
+        ) : (
+          <PromptStep
+            brief={brief}
+            setBrief={setBrief}
+            referenceAssetIds={referenceAssetIds}
+            setReferenceAssetIds={setReferenceAssetIds}
+            drafting={drafting}
+            error={draftError}
+            onContinue={handleGenerateDraft}
+          />
+        ))}
       {step === 'brief' && (
         <BriefStep
           brief={brief}

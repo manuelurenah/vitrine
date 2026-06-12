@@ -449,3 +449,35 @@ describe('resolveVisibleSteps', () => {
     ).toEqual(['prompt', 'brief', 'submit']);
   });
 });
+
+describe('CampaignWizard — auto-draft on arrival', () => {
+  beforeEach(() => {
+    navMocks.state.step = null;
+    navMocks.replaceMock.mockClear();
+  });
+
+  const promptInitial = {
+    defaultBrief: { prompt: 'summer chili-oil launch', description: 'summer chili-oil launch' },
+  };
+
+  it('shows the drafting overlay (not the prompt entry) when a prompt is present', () => {
+    const html = renderToStaticMarkup(<CampaignWizard initial={promptInitial} />);
+    expect(html).toContain('data-testid="drafting-overlay"');
+    expect(html).not.toContain('data-testid="prompt-step"');
+    expect(html).not.toContain('data-testid="brief-step"');
+  });
+
+  it('marks review as the current dot while auto-drafting (2-step dots)', () => {
+    const html = renderToStaticMarkup(<CampaignWizard initial={promptInitial} />);
+    // Two dots only: review (01, current) · cook (02, upcoming).
+    expect(html).toMatch(/data-state="current"[^>]*>\s*01\s*·\s*review/);
+    expect(html).toMatch(/data-state="upcoming"[^>]*>\s*02\s*·\s*cook/);
+    expect(html).not.toContain('describe');
+  });
+
+  it('still shows the prompt entry when no prompt is present', () => {
+    const html = renderToStaticMarkup(<CampaignWizard />);
+    expect(html).toContain('data-testid="prompt-step"');
+    expect(html).not.toContain('data-testid="drafting-overlay"');
+  });
+});
