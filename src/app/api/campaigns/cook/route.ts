@@ -105,23 +105,20 @@ export async function POST(req: NextRequest) {
       const preset = PRESETS[id];
       const adCopy = adCopyMap[id] ?? null;
       const provided = clientEnhanced?.[id];
-      const enhanced: EnhancedPrompt = provided
-        ? {
-            base: provided.base ?? '',
-            brandLayer: provided.brandLayer ?? '',
-            styleLayer: provided.styleLayer ?? '',
-            finalPrompt: provided.finalPrompt,
-            negativePrompt: provided.negativePrompt ?? '',
-            aspectRatio: provided.aspectRatio,
-            userOverride: provided.userOverride,
-          }
-        : buildCampaignPrompt({
-            brief,
-            brand,
-            preset,
-            referenceCount: refUrls.length,
-            adCopy,
-          });
+      // Always rebuild the prompt with adCopy so the headline/subhead/CTA render
+      // directives reach the model. The client enhancedPrompts come from
+      // /preview, which builds WITHOUT adCopy (so its finalPrompt actively says
+      // "no text overlay"); submitting it verbatim is why cooked images had no
+      // baked-in text until "fix layout". We only carry over the user's manual
+      // prompt override from the wizard. Mirrors the regenerate route.
+      const enhanced: EnhancedPrompt = buildCampaignPrompt({
+        brief,
+        brand,
+        preset,
+        referenceCount: refUrls.length,
+        adCopy,
+        ...(provided?.userOverride ? { userOverride: provided.userOverride } : {}),
+      });
       const finalPrompt = resolveFinalPrompt(enhanced);
       const input: VitrineImageGenInput = {
         prompt: finalPrompt,

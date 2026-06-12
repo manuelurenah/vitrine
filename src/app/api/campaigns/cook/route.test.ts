@@ -202,26 +202,34 @@ describe('POST /api/campaigns/cook', () => {
     });
     await POST(makeRequest(body) as never);
     const prompts = submitImageGenMock.mock.calls.map((c) => c[1].prompt);
+    // The override is honored verbatim for ig-feed…
     expect(prompts).toContain('MY CUSTOM OVERRIDE PROMPT');
-    expect(prompts).toContain('auto-built prompt for story');
+    // …while ig-story (no override) is rebuilt with copy directives, so neither
+    // copy-less preview finalPrompt is submitted.
+    expect(prompts).not.toContain('auto-built prompt for story');
     expect(prompts).not.toContain('auto-built prompt for feed');
+    expect(prompts.some((p: string) => p.includes('render the headline'))).toBe(true);
   });
 
-  it('uses provided enhancedPrompts.finalPrompt when no override', async () => {
+  it('rebuilds with copy directives (discarding the copy-less preview prompt) when no override', async () => {
     const body = validBody({
       presetIds: ['ig-feed'],
       enhancedPrompts: {
         'ig-feed': {
-          finalPrompt: 'preview prompt for feed',
+          finalPrompt: 'preview prompt for feed, no text overlay',
           negativePrompt: 'low quality',
           aspectRatio: '4:5',
         },
       },
     });
     await POST(makeRequest(body) as never);
-    expect(submitImageGenMock.mock.calls[0]![1].prompt).toBe('preview prompt for feed');
-    expect(submitImageGenMock.mock.calls[0]![1].aspectRatio).toBe('4:5');
-    expect(submitImageGenMock.mock.calls[0]![1].negativePrompt).toBe('low quality');
+    const submitted = submitImageGenMock.mock.calls[0]![1];
+    // adCopy is generated (validBody supplies none) → copy directives injected,
+    // and the preview's copy-less finalPrompt is not submitted.
+    expect(submitted.prompt).not.toBe('preview prompt for feed, no text overlay');
+    expect(submitted.prompt).toContain('render the headline');
+    expect(submitted.aspectRatio).toBe('4:5');
+    expect(submitted.negativePrompt).toContain('misspelled text');
   });
 
   it('builds prompt from scratch when enhancedPrompts absent', async () => {
@@ -231,6 +239,33 @@ describe('POST /api/campaigns/cook', () => {
     expect(prompt.length).toBeGreaterThan(0);
     // The builder includes the description text
     expect(prompt).toContain('A campaign description for spring');
+  });
+
+  it('injects copy directives into the submitted prompt even when client enhancedPrompts omit them', async () => {
+    // Real wizard payload: /preview builds copy-less enhancedPrompts (it never
+    // sees adCopy), and adCopy is sent alongside. The submitted prompt MUST
+    // carry the headline/subhead/CTA render directives — otherwise the model
+    // bakes no text and the user has to hit "fix layout". Regression guard for
+    // the cook-vs-regenerate inconsistency.
+    const body = validBody({
+      presetIds: ['ig-feed'],
+      enhancedPrompts: {
+        'ig-feed': {
+          finalPrompt: 'product hero shot, no text overlay',
+          negativePrompt: 'low quality',
+          aspectRatio: '4:5',
+        },
+      },
+      adCopy: {
+        'ig-feed': { headline: 'CLARITY BOTTLED', subhead: 'wakes your skin up', cta: 'Shop now' },
+      },
+    });
+    await POST(makeRequest(body) as never);
+    const submitted = submitImageGenMock.mock.calls[0]![1];
+    expect(submitted.prompt).toContain('CLARITY BOTTLED'); // headline baked in
+    expect(submitted.prompt).toContain('render the headline'); // copyLayer directive present
+    expect(submitted.prompt).not.toContain('no text overlay'); // copy-less preview prompt discarded
+    expect(submitted.negativePrompt).toContain('misspelled text'); // text-aware negative used
   });
 
   it('records one estimate buzz event + one generation per submitted tile', async () => {
