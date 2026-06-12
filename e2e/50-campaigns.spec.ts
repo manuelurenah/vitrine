@@ -14,19 +14,22 @@ test.describe('Campaigns list + wizard', () => {
     await expect(page.getByRole('heading', { name: /campaigns\./i })).toBeVisible();
   });
 
-  test('new wizard renders the prompt step by default', async ({ page, baseURL }) => {
+  test('new wizard renders the prompt entry by default (no incoming prompt)', async ({
+    page,
+    baseURL,
+  }) => {
     await signInToApp(page, baseURL!);
     await page.goto(`${baseURL}/campaigns/new`);
 
-    // Default landing is the prompt step — parseStep returns 'prompt' for any
-    // unrecognised or absent ?step= param. Confirmed by CampaignWizard.test.tsx:
-    // "renders the prompt step by default".
+    // No ?prompt= → the slimmed prompt entry (prompt + references + generate).
     await expect(page.getByTestId('prompt-step')).toBeVisible();
     await expect(page.getByTestId('prompt-input')).toBeVisible();
     await expect(page.getByTestId('prompt-continue')).toBeVisible();
+    // Format picker + variants now live on the review step, not here.
+    await expect(page.getByTestId('variants-stepper')).toHaveCount(0);
   });
 
-  test('prompt → brief → cook → /campaigns/[id] with skeletons & populated tiles', async ({
+  test('auto-draft → brief → cook → /campaigns/[id] with skeletons & populated tiles', async ({
     page,
     baseURL,
   }) => {
@@ -35,40 +38,35 @@ test.describe('Campaigns list + wizard', () => {
     test.setTimeout(180_000);
 
     await signInToApp(page, baseURL!);
-    await page.goto(`${baseURL}/campaigns/new`);
 
-    // Step 1: prompt — fill the prompt textarea, optionally bump variants.
-    await expect(page.getByTestId('prompt-step')).toBeVisible();
-    await page
-      .getByTestId('prompt-input')
-      .fill('summer chili-oil product launch — warm tones, bold copy');
+    // Arrive WITH a prompt (mirrors the composer). The wizard auto-fires the
+    // draft on mount and lands on the brief step — no manual "draft brief" click.
+    const prompt = 'summer chili-oil product launch — warm tones, bold copy';
+    await page.goto(`${baseURL}/campaigns/new?prompt=${encodeURIComponent(prompt)}`);
 
-    // Variants stepper is on the prompt step. Bump from 1 → 2.
-    const stepper = page.getByTestId('variants-stepper');
-    await expect(stepper).toBeVisible();
-    const initialVariants = await page.getByTestId('variants-value').textContent();
-    await stepper.getByRole('button', { name: /increment variants/i }).click();
-    await expect(page.getByTestId('variants-value')).not.toHaveText(initialVariants ?? '1');
+    // The drafting overlay renders from the first paint (auto-draft is decided
+    // during render, not in an effect), so it's up well before the LLM returns.
+    await expect(page.getByTestId('drafting-overlay')).toBeVisible();
 
-    // Click "draft brief" — fires POST /api/campaigns/draft (real server route
-    // backed by the LLM chain in lib/adCopy.ts). The wizard shows a drafting
-    // overlay, then transitions to the brief step on success. We give 60s here
-    // because the LLM chain may fall back across multiple models.
-    await page.getByTestId('prompt-continue').click();
-
-    // Step 2: brief — wait for the brief step + verify key elements.
-    // The draft fills brief fields; a buzz preview auto-schedules on entry.
+    // ...then the brief step appears once the draft lands. 60s covers
+    // multi-model fallback.
     await expect(page.getByTestId('brief-step')).toBeVisible({ timeout: 60_000 });
 
-    // Ad-copy cards for each preset are always rendered on the brief step
-    // (not gated on preview).
+    // Variants stepper now lives on the brief step. It starts at 1; bump to 2.
+    const stepper = page.getByTestId('variants-stepper');
+    await expect(stepper).toBeVisible();
+    await expect(page.getByTestId('variants-value')).toHaveText('1');
+    await stepper.getByRole('button', { name: 'increment variants' }).click();
+    await expect(page.getByTestId('variants-value')).toHaveText('2');
+
+    // Ad-copy cards for each preset are always rendered on the brief step.
     const adCopyCards = page.locator('[data-testid^="adcopy-card-"]');
     await expect(adCopyCards.first()).toBeVisible();
     const firstPresetId = await adCopyCards.first().getAttribute('data-preset-id');
     expect(firstPresetId).toBeTruthy();
 
-    // Expand advanced section — gated on showAdvanced && preview. Wait for
-    // total-buzz to confirm the preview request returned before clicking.
+    // Expand advanced — gated on showAdvanced && preview. Wait for total-buzz
+    // to confirm the preview returned before clicking.
     await expect(page.getByTestId('total-buzz')).toBeVisible({ timeout: 20_000 });
     await page.getByTestId('toggle-advanced').click();
 
@@ -88,15 +86,14 @@ test.describe('Campaigns list + wizard', () => {
     await expect(override).toBeVisible();
     await override.fill('hand-tuned override prompt for e2e — chili oil, dramatic light');
 
-    // Submit. The cook button text encodes the total buzz dynamically, so we
-    // match by test id (not the label).
+    // Cook. Button text encodes the total buzz dynamically — match by test id.
     await page.getByTestId('brief-cook').click();
 
     await page.waitForURL(/\/campaigns\/[\w-]+$/, { timeout: 30_000 });
     await expect(page.locator('h1, h2').first()).toBeVisible();
 
-    // Skeletons render before the first poll resolves (MSW progression goes
-    // pending → processing → succeeded). Real images render after.
+    // Skeletons render before the first poll resolves (MSW pending → processing
+    // → succeeded). Real images render after.
     await expect(page.locator('img').first()).toBeVisible({ timeout: 30_000 });
   });
 });
