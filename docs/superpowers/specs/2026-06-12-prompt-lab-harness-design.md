@@ -38,6 +38,8 @@ what the model baked into pixels.
   not the canvas. Playwright is reserved only for reproducing the two UI bugs.
 - **Cost: no guard.** Dev Buzz is effectively free. Each run estimates only to
   record cost in `meta.json`; there is no abort gate.
+- **Auth: paste the sealed `civ_session` cookie into `.env`** (`PROMPT_LAB_SESSION`).
+  No login script / handshake; the script unseals it and self-refreshes.
 
 ## Goals
 
@@ -60,8 +62,8 @@ what the model baked into pixels.
 
 ```
 scripts/prompt-lab/
-  login.ts      # one-time: mint OAuth tokens → .auth/prompt-lab.json
   run.ts        # build prompt → estimate → submit → poll → download → meta.json
+  auth.ts       # resolve a fresh access token from the pasted session cookie
   fixtures.ts   # sample briefs + brand profiles + reference image URLs
   runs/         # gitignored output: <ts>-<preset>/{01.png, …, meta.json, verdict.md}
 ```
@@ -92,22 +94,32 @@ alias resolution under tsx.
 - The app already submits to the prod orchestrator (`https://orchestration.civitai.com`)
   with a token minted by the local civitai dev server (`CIVITAI_BASE_URL=:3000`).
   The lab does the same.
-- `run.ts` reads `.auth/prompt-lab.json` (OAuth tokens), and refreshes via the
-  SDK's `oauthRefresh()` when within 30s of `expires_at`, writing the refreshed
-  tokens back. 30-day refresh TTL → effectively never re-login.
-- `login.ts` mints the initial tokens by porting the **testing-login handshake**
-  from `e2e/global-setup.ts` (Node fetch + cookie jar against the dev server),
-  then running the app's OAuth code exchange to obtain `{access_token,
-  refresh_token, expires_at}`. **Fallback** if the headless handshake proves
-  fiddly: a one-time Playwright capture that logs in and unseals the `civ_session`
-  cookie with `unsealCookie(value, SESSION_SECRET)` to extract the tokens.
+- **No headless login handshake.** Manuel logs into the app once, copies the
+  sealed `civ_session` cookie from browser devtools (Application → Cookies →
+  `civ_session`; httpOnly hides it from JS, not from the devtools panel), and
+  pastes it into `.env` as `PROMPT_LAB_SESSION=<sealed value>`. The sealed cookie
+  already contains `{access_token, refresh_token, expires_at}`.
+- `auth.ts` resolves a usable access token on every run:
+  1. `unsealCookie(process.env.PROMPT_LAB_SESSION, SESSION_SECRET)` → tokens.
+  2. If `expires_at` is within 30s, `oauthRefresh({ baseUrl: CIVITAI_BASE_URL,
+     clientId, clientSecret, refreshToken })` → fresh tokens; cache them to
+     `.auth/prompt-lab.json` so subsequent runs keep working after the pasted
+     cookie's access token expires (30-day refresh TTL → re-paste ~monthly).
+  3. On refresh failure (stale cookie), exit with a clear "re-paste
+     PROMPT_LAB_SESSION from devtools" message.
+- **Fallback:** `PROMPT_LAB_ACCESS_TOKEN=<raw>` is honored if set, used as-is with
+  no refresh (dies on expiry — quick probes only).
+- `PROMPT_LAB_SESSION` / `PROMPT_LAB_ACCESS_TOKEN` are **script-only** vars read
+  via `process.env` directly; they are not part of the app's `src/lib/env.ts`
+  schema (the app never reads them). Documented in `.env.example` under a
+  prompt-lab section.
 
 ### Runner
 
 - Add `tsx` as a devDependency.
 - `package.json` script: `"prompt-lab": "node --env-file=.env --import tsx scripts/prompt-lab/run.ts"`
-  and `"prompt-lab:login": "node --env-file=.env --import tsx scripts/prompt-lab/login.ts"`
-  (mirrors the existing `node --env-file=.env` convention).
+  (mirrors the existing `node --env-file=.env` convention). No separate login
+  script — auth resolves from `PROMPT_LAB_SESSION` on every run.
 
 ## `run.ts` contract
 
@@ -170,11 +182,12 @@ that reproduces across briefs becomes the next hypothesis.
 
 ## Risks / open questions
 
-- **`login.ts` handshake fragility.** The testing-login → OAuth code exchange is
-  the fiddliest piece. Mitigation: Playwright one-time capture fallback.
+- **Stale pasted cookie.** When the refresh token finally expires (~30 days) or
+  Manuel logs out, refresh fails. Mitigation: clear exit message telling him to
+  re-paste `PROMPT_LAB_SESSION` from devtools.
 - **Dev-server token vs prod orchestrator.** Assumed valid because the app already
   works this way; if the lab gets 401s from the orchestrator, the token audience
-  is wrong and `login.ts` must target the same path the app's callback uses.
+  is wrong — first probe to run before building the full loop.
 - **Reference images dominate output.** Nano Banana 2 weights refs heavily; runs
   with and without `--refs` will be compared so the rubric separates "prompt is
   wrong" from "ref is overpowering the scene."
@@ -183,7 +196,7 @@ that reproduces across briefs becomes the next hypothesis.
 
 - `pnpm typecheck` after the `imageGenBody.ts` extraction (app must be unchanged
   in behavior).
-- `prompt-lab:login` produces `.auth/prompt-lab.json`.
-- `prompt-lab --preset ig-feed` produces a real PNG in `runs/` that Claude can
-  `Read`.
+- With `PROMPT_LAB_SESSION` pasted, `prompt-lab --preset ig-feed` reaches the
+  orchestrator (no 401), produces a real PNG in `runs/` that Claude can `Read`,
+  and writes `meta.json` with a non-zero cost.
 - App e2e/unit suites stay green (the refactor is import-only).
