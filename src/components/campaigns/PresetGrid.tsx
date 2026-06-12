@@ -50,21 +50,24 @@ function Glyph({ kind }: { kind: PresetGlyph }) {
   return <Layers {...props} />;
 }
 
-type Props = { onChange?: (ids: string[]) => void };
+type Props = {
+  /** When provided, the grid is controlled and renders exactly these ids. */
+  value?: string[];
+  onChange?: (ids: string[]) => void;
+};
 
-export function PresetGrid({ onChange }: Props) {
-  const [selected, setSelected] = useState<Set<string>>(
+export function PresetGrid({ value, onChange }: Props) {
+  const [internal, setInternal] = useState<Set<string>>(
     () => new Set(PRESETS.filter((p) => p.defaultOn).map((p) => p.id)),
   );
+  const selected = value !== undefined ? new Set(value) : internal;
 
   function toggle(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      onChange?.(Array.from(next));
-      return next;
-    });
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    if (value === undefined) setInternal(next);
+    onChange?.(Array.from(next));
   }
 
   return (
