@@ -2,7 +2,7 @@
 
 import { ImageIcon, Mic, ShoppingBag, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type KeyboardEvent, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
 import { Button, Chip, IconButton, Modal } from '@/components/ui';
 
@@ -35,6 +35,14 @@ interface SpeechRecognitionResultEvent {
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
 
+// Speech support is a fixed browser capability — it never changes at runtime,
+// so the store never emits. useSyncExternalStore lets us read a client-only
+// value (false on the server, real value on the client) without a setState
+// effect or a hydration mismatch.
+const subscribeSpeechSupport = () => () => {};
+const getSpeechSupportSnapshot = () => getSpeechRecognition() !== null;
+const getSpeechSupportServerSnapshot = () => false;
+
 function getSpeechRecognition(): SpeechRecognitionConstructor | null {
   if (typeof window === 'undefined') return null;
   const w = window as unknown as Record<string, unknown>;
@@ -51,12 +59,12 @@ export function PromptComposer({ placeholder = 'describe the campaign you want t
   const [refs, setRefs] = useState<string[]>([]);
   const [pickerTab, setPickerTab] = useState<PickerTab | null>(null);
   const [listening, setListening] = useState(false);
-  const [speechSupported, setSpeechSupported] = useState(false);
+  const speechSupported = useSyncExternalStore(
+    subscribeSpeechSupport,
+    getSpeechSupportSnapshot,
+    getSpeechSupportServerSnapshot,
+  );
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
-
-  useEffect(() => {
-    setSpeechSupported(getSpeechRecognition() !== null);
-  }, []);
 
   const canSubmit = value.trim().length > 0;
 
@@ -158,8 +166,8 @@ export function PromptComposer({ placeholder = 'describe the campaign you want t
             disabled={!speechSupported}
             onClick={handleMicClick}
             variant="ghost"
-            size="sm"
-            className={listening ? 'text-volt' : undefined}
+            size="md"
+            className={listening ? 'text-volt' : 'text-fg-1'}
             title={
               speechSupported
                 ? listening

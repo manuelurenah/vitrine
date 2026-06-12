@@ -27,16 +27,26 @@ export function BottomSheet({ open, onClose, title, eyebrow, children, footer, c
   const [render, setRender] = useState(open);
   // enter drives the CSS classes for open/closed transition states
   const [enter, setEnter] = useState(false);
+  const [prevOpen, setPrevOpen] = useState(open);
+
+  // Drive the mount/exit transitions off `open` at render time rather than with a
+  // synchronous setState inside the effect (which triggers cascading renders).
+  // Mount immediately on open; begin the exit immediately on close. The async
+  // edges — play enter next frame, unmount after the transition — stay in the
+  // effect below.
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setRender(true);
+    else setEnter(false);
+  }
 
   useEffect(() => {
     if (open) {
-      setRender(true);
       // Defer enter so the opening transition is seen (browser needs one frame)
       const raf = requestAnimationFrame(() => setEnter(true));
       return () => cancelAnimationFrame(raf);
     }
-    // Start exit: remove enter, then unmount after transition (>160ms)
-    setEnter(false);
+    // Unmount after the exit transition (>160ms)
     const t = setTimeout(() => setRender(false), 180);
     return () => clearTimeout(t);
   }, [open]);

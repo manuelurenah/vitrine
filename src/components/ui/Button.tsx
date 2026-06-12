@@ -33,16 +33,26 @@ const variants: Record<ButtonVariant, string> = {
     'disabled:bg-bg-3 disabled:text-fg-3 disabled:border-line',
 };
 
+// Height / text / radius only — horizontal padding is applied separately so
+// icon-only buttons don't emit a conflicting `px-*` class. `cn` is a plain
+// join (no tailwind-merge), so two `px-*` utilities would both render and the
+// arbitrary value wins regardless of order, squeezing the icon.
 const sizes: Record<ButtonSize, string> = {
-  sm: 'h-7 px-[10px] text-xs rounded-[7px]',
-  md: 'h-9 px-[14px] text-[13.5px] rounded-[9px]',
-  lg: 'h-11 px-[22px] text-[14.5px] rounded-[10px]',
+  sm: 'h-7 text-xs rounded-[7px]',
+  md: 'h-9 text-[13.5px] rounded-[9px]',
+  lg: 'h-11 text-[14.5px] rounded-[10px]',
+};
+
+const paddingX: Record<ButtonSize, string> = {
+  sm: 'px-[10px]',
+  md: 'px-[14px]',
+  lg: 'px-[22px]',
 };
 
 const iconSizes: Record<ButtonSize, string> = {
-  sm: 'w-7 px-0 justify-center',
-  md: 'w-9 px-0 justify-center',
-  lg: 'w-11 px-0 justify-center',
+  sm: 'w-7 justify-center',
+  md: 'w-9 justify-center',
+  lg: 'w-11 justify-center',
 };
 
 export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
@@ -63,7 +73,13 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
     <button
       ref={ref}
       type={type}
-      className={cn(base, sizes[size], variants[variant], iconOnly && iconSizes[size], className)}
+      className={cn(
+        base,
+        sizes[size],
+        iconOnly ? iconSizes[size] : paddingX[size],
+        variants[variant],
+        className,
+      )}
       {...rest}
     >
       {leadingIcon}
