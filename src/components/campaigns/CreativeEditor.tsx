@@ -161,6 +161,8 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
       const body: Record<string, unknown> = {};
       if (fixLayout) {
         body.promptHint = '[fix layout: improve composition, balance, legibility]';
+        // Re-layout the current creative, not the original product reference.
+        body.relayout = true;
       }
       const res = await fetch(`/api/campaigns/${campaignId}/tiles/${tile.id}/regenerate`, {
         method: 'POST',

@@ -60,6 +60,27 @@ function makeRequest(): Request {
   });
 }
 
+function makeRelayoutRequest(): Request {
+  return new Request('http://localhost/api/campaigns/c1/tiles/t1/regenerate', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ relayout: true }),
+  });
+}
+
+function doneTileWithImage(assetUrl: string | null) {
+  return {
+    id: 't1',
+    presetId: 'ig-feed',
+    workflowId: 'wf_old',
+    status: 'done',
+    prompt: 'old prompt',
+    quantity: 1,
+    adCopy: { headline: 'H', subhead: 'S', cta: 'Buy' },
+    assetUrl,
+  };
+}
+
 function makeParams(id = 'c1', tileId = 't1') {
   return { params: Promise.resolve({ id, tileId }) };
 }
@@ -197,6 +218,43 @@ describe('POST /api/campaigns/[id]/tiles/[tileId]/regenerate', () => {
       'https://cdn.test/a1',
       'https://cdn.test/a2',
     ]);
+  });
+
+  it('fix-layout (relayout) re-edits the current generated image, not the product reference', async () => {
+    getCampaignMock.mockResolvedValueOnce(
+      makeCampaign({
+        referenceAssetIds: ['a1'], // product ref present, but relayout must ignore it
+        tiles: [doneTileWithImage('https://blob.test/current-creative.jpg')],
+      }),
+    );
+    const res = await POST(makeRelayoutRequest() as never, makeParams());
+    expect(res.status).toBe(200);
+    // The edit base is the tile's current image, NOT the product reference.
+    expect(submitImageGenMock.mock.calls[0]![1].images).toEqual([
+      'https://blob.test/current-creative.jpg',
+    ]);
+  });
+
+  it('relayout falls back to product refs when the tile has no current image', async () => {
+    getCampaignMock.mockResolvedValueOnce(
+      makeCampaign({
+        referenceAssetIds: ['a1'],
+        tiles: [doneTileWithImage(null)],
+      }),
+    );
+    await POST(makeRelayoutRequest() as never, makeParams());
+    expect(submitImageGenMock.mock.calls[0]![1].images).toEqual(['https://cdn.test/a1']);
+  });
+
+  it('plain regenerate (no relayout) still uses the product reference', async () => {
+    getCampaignMock.mockResolvedValueOnce(
+      makeCampaign({
+        referenceAssetIds: ['a1'],
+        tiles: [doneTileWithImage('https://blob.test/current-creative.jpg')],
+      }),
+    );
+    await POST(makeRequest() as never, makeParams());
+    expect(submitImageGenMock.mock.calls[0]![1].images).toEqual(['https://cdn.test/a1']);
   });
 
   it('passes tile.quantity as numImages', async () => {

@@ -13,7 +13,13 @@ import { getUserKey } from '@/lib/userKey';
 
 type Params = Promise<{ id: string; tileId: string }>;
 
-const bodySchema = z.object({ promptHint: z.string().max(400).optional() }).optional();
+const bodySchema = z
+  .object({
+    promptHint: z.string().max(400).optional(),
+    /** Fix-layout: re-edit the tile's current creative instead of the product refs. */
+    relayout: z.boolean().optional(),
+  })
+  .optional();
 
 function isEnhancedPrompt(value: unknown): value is EnhancedPrompt {
   if (!value || typeof value !== 'object') return false;
@@ -28,6 +34,7 @@ export async function POST(req: NextRequest, ctx: { params: Params }) {
   const rawBody = await req.json().catch(() => ({}));
   const parsedBody = bodySchema.safeParse(rawBody);
   const promptHint = parsedBody.success ? parsedBody.data?.promptHint : undefined;
+  const relayout = parsedBody.success ? (parsedBody.data?.relayout ?? false) : false;
 
   const userKey = await getUserKey(session);
   const { id, tileId } = await ctx.params;
@@ -55,6 +62,12 @@ export async function POST(req: NextRequest, ctx: { params: Params }) {
     throw err;
   }
 
+  // Fix-layout re-balances the EXISTING creative, so it must edit the tile's
+  // current generated image — not the original product reference, which would
+  // throw away the cooked scene and revert the background to the raw product
+  // photo. Plain regenerate keeps using the product refs for a fresh variation.
+  const editImages = relayout && tile.assetUrl ? [tile.assetUrl] : refUrls;
+
   // When the tile has ad copy, rebuild from the brief so the render directives
   // (which live inside finalPrompt) stay current with the stored copy.
   // Otherwise reuse the original persisted enhanced prompt for stable variation.
@@ -64,7 +77,7 @@ export async function POST(req: NextRequest, ctx: { params: Params }) {
         brief: campaign.brief,
         brand,
         preset,
-        referenceCount: refUrls.length,
+        referenceCount: editImages.length,
         adCopy: tile.adCopy,
       })
     : isEnhancedPrompt(persisted)
@@ -73,7 +86,7 @@ export async function POST(req: NextRequest, ctx: { params: Params }) {
           brief: campaign.brief,
           brand,
           preset,
-          referenceCount: refUrls.length,
+          referenceCount: editImages.length,
         });
 
   const variation = Math.floor(Math.random() * 1000);
@@ -88,7 +101,7 @@ export async function POST(req: NextRequest, ctx: { params: Params }) {
     aspectRatio: enhanced.aspectRatio,
     numImages: quantity,
     ...(enhanced.negativePrompt ? { negativePrompt: enhanced.negativePrompt } : {}),
-    ...(refUrls.length > 0 ? { images: refUrls } : {}),
+    ...(editImages.length > 0 ? { images: editImages } : {}),
   };
 
   try {
