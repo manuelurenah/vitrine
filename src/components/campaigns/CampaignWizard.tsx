@@ -357,6 +357,7 @@ export function CampaignWizard({ initial, fetcher }: Props) {
           adCopy={adCopy}
           setAdCopy={setAdCopy}
           presetIds={presetIds}
+          setPresetIds={setPresetIds}
           variantsPerPreset={variantsPerPreset}
           setVariantsPerPreset={setVariantsPerPreset}
           preview={preview}
@@ -630,6 +631,7 @@ type BriefStepProps = {
   adCopy: Record<string, AdCopyShape>;
   setAdCopy: (next: Record<string, AdCopyShape>) => void;
   presetIds: string[];
+  setPresetIds: (ids: string[]) => void;
   variantsPerPreset: number;
   setVariantsPerPreset: (n: number) => void;
   preview: CampaignPreviewResponse | null;
@@ -659,6 +661,7 @@ function BriefStep({
   adCopy,
   setAdCopy,
   presetIds,
+  setPresetIds,
   variantsPerPreset,
   setVariantsPerPreset,
   preview,
@@ -690,6 +693,7 @@ function BriefStep({
   }
   const total = preview?.totalBuzz ?? 0;
   const insufficientBuzz = typeof buzzBalance === 'number' && total > 0 && total > buzzBalance;
+  const noPresets = presetIds.length === 0;
 
   return (
     <div className="flex flex-col gap-5" data-testid="brief-step">
@@ -813,6 +817,11 @@ function BriefStep({
           />
         </div>
       </div>
+
+      <section>
+        <FieldLabel>output formats</FieldLabel>
+        <PresetGrid value={presetIds} onChange={setPresetIds} />
+      </section>
 
       <section className="grid gap-4 md:grid-cols-2">
         <div>
@@ -1050,11 +1059,16 @@ function BriefStep({
             </a>
           </span>
         )}
+        {noPresets && (
+          <span className="font-mono text-[11.5px] text-danger" data-testid="no-presets">
+            pick at least one format
+          </span>
+        )}
         <Button
           variant="primary"
           size="lg"
           onClick={onCook}
-          disabled={insufficientBuzz}
+          disabled={insufficientBuzz || noPresets}
           leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
           data-testid="brief-cook"
         >

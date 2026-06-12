@@ -331,6 +331,30 @@ describe('CampaignWizard — prompt step rendering', () => {
     expect(html).toContain('data-testid="brief-step"');
     expect(html).toContain('data-testid="brief-cook"');
   });
+
+  it('renders the format picker and variants stepper on the brief step', () => {
+    navMocks.state.step = 'brief';
+    const html = renderToStaticMarkup(<CampaignWizard />);
+    expect(html).toContain('data-testid="brief-step"');
+    expect(html).toContain('data-testid="preset-grid-stub"');
+    expect(html).toContain('data-testid="variants-stepper"');
+  });
+
+  it('warns and blocks cook when no formats are selected on the brief step', () => {
+    navMocks.state.step = 'brief';
+    // The same `noPresets` boolean both shows this message and disables cook,
+    // so asserting the message is a faithful proxy for the disabled state
+    // (and avoids matching on SSR attribute order — the variants stepper also
+    // emits a `disabled` attribute).
+    const empty = renderToStaticMarkup(
+      <CampaignWizard initial={{ defaultBrief: { presetIds: [] } }} />,
+    );
+    expect(empty).toContain('data-testid="no-presets"');
+
+    // With the default (non-empty) presets the warning is absent.
+    const seeded = renderToStaticMarkup(<CampaignWizard />);
+    expect(seeded).not.toContain('data-testid="no-presets"');
+  });
 });
 
 /* -------------------------------------------------------------------------- */
