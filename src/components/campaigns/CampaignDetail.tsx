@@ -52,7 +52,11 @@ export function CampaignDetail({ campaign }: Props) {
           title="creatives"
           count={`${campaign.tiles.length}`}
           action={
-            <span className="font-mono text-[10.5px] uppercase tracking-[0.1em]">live polling</span>
+            isCooking ? (
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.1em]">
+                live polling
+              </span>
+            ) : undefined
           }
         />
         <CampaignCreativeGrid campaignId={campaign.id} tiles={campaign.tiles} />

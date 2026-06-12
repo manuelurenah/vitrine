@@ -17,12 +17,14 @@ export default async function CampaignsPage() {
   const past = campaigns.map((c, i) => {
     const live = c.tiles.filter((t) => t.status === 'done').length;
     const total = c.tiles.length;
+    const done = total > 0 && live === total;
     return {
       id: c.id,
       name: c.title,
       date: relativeDate(c.createdAt),
       count: `${total} creatives${live > 0 && live < total ? ` · ${total - live} cooking` : ''}`,
-      status: live === total && total > 0 ? ('live' as const) : ('cooking' as const),
+      // Done campaigns show no badge; only surface the `cooking` state.
+      status: done ? null : ('cooking' as const),
       tone: TONE_CYCLE[i % TONE_CYCLE.length]!,
     };
   });

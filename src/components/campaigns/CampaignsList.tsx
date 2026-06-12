@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import type { BadgeKind } from '@/components/ui';
 import { FAB } from '@/components/shell';
+import type { BadgeKind } from '@/components/ui';
 import { useMediaQuery } from '@/components/ui/useMediaQuery';
 import { relativeDate } from '@/lib/relativeDate';
 import { GradientThumb, type ThumbTone } from './GradientThumb';
@@ -17,7 +17,7 @@ type PastCampaign = {
   name: string;
   date: string;
   count: string;
-  status: BadgeKind;
+  status: BadgeKind | null;
   tone: ThumbTone;
 };
 

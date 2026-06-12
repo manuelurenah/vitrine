@@ -13,8 +13,9 @@ const { refreshGenerationSnapshotMock } = vi.hoisted(() => ({
 const { getGenerationMock } = vi.hoisted(() => ({ getGenerationMock: vi.fn() }));
 const { markTileFailedMock } = vi.hoisted(() => ({ markTileFailedMock: vi.fn() }));
 const { syncAssetsFromSnapshotMock } = vi.hoisted(() => ({
-  // Regression guard — this should NEVER be called from the workflow route.
-  // We export the mock so tests can assert on its (lack of) invocation.
+  // Called on terminal SUCCESS to create asset rows + flip the tile to `done`.
+  // Must NOT be called on terminal failure. We export the mock so tests can
+  // assert on its invocation in both directions.
   syncAssetsFromSnapshotMock: vi.fn(),
 }));
 const { recordBuzzEventMock } = vi.hoisted(() => ({ recordBuzzEventMock: vi.fn() }));
@@ -110,7 +111,7 @@ describe('GET /api/workflow/[id]', () => {
     expect(updateGenerationFromSnapshotMock).not.toHaveBeenCalled();
   });
 
-  it('on terminal success: updates generation, does NOT call syncAssetsFromSnapshot (regression guard)', async () => {
+  it('on terminal success: updates generation AND syncs assets / marks tile done', async () => {
     pollWorkflowMock.mockResolvedValueOnce({
       id: 'wf_1',
       status: 'succeeded',
@@ -120,8 +121,13 @@ describe('GET /api/workflow/[id]', () => {
     const res = await GET(makeRequest() as never, makeCtx());
     expect(res.status).toBe(200);
     expect(updateGenerationFromSnapshotMock).toHaveBeenCalledTimes(1);
-    // The critical regression guard:
-    expect(syncAssetsFromSnapshotMock).not.toHaveBeenCalled();
+    // Terminal success must flip the tile to `done` (otherwise the badge stays
+    // `cooking` forever). Assets are owned by the requesting user.
+    expect(syncAssetsFromSnapshotMock).toHaveBeenCalledTimes(1);
+    expect(syncAssetsFromSnapshotMock).toHaveBeenCalledWith(
+      'user_1',
+      expect.objectContaining({ id: 'wf_1', status: 'succeeded' }),
+    );
     expect(markTileFailedMock).not.toHaveBeenCalled();
   });
 

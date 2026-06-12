@@ -6,7 +6,7 @@ import {
   type WorkflowSnapshot,
 } from '@civitai/app-sdk/orchestrator';
 import { type NextRequest, NextResponse } from 'next/server';
-import { markTileFailed } from '@/lib/assets';
+import { markTileFailed, syncAssetsFromSnapshot } from '@/lib/assets';
 import { recordBuzzEvent } from '@/lib/buzz';
 import { env } from '@/lib/env';
 import {
@@ -26,10 +26,14 @@ import { getUserKey } from '@/lib/userKey';
 
 const MAX_WAIT_MS = 30_000; // stay under most proxy / Vercel function timeouts
 
-/** Successful terminal status check. */
+/**
+ * Successful terminal status check. Matches `succe`(eded/ss) — note the
+ * canonical orchestrator status is `succeeded`, which does NOT contain the
+ * substring `success`, so we key off the shared `succe` prefix instead.
+ */
 function isSuccess(snapshot: WorkflowSnapshot): boolean {
   const s = String(snapshot.status ?? '').toLowerCase();
-  return s.includes('success') || s.includes('done') || s.includes('complete');
+  return s.includes('succe') || s.includes('done') || s.includes('complete');
 }
 
 /**
@@ -88,6 +92,13 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       const status = String(snapshot.status ?? '').toLowerCase();
       if (status.includes('fail') || status.includes('error')) {
         await markTileFailed(id, status || 'failed');
+      } else if (isSuccess(snapshot)) {
+        // Terminal success: create asset rows from the produced images and flip
+        // the originating tile to `done`. Idempotent (onConflictDoNothing on
+        // bucket+storageKey) so repeated terminal polls don't duplicate assets.
+        // Without this the tile's DB status stays `cooking` forever and the
+        // campaign/photoshoot badges never resolve.
+        await syncAssetsFromSnapshot(userKey, snapshot);
       }
       if (charged > 0 && previouslyCharged !== charged) {
         await recordBuzzEvent({

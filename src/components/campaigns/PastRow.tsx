@@ -6,7 +6,7 @@ type Props = {
   name: string;
   date: string;
   count: string;
-  status: BadgeKind;
+  status?: BadgeKind | null;
   tone?: ThumbTone;
   last?: boolean;
 };
@@ -26,7 +26,7 @@ export function PastRow({ name, date, count, status, tone, last }: Props) {
           {date} · {count}
         </div>
       </div>
-      <Badge kind={status}>{status}</Badge>
+      {status && <Badge kind={status}>{status}</Badge>}
       <button
         type="button"
         aria-label="more"
