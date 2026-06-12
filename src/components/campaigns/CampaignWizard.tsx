@@ -176,6 +176,10 @@ export function CampaignWizard({ initial, fetcher }: Props) {
         setDraftError('write a prompt first');
         return;
       }
+      // presetIds is seeded to DEFAULT_PRESETS and the only control that can
+      // empty it is the format picker (on the review step). So this guard never
+      // fires from the prompt entry — it catches an empty selection on the
+      // review step's regenerate.
       if (presetIds.length === 0) {
         setDraftError('pick at least one preset');
         return;
@@ -339,12 +343,8 @@ export function CampaignWizard({ initial, fetcher }: Props) {
         <PromptStep
           brief={brief}
           setBrief={setBrief}
-          presetIds={presetIds}
-          setPresetIds={setPresetIds}
           referenceAssetIds={referenceAssetIds}
           setReferenceAssetIds={setReferenceAssetIds}
-          variantsPerPreset={variantsPerPreset}
-          setVariantsPerPreset={setVariantsPerPreset}
           drafting={drafting}
           error={draftError}
           onContinue={handleGenerateDraft}
@@ -435,12 +435,8 @@ function StepDots({ steps, step }: { steps: Step[]; step: Step }) {
 type PromptStepProps = {
   brief: PreviewBrief;
   setBrief: (next: PreviewBrief) => void;
-  presetIds: string[];
-  setPresetIds: (ids: string[]) => void;
   referenceAssetIds: string[];
   setReferenceAssetIds: (ids: string[]) => void;
-  variantsPerPreset: number;
-  setVariantsPerPreset: (n: number) => void;
   drafting: boolean;
   error: string | null;
   onContinue: (e: React.FormEvent) => void;
@@ -449,17 +445,13 @@ type PromptStepProps = {
 function PromptStep({
   brief,
   setBrief,
-  presetIds,
-  setPresetIds,
   referenceAssetIds,
   setReferenceAssetIds,
-  variantsPerPreset,
-  setVariantsPerPreset,
   drafting,
   error,
   onContinue,
 }: PromptStepProps) {
-  const totalCreatives = presetIds.length * variantsPerPreset;
+  const canSubmit = brief.prompt.trim().length > 0;
 
   return (
     <form className="flex flex-col gap-6" onSubmit={onContinue} data-testid="prompt-step">
@@ -477,31 +469,13 @@ function PromptStep({
         />
         <p className="mt-1 font-mono text-[10.5px] text-fg-3">
           we&rsquo;ll use this + your brand DNA to draft a full brief with copy for each placement.
+          you&rsquo;ll pick formats and quantities on the next step.
         </p>
       </div>
 
       <section>
         <FieldLabel>references</FieldLabel>
         <AssetCatalogPicker value={referenceAssetIds} onChange={setReferenceAssetIds} max={4} />
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-2">
-        <div>
-          <FieldLabel htmlFor="prompt-variants">variants per preset</FieldLabel>
-          <VariantsStepper value={variantsPerPreset} onChange={setVariantsPerPreset} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <FieldLabel>total creatives</FieldLabel>
-          <div className="font-mono text-[15px] text-fg-0">
-            {presetIds.length} preset{presetIds.length === 1 ? '' : 's'} × {variantsPerPreset} ={' '}
-            {totalCreatives}
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <FieldLabel>output formats</FieldLabel>
-        <PresetGrid onChange={setPresetIds} />
       </section>
 
       <div className="flex flex-wrap items-center gap-4 border-t border-line-subtle pt-4">
@@ -518,7 +492,7 @@ function PromptStep({
           variant="primary"
           size="lg"
           type="submit"
-          disabled={drafting || presetIds.length === 0}
+          disabled={drafting || !canSubmit}
           leadingIcon={
             drafting ? (
               <Loader2 size={14} strokeWidth={1.75} className="animate-spin" />
@@ -528,7 +502,7 @@ function PromptStep({
           }
           data-testid="prompt-continue"
         >
-          {drafting ? 'drafting…' : 'draft brief'}
+          {drafting ? 'drafting…' : 'generate brief'}
         </Button>
       </div>
     </form>

@@ -317,11 +317,12 @@ describe('CampaignWizard — prompt step rendering', () => {
     navMocks.replaceMock.mockClear();
   });
 
-  it('renders the draft-brief CTA and the variants stepper', () => {
+  it('renders the generate CTA but no format picker or variants on the prompt step', () => {
     const html = renderToStaticMarkup(<CampaignWizard />);
     expect(html).toContain('data-testid="prompt-continue"');
-    expect(html).toContain('data-testid="variants-stepper"');
-    expect(html).toContain('data-testid="variants-value"');
+    // Format picker + variants moved to the review step.
+    expect(html).not.toContain('data-testid="preset-grid-stub"');
+    expect(html).not.toContain('data-testid="variants-stepper"');
   });
 
   it('renders the brief step at ?step=brief with the cook CTA visible', () => {
