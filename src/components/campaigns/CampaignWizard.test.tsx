@@ -432,21 +432,26 @@ describe('cook submission body', () => {
 
 describe('resolveVisibleSteps', () => {
   it('omits the describe step when arriving with a prompt', () => {
-    expect(
-      resolveVisibleSteps({ hasInitialPrompt: true, showingPromptEntry: false }),
-    ).toEqual(['brief', 'submit']);
+    expect(resolveVisibleSteps({ hasInitialPrompt: true, showingPromptEntry: false })).toEqual([
+      'brief',
+      'submit',
+    ]);
   });
 
   it('shows all three steps when there is no incoming prompt', () => {
-    expect(
-      resolveVisibleSteps({ hasInitialPrompt: false, showingPromptEntry: true }),
-    ).toEqual(['prompt', 'brief', 'submit']);
+    expect(resolveVisibleSteps({ hasInitialPrompt: false, showingPromptEntry: true })).toEqual([
+      'prompt',
+      'brief',
+      'submit',
+    ]);
   });
 
   it('restores the describe step when an auto-draft hard-fails back to entry', () => {
-    expect(
-      resolveVisibleSteps({ hasInitialPrompt: true, showingPromptEntry: true }),
-    ).toEqual(['prompt', 'brief', 'submit']);
+    expect(resolveVisibleSteps({ hasInitialPrompt: true, showingPromptEntry: true })).toEqual([
+      'prompt',
+      'brief',
+      'submit',
+    ]);
   });
 });
 
