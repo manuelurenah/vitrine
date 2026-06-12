@@ -75,7 +75,7 @@ vi.mock('./PresetGrid', () => ({
 }));
 
 import { fetchCampaignPreview, useCampaignPreview } from '@/hooks/useCampaignPreview';
-import { CampaignWizard } from './CampaignWizard';
+import { CampaignWizard, resolveVisibleSteps } from './CampaignWizard';
 
 /* -------------------------------------------------------------------------- */
 /* fixtures                                                                   */
@@ -152,6 +152,10 @@ describe('CampaignWizard — step routing via search param', () => {
     expect(html).toMatch(/data-state="done"[^>]*>\s*01/);
     expect(html).toMatch(/data-state="current"[^>]*>\s*02/);
     expect(html).toMatch(/data-state="upcoming"[^>]*>\s*03/);
+    // Dots render the labelled step name, not the raw step id.
+    expect(html).toContain('describe');
+    expect(html).toContain('review');
+    expect(html).toContain('cook');
   });
 });
 
@@ -398,5 +402,25 @@ describe('cook submission body', () => {
     expect(parsed.variantsPerPreset).toBe(2);
     expect(parsed.adCopy['ig-feed'].headline).toBe('H1');
     expect(parsed.adCopy['li'].cta).toBe('Buy');
+  });
+});
+
+describe('resolveVisibleSteps', () => {
+  it('omits the describe step when arriving with a prompt', () => {
+    expect(
+      resolveVisibleSteps({ hasInitialPrompt: true, showingPromptEntry: false }),
+    ).toEqual(['brief', 'submit']);
+  });
+
+  it('shows all three steps when there is no incoming prompt', () => {
+    expect(
+      resolveVisibleSteps({ hasInitialPrompt: false, showingPromptEntry: true }),
+    ).toEqual(['prompt', 'brief', 'submit']);
+  });
+
+  it('restores the describe step when an auto-draft hard-fails back to entry', () => {
+    expect(
+      resolveVisibleSteps({ hasInitialPrompt: true, showingPromptEntry: true }),
+    ).toEqual(['prompt', 'brief', 'submit']);
   });
 });

@@ -65,6 +65,25 @@ type Step = 'prompt' | 'brief' | 'submit';
 
 const STEP_ORDER: Step[] = ['prompt', 'brief', 'submit'];
 
+const STEP_LABELS: Record<Step, string> = {
+  prompt: 'describe',
+  brief: 'review',
+  submit: 'cook',
+};
+
+/**
+ * The step dots a user sees depend on how they entered. Arriving from the
+ * composer with a prompt skips the manual "describe" entry (we auto-draft) —
+ * unless the auto-draft hard-fails and we drop them back onto the entry screen.
+ */
+export function resolveVisibleSteps(opts: {
+  hasInitialPrompt: boolean;
+  showingPromptEntry: boolean;
+}): Step[] {
+  if (opts.hasInitialPrompt && !opts.showingPromptEntry) return ['brief', 'submit'];
+  return STEP_ORDER;
+}
+
 function parseStep(raw: string | null): Step {
   if (raw === 'brief' || raw === 'submit') return raw;
   return 'prompt';
@@ -315,7 +334,7 @@ export function CampaignWizard({ initial, fetcher }: Props) {
   /* --------------------------------------------------------------- rendering */
   return (
     <div className="flex flex-col gap-6">
-      <StepDots step={step} />
+      <StepDots steps={STEP_ORDER} step={step} />
       {step === 'prompt' && (
         <PromptStep
           brief={brief}
@@ -370,8 +389,13 @@ export function CampaignWizard({ initial, fetcher }: Props) {
 /* step dots                                                                   */
 /* -------------------------------------------------------------------------- */
 
-function StepDots({ step }: { step: Step }) {
-  const idx = STEP_ORDER.indexOf(step);
+function StepDots({ steps, step }: { steps: Step[]; step: Step }) {
+  // The active step can be absent from `steps` on purpose: while we auto-draft
+  // an incoming prompt, `step` is still 'prompt' but the visible steps are
+  // ['brief','submit'] — we want the first visible dot (review) lit, so fall
+  // back to index 0 rather than leaving no dot current.
+  const rawIdx = steps.indexOf(step);
+  const idx = rawIdx === -1 ? 0 : rawIdx;
   return (
     <div
       className="flex items-center gap-2"
@@ -379,7 +403,7 @@ function StepDots({ step }: { step: Step }) {
       aria-label="campaign wizard steps"
       data-step={step}
     >
-      {STEP_ORDER.map((s, i) => {
+      {steps.map((s, i) => {
         const state = i < idx ? 'done' : i === idx ? 'current' : 'upcoming';
         return (
           <div key={s} className="flex items-center gap-2">
@@ -394,9 +418,9 @@ function StepDots({ step }: { step: Step }) {
                 state === 'upcoming' && 'text-fg-3',
               )}
             >
-              {`0${i + 1}`} · {s}
+              {`0${i + 1}`} · {STEP_LABELS[s]}
             </span>
-            {i < STEP_ORDER.length - 1 && <span className="h-px w-6 bg-line" aria-hidden />}
+            {i < steps.length - 1 && <span className="h-px w-6 bg-line" aria-hidden />}
           </div>
         );
       })}
