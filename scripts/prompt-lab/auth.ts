@@ -36,8 +36,27 @@ function isUsableTokens(value: unknown): value is OAuthTokens {
   );
 }
 
+/**
+ * Unseal a cookie value, tolerating URL-encoding. Cookie values copied from
+ * browser devtools are percent-encoded (e.g. `%3D`); the app's cookie jar
+ * decodes them automatically, but a value pasted raw into `.env` is not. Try
+ * the value as-is first, then a URL-decoded retry.
+ */
+function unsealTolerant(sealed: string, secret: string): string | null {
+  const direct = unsealCookie(sealed, secret);
+  if (direct) return direct;
+  if (sealed.includes('%')) {
+    try {
+      return unsealCookie(decodeURIComponent(sealed), secret);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 function parseSealedSession(sealed: string, secret: string): OAuthTokens {
-  const raw = unsealCookie(sealed, secret);
+  const raw = unsealTolerant(sealed, secret);
   if (!raw) {
     throw new Error(
       'PROMPT_LAB_SESSION failed to unseal — wrong SESSION_SECRET or not an app cookie. ' +

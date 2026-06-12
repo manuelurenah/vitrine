@@ -54,6 +54,11 @@ describe('resolveAccessToken', () => {
     await expect(resolveAccessToken()).resolves.toBe('real_access');
   });
 
+  it('tolerates a URL-encoded session cookie (as copied from devtools)', async () => {
+    process.env.PROMPT_LAB_SESSION = encodeURIComponent(sealedSession(Date.now() + 60 * 60 * 1000));
+    await expect(resolveAccessToken()).resolves.toBe('real_access');
+  });
+
   it('honors the raw-token fallback as-is', async () => {
     process.env.PROMPT_LAB_ACCESS_TOKEN = 'raw_tok';
     await expect(resolveAccessToken()).resolves.toBe('raw_tok');
