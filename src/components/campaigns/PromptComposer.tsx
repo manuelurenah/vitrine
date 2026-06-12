@@ -6,11 +6,6 @@ import { type KeyboardEvent, useMemo, useRef, useState, useSyncExternalStore } f
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
 import { Button, Chip, IconButton, Modal } from '@/components/ui';
 
-// Static per-generation buzz estimate shown on the CTA before a full preview
-// is available. Matches the design spec (hifi-campaigns-screens-a.jsx "· 8 buzz")
-// and aligns with the ~7–9 buzz range seen in preview API test fixtures.
-const COMPOSER_BUZZ_ESTIMATE = 8;
-
 type Props = {
   placeholder?: string;
 };
@@ -26,14 +21,38 @@ interface SpeechRecognitionInstance extends EventTarget {
   stop(): void;
   onresult: ((event: SpeechRecognitionResultEvent) => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
 }
 
 interface SpeechRecognitionResultEvent {
   results: { 0: { transcript: string } }[];
 }
 
+interface SpeechRecognitionErrorEvent {
+  error: string;
+}
+
 type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
+// Map Web Speech error codes to a short, user-readable reason. The mic otherwise
+// fails silently — the most common case is `not-allowed` (permission blocked for
+// the site), which shows no browser prompt, so the user sees nothing happen.
+function describeSpeechError(code: string): string {
+  switch (code) {
+    case 'not-allowed':
+      return 'microphone permission denied — allow mic for this site via the address-bar icon';
+    case 'service-not-allowed':
+      return 'speech service blocked — enable Chrome under System Settings › Privacy › Microphone, then reopen Chrome';
+    case 'audio-capture':
+      return 'no microphone found';
+    case 'no-speech':
+      return "didn't catch that — try again";
+    case 'network':
+      return 'voice service unavailable — check your connection';
+    default:
+      return `voice input error: ${code}`;
+  }
+}
 
 // Speech support is a fixed browser capability — it never changes at runtime,
 // so the store never emits. useSyncExternalStore lets us read a client-only
@@ -59,6 +78,7 @@ export function PromptComposer({ placeholder = 'describe the campaign you want t
   const [refs, setRefs] = useState<string[]>([]);
   const [pickerTab, setPickerTab] = useState<PickerTab | null>(null);
   const [listening, setListening] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
   const speechSupported = useSyncExternalStore(
     subscribeSpeechSupport,
     getSpeechSupportSnapshot,
@@ -95,6 +115,8 @@ export function PromptComposer({ placeholder = 'describe the campaign you want t
       return;
     }
 
+    setMicError(null);
+
     const rec = new SR();
     rec.lang = 'en-US';
     rec.interimResults = false;
@@ -103,6 +125,7 @@ export function PromptComposer({ placeholder = 'describe the campaign you want t
     rec.onresult = (event: SpeechRecognitionResultEvent) => {
       const transcript = event.results[0]?.[0]?.transcript ?? '';
       if (transcript) {
+        setMicError(null);
         setValue((prev) => {
           const trimmed = prev.trimEnd();
           return trimmed ? `${trimmed} ${transcript}` : transcript;
@@ -115,14 +138,24 @@ export function PromptComposer({ placeholder = 'describe the campaign you want t
       recognitionRef.current = null;
     };
 
-    rec.onerror = () => {
+    rec.onerror = (event: SpeechRecognitionErrorEvent) => {
       setListening(false);
       recognitionRef.current = null;
+      setMicError(describeSpeechError(event.error));
     };
 
     recognitionRef.current = rec;
-    rec.start();
-    setListening(true);
+    // start() can also throw synchronously (e.g. an already-running instance or a
+    // non-secure context); surface that instead of dying silently.
+    try {
+      rec.start();
+      setListening(true);
+    } catch (err) {
+      recognitionRef.current = null;
+      setMicError(
+        err instanceof Error ? `voice input failed: ${err.message}` : 'voice input failed to start',
+      );
+    }
   }
 
   return (
@@ -209,12 +242,14 @@ export function PromptComposer({ placeholder = 'describe the campaign you want t
             onClick={handleSubmit}
             leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
           >
-            generate
-            <span className="font-mono text-[11px] opacity-70">
-              · {COMPOSER_BUZZ_ESTIMATE} buzz
-            </span>
+            generate brief
           </Button>
         </div>
+        {micError && (
+          <p role="alert" className="relative mt-2 text-[12px] text-danger">
+            {micError}
+          </p>
+        )}
       </div>
 
       <Modal
