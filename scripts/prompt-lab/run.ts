@@ -8,10 +8,7 @@ import {
   submitWorkflow,
   type WorkflowSnapshot,
 } from '@civitai/app-sdk/orchestrator';
-import {
-  buildVitrineImageGenBody,
-  type VitrineImageGenInput,
-} from '../../src/lib/imageGenBody';
+import { buildVitrineImageGenBody, type VitrineImageGenInput } from '../../src/lib/imageGenBody';
 import { isPresetId, PRESETS, type PresetId } from '../../src/lib/presets';
 import { buildCampaignPrompt } from '../../src/lib/promptBuilder';
 import { resolveAccessToken } from './auth';
@@ -34,7 +31,10 @@ function takeValue(argv: string[], i: number, flag: string): string {
 }
 
 function toPresets(csv: string): PresetId[] {
-  const ids = csv.split(',').map((s) => s.trim()).filter(Boolean);
+  const ids = csv
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
   for (const id of ids) {
     if (!isPresetId(id)) throw new Error(`unknown preset id: ${id}`);
   }
@@ -52,15 +52,30 @@ export function parseArgs(argv: string[]): RunOptions {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     switch (a) {
-      case '--brief': o.brief = takeValue(argv, i++, a); break;
-      case '--preset': o.presets = toPresets(takeValue(argv, i++, a)); break;
-      case '--num': o.num = Number.parseInt(takeValue(argv, i++, a), 10); break;
-      case '--matrix': o.matrix = true; break;
-      case '--refs':
-        o.refs = takeValue(argv, i++, a).split(',').map((s) => s.trim()).filter(Boolean);
+      case '--brief':
+        o.brief = takeValue(argv, i++, a);
         break;
-      case '--prompt-override': o.promptOverride = takeValue(argv, i++, a); break;
-      case '--negative-override': o.negativeOverride = takeValue(argv, i++, a); break;
+      case '--preset':
+        o.presets = toPresets(takeValue(argv, i++, a));
+        break;
+      case '--num':
+        o.num = Number.parseInt(takeValue(argv, i++, a), 10);
+        break;
+      case '--matrix':
+        o.matrix = true;
+        break;
+      case '--refs':
+        o.refs = takeValue(argv, i++, a)
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        break;
+      case '--prompt-override':
+        o.promptOverride = takeValue(argv, i++, a);
+        break;
+      case '--negative-override':
+        o.negativeOverride = takeValue(argv, i++, a);
+        break;
       default:
         throw new Error(`unknown flag: ${a}`);
     }

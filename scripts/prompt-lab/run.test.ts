@@ -17,12 +17,17 @@ describe('parseArgs', () => {
 
   it('parses refs, num, brief, overrides, and matrix', () => {
     const o = parseArgs([
-      '--brief', 'coffee',
-      '--refs', 'https://a/1.png,https://b/2.png',
-      '--num', '3',
+      '--brief',
+      'coffee',
+      '--refs',
+      'https://a/1.png,https://b/2.png',
+      '--num',
+      '3',
       '--matrix',
-      '--prompt-override', 'raw prompt',
-      '--negative-override', 'raw negative',
+      '--prompt-override',
+      'raw prompt',
+      '--negative-override',
+      'raw negative',
     ]);
     expect(o.brief).toBe('coffee');
     expect(o.refs).toEqual(['https://a/1.png', 'https://b/2.png']);

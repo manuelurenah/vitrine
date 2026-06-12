@@ -1,10 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import {
-  type OAuthTokens,
-  refreshToken as oauthRefresh,
-  unsealCookie,
-} from '@civitai/app-sdk';
+import { type OAuthTokens, refreshToken as oauthRefresh, unsealCookie } from '@civitai/app-sdk';
 
 const CACHE_PATH = '.auth/prompt-lab.json';
 const SKEW_MS = 30_000; // keep in sync with the 30_000 skew in src/lib/session.ts
