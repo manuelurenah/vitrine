@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { FAB } from '@/components/shell';
 import type { BadgeKind } from '@/components/ui';
 import { useMediaQuery } from '@/components/ui/useMediaQuery';
@@ -29,6 +31,19 @@ export function CampaignsList({ past }: Props) {
   const pastItems: PastCampaign[] = past ?? [];
   const hasPast = pastItems.length > 0;
   const isMobile = useMediaQuery('(max-width: 767px)');
+  const router = useRouter();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function handleDelete(id: string, name: string) {
+    if (!window.confirm(`delete "${name}"? this is not reversible.`)) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/campaigns/${id}`, { method: 'DELETE' });
+      if (res.ok) router.refresh();
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="relative">
@@ -63,7 +78,12 @@ export function CampaignsList({ past }: Props) {
             <div className="overflow-hidden rounded-[14px] border border-line-subtle bg-bg-2">
               {pastItems.map((p, i) => (
                 <Link key={p.id || p.name} href={p.id ? `/campaigns/${p.id}` : '#'}>
-                  <PastRow {...p} last={i === pastItems.length - 1} />
+                  <PastRow
+                    {...p}
+                    last={i === pastItems.length - 1}
+                    busy={deletingId === p.id}
+                    onDelete={p.id ? () => handleDelete(p.id, p.name) : undefined}
+                  />
                 </Link>
               ))}
             </div>

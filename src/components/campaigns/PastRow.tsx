@@ -1,4 +1,4 @@
-import { MoreHorizontal } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { Badge, type BadgeKind, cn } from '@/components/ui';
 import { GradientThumb, type ThumbTone } from './GradientThumb';
 
@@ -9,9 +9,11 @@ type Props = {
   status?: BadgeKind | null;
   tone?: ThumbTone;
   last?: boolean;
+  busy?: boolean;
+  onDelete?: () => void;
 };
 
-export function PastRow({ name, date, count, status, tone, last }: Props) {
+export function PastRow({ name, date, count, status, tone, last, busy, onDelete }: Props) {
   return (
     <div
       className={cn(
@@ -27,13 +29,22 @@ export function PastRow({ name, date, count, status, tone, last }: Props) {
         </div>
       </div>
       {status && <Badge kind={status}>{status}</Badge>}
-      <button
-        type="button"
-        aria-label="more"
-        className="flex h-7 w-7 items-center justify-center rounded-[6px] text-fg-2 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0"
-      >
-        <MoreHorizontal size={14} strokeWidth={1.75} />
-      </button>
+      {onDelete && (
+        <button
+          type="button"
+          aria-label="delete campaign"
+          disabled={busy}
+          onClick={(e) => {
+            // Row is wrapped in a Link — keep the click from navigating.
+            e.preventDefault();
+            e.stopPropagation();
+            onDelete();
+          }}
+          className="flex h-7 w-7 items-center justify-center rounded-[6px] text-fg-2 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-danger disabled:opacity-50"
+        >
+          <Trash2 size={14} strokeWidth={1.75} />
+        </button>
+      )}
     </div>
   );
 }

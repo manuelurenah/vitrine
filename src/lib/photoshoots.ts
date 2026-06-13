@@ -222,6 +222,20 @@ export async function listPhotoshoots(userId: string): Promise<Photoshoot[]> {
   );
 }
 
+/**
+ * Hard-delete a photoshoot the user owns. Cascades to `photoshootTiles` via FK
+ * `onDelete: 'cascade'`. Generations and buzz events are user-scoped audit rows
+ * and survive; linked assets stay in the user's library. Returns `false` if the
+ * shoot doesn't exist or belongs to another user.
+ */
+export async function deletePhotoshoot(userId: string, id: string): Promise<boolean> {
+  const result = await db
+    .delete(photoshootsTable)
+    .where(and(eq(photoshootsTable.id, id), eq(photoshootsTable.userId, userId)))
+    .returning({ id: photoshootsTable.id });
+  return result.length > 0;
+}
+
 function firstSnapshotImage(snapshot: unknown): string | null {
   if (!snapshot || typeof snapshot !== 'object') return null;
   try {

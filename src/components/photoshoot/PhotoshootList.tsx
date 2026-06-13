@@ -1,7 +1,9 @@
 'use client';
 
-import { Camera, Plus } from 'lucide-react';
+import { Camera, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { GradientThumb } from '@/components/campaigns';
 import { FAB } from '@/components/shell';
 import { Button } from '@/components/ui';
@@ -18,6 +20,19 @@ function formatDate(ms: number): string {
 
 export function PhotoshootList({ shoots }: Props) {
   const isMobile = useMediaQuery('(max-width: 767px)');
+  const router = useRouter();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function handleDelete(id: string, title: string) {
+    if (!window.confirm(`delete "${title}"? this is not reversible.`)) return;
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/photoshoot/${id}`, { method: 'DELETE' });
+      if (res.ok) router.refresh();
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="relative">
@@ -116,8 +131,23 @@ export function PhotoshootList({ shoots }: Props) {
                   <Link
                     key={s.id}
                     href={`/photoshoot/${s.id}`}
-                    className="group flex flex-col gap-3 rounded-[14px] border border-line-subtle bg-bg-2 p-3 transition-all duration-base ease-out hover:-translate-y-[2px] hover:border-line-strong"
+                    className="group relative flex flex-col gap-3 rounded-[14px] border border-line-subtle bg-bg-2 p-3 transition-all duration-base ease-out hover:-translate-y-[2px] hover:border-line-strong"
                   >
+                    <button
+                      type="button"
+                      aria-label="delete photoshoot"
+                      disabled={deletingId === s.id}
+                      onClick={(e) => {
+                        // Card is a Link — keep the click from navigating.
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDelete(s.id, s.title);
+                      }}
+                      className="absolute right-[14px] top-[14px] z-card flex h-7 w-7 items-center justify-center rounded-[7px] border border-line-subtle bg-bg-0/70 text-fg-2 opacity-0 backdrop-blur transition-all duration-fast ease-out hover:text-danger focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50 max-sm:opacity-100"
+                    >
+                      <Trash2 size={14} strokeWidth={1.75} />
+                    </button>
+
                     {/* 2×2 square collage */}
                     <div className="grid grid-cols-2 gap-1 overflow-hidden rounded-[10px]">
                       {slots.map((_, slotIdx) => {

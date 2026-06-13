@@ -222,6 +222,21 @@ export async function listCampaigns(userId: string): Promise<Campaign[]> {
   return rows.map((r) => toCampaign(r, byCampaign.get(r.id) ?? []));
 }
 
+/**
+ * Hard-delete a campaign the user owns. Cascades to `campaignTiles` (and their
+ * `tileVersions`) via FK `onDelete: 'cascade'`. Generations and buzz events are
+ * user-scoped audit rows and intentionally survive; linked assets stay in the
+ * user's library (the tile→asset FK is `set null`, but the tile is removed). No-op
+ * returning `false` if the campaign doesn't exist or belongs to another user.
+ */
+export async function deleteCampaign(userId: string, id: string): Promise<boolean> {
+  const result = await db
+    .delete(campaignsTable)
+    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
+    .returning({ id: campaignsTable.id });
+  return result.length > 0;
+}
+
 export async function updateTileStatus(
   userId: string,
   campaignId: string,
