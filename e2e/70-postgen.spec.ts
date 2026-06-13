@@ -51,7 +51,10 @@ test.describe('Post-generation actions (upscale + animate)', () => {
     const upscaleOverlay = overlays.first();
     await upscaleOverlay.getByRole('button', { name: /image actions/i }).click();
 
-    const upscaleChip = upscaleOverlay.getByTestId('post-gen-chip-upscale-2-');
+    // The dropdown menu is portaled to document.body (so it escapes the image
+    // slot's overflow-hidden), so scope chip lookups to the page, not the
+    // overlay. Only one menu is open at a time → the testid is unique.
+    const upscaleChip = page.getByTestId('post-gen-chip-upscale-2-');
     await expect(upscaleChip).toBeVisible();
     // Buzz cost preview is rendered as part of the chip — "buzz" suffix or
     // "estimate…" prelude.
@@ -75,7 +78,7 @@ test.describe('Post-generation actions (upscale + animate)', () => {
     const animateOverlay = overlayCount > 1 ? overlays.nth(1) : upscaleOverlay;
     await animateOverlay.getByRole('button', { name: /image actions/i }).click();
 
-    const animateChip = animateOverlay.getByTestId('post-gen-chip-animate');
+    const animateChip = page.getByTestId('post-gen-chip-animate');
     await expect(animateChip).toBeVisible();
     await expect(animateChip).toContainText(/buzz|estimat/i);
     await animateChip.click();

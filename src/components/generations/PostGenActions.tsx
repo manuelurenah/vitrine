@@ -4,9 +4,16 @@ import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orches
 import { ArrowUpRight, Check, Download, MoreHorizontal, Wand2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/components/ui';
 
 type Action = 'upscale' | 'animate';
+
+// Portaled action-menu geometry. The menu is rendered into `document.body` so
+// it escapes the image slot's `overflow-hidden`; these drive its fixed-position
+// placement under the trigger.
+const MENU_WIDTH = 200;
+const MENU_GAP = 8;
 
 type ActionState = {
   estimating: boolean;
@@ -66,16 +73,59 @@ export function PostGenActions({
   const [child, setChild] = useState<ChildState | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuContentRef = useRef<HTMLDivElement | null>(null);
+  // `mounted` gates the portal: during SSR and the first client render we keep
+  // the menu inline so the markup hydrates 1:1; once mounted we relocate it to
+  // a `document.body` portal so it escapes the image slot's `overflow-hidden`.
+  const [mounted, setMounted] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
 
   const anyConfirming = actions.upscale.confirming || actions.animate.confirming;
+  const menuVisible = menuOpen && !anyConfirming;
+
+  // Two-pass mount gate: the menu renders inline on the server / first client
+  // render, then relocates to the body portal once mounted — keeping hydration
+  // 1:1 and never calling createPortal during SSR.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  // Anchor the portaled menu under the trigger, right-aligned, clamped to the
+  // viewport so it never spills off-screen.
+  function positionMenu() {
+    const btn = triggerRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const maxLeft = Math.max(MENU_GAP, window.innerWidth - MENU_WIDTH - MENU_GAP);
+    const left = Math.min(Math.max(MENU_GAP, r.right - MENU_WIDTH), maxLeft);
+    setMenuPos({ top: r.bottom + 4, left });
+  }
+
+  // Keep the portaled menu anchored on scroll/resize while it is open.
+  useEffect(() => {
+    if (!mounted || !menuVisible) return;
+    positionMenu();
+    const onReflow = () => positionMenu();
+    window.addEventListener('scroll', onReflow, true);
+    window.addEventListener('resize', onReflow);
+    return () => {
+      window.removeEventListener('scroll', onReflow, true);
+      window.removeEventListener('resize', onReflow);
+    };
+  }, [mounted, menuVisible]);
 
   // Click-outside to dismiss the action menu. Confirm panels stay open via
-  // `anyConfirming` regardless.
+  // `anyConfirming` regardless. The menu may be portaled out of `menuRef`, so
+  // also treat clicks inside the portaled content as "inside".
   useEffect(() => {
     if (!menuOpen) return;
     function onDocClick(e: MouseEvent) {
-      if (!menuRef.current) return;
-      if (e.target instanceof Node && menuRef.current.contains(e.target)) return;
+      const t = e.target;
+      if (!(t instanceof Node)) return;
+      if (menuRef.current?.contains(t)) return;
+      if (menuContentRef.current?.contains(t)) return;
       setMenuOpen(false);
     }
     document.addEventListener('mousedown', onDocClick);
@@ -140,6 +190,49 @@ export function PostGenActions({
     }
   }
 
+  // Menu contents are shared by the inline (pre-mount) and portaled
+  // (post-mount) renders so the two stay in lockstep.
+  const menuItems = (
+    <>
+      <ActionChip
+        label="Upscale 2×"
+        icon={<ArrowUpRight size={12} strokeWidth={1.75} />}
+        buzz={actions.upscale.estimatedBuzz}
+        state={actions.upscale}
+        onClick={() => {
+          setMenuOpen(false);
+          startConfirm('upscale');
+        }}
+        disabled={false}
+      />
+      <ActionChip
+        label="Animate"
+        icon={<Wand2 size={12} strokeWidth={1.75} />}
+        buzz={actions.animate.estimatedBuzz}
+        state={actions.animate}
+        onClick={() => {
+          setMenuOpen(false);
+          startConfirm('animate');
+        }}
+        disabled={isVideo}
+        disabledHint={isVideo ? 'already a video' : undefined}
+      />
+      {sourceUrl && (
+        <a
+          href={sourceUrl}
+          download
+          data-testid="post-gen-download"
+          onClick={() => setMenuOpen(false)}
+          className="flex items-center justify-between rounded-[7px] px-2 py-[6px] text-[11.5px] text-fg-0 transition-colors duration-fast ease-out hover:bg-white/10"
+        >
+          <span className="inline-flex items-center gap-2">
+            <Download size={12} strokeWidth={1.75} /> Download
+          </span>
+        </a>
+      )}
+    </>
+  );
+
   return (
     <div
       data-testid="post-gen-actions"
@@ -147,6 +240,7 @@ export function PostGenActions({
     >
       <div ref={menuRef} className="pointer-events-auto absolute right-2 top-2">
         <button
+          ref={triggerRef}
           type="button"
           aria-label="image actions"
           aria-haspopup="menu"
@@ -154,58 +248,50 @@ export function PostGenActions({
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
+            if (!menuOpen) positionMenu();
             setMenuOpen((v) => !v);
           }}
           className="grid h-7 w-7 place-items-center rounded-pill border border-line/40 bg-black/65 text-fg-0 backdrop-blur-md transition-colors duration-fast ease-out hover:bg-black/80"
         >
           <MoreHorizontal size={14} strokeWidth={1.75} />
         </button>
-        <div
-          role="menu"
-          aria-hidden={!menuOpen || anyConfirming}
-          className={cn(
-            'absolute right-0 top-9 flex w-[200px] flex-col gap-1 rounded-[10px] border border-line/40 bg-black/80 p-1 backdrop-blur-md',
-            (!menuOpen || anyConfirming) && 'hidden',
-          )}
-        >
-          <ActionChip
-            label="Upscale 2×"
-            icon={<ArrowUpRight size={12} strokeWidth={1.75} />}
-            buzz={actions.upscale.estimatedBuzz}
-            state={actions.upscale}
-            onClick={() => {
-              setMenuOpen(false);
-              startConfirm('upscale');
-            }}
-            disabled={false}
-          />
-          <ActionChip
-            label="Animate"
-            icon={<Wand2 size={12} strokeWidth={1.75} />}
-            buzz={actions.animate.estimatedBuzz}
-            state={actions.animate}
-            onClick={() => {
-              setMenuOpen(false);
-              startConfirm('animate');
-            }}
-            disabled={isVideo}
-            disabledHint={isVideo ? 'already a video' : undefined}
-          />
-          {sourceUrl && (
-            <a
-              href={sourceUrl}
-              download
-              data-testid="post-gen-download"
-              onClick={() => setMenuOpen(false)}
-              className="flex items-center justify-between rounded-[7px] px-2 py-[6px] text-[11.5px] text-fg-0 transition-colors duration-fast ease-out hover:bg-white/10"
-            >
-              <span className="inline-flex items-center gap-2">
-                <Download size={12} strokeWidth={1.75} /> Download
-              </span>
-            </a>
-          )}
-        </div>
+        {/*
+          Pre-mount (SSR + first client render) the menu renders inline so the
+          server markup hydrates 1:1 and the chips/download exist in the markup.
+          Post-mount it relocates to the body portal below.
+        */}
+        {!mounted && (
+          <div
+            role="menu"
+            aria-hidden={!menuVisible}
+            className={cn(
+              'absolute right-0 top-9 flex w-[200px] flex-col gap-1 rounded-[10px] border border-line/40 bg-black/80 p-1 backdrop-blur-md',
+              !menuVisible && 'hidden',
+            )}
+          >
+            {menuItems}
+          </div>
+        )}
       </div>
+
+      {/*
+        Post-mount: portal the menu into document.body with fixed positioning so
+        it is never clipped by the image slot's `overflow-hidden` wrapper.
+      */}
+      {mounted &&
+        menuVisible &&
+        menuPos &&
+        createPortal(
+          <div
+            ref={menuContentRef}
+            role="menu"
+            style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: MENU_WIDTH }}
+            className="z-overlay flex flex-col gap-1 rounded-[10px] border border-line/40 bg-black/80 p-1 backdrop-blur-md"
+          >
+            {menuItems}
+          </div>,
+          document.body,
+        )}
 
       {/* Inline confirm panes — rendered above the chips when active. */}
       {actions.upscale.confirming && (

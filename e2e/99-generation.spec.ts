@@ -83,7 +83,9 @@ test.describe('Generation pipeline smoke', () => {
     const overlays = page.locator('[data-image-overlay]');
     const upscaleOverlay = overlays.first();
     await upscaleOverlay.getByRole('button', { name: /image actions/i }).click();
-    await upscaleOverlay.getByTestId('post-gen-chip-upscale-2-').click();
+    // Chips are portaled to document.body → scope to the page (the confirm
+    // panel stays inside the overlay).
+    await page.getByTestId('post-gen-chip-upscale-2-').click();
     await upscaleOverlay.getByTestId('post-gen-confirm-upscale-go').click();
     // post-gen-upscaled img lives inside the image overlay absolute container.
     // The child card is absolutely positioned; check the container card instead
@@ -99,7 +101,7 @@ test.describe('Generation pipeline smoke', () => {
     const overlayCount = await overlays.count();
     const animateOverlay = overlayCount > 1 ? overlays.nth(1) : upscaleOverlay;
     await animateOverlay.getByRole('button', { name: /image actions/i }).click();
-    await animateOverlay.getByTestId('post-gen-chip-animate').click();
+    await page.getByTestId('post-gen-chip-animate').click();
     await animateOverlay.getByTestId('post-gen-confirm-animate-go').click();
     // Check the animate child card container, then the video element inside it.
     await expect(page.getByTestId('post-gen-child-animate').first()).toBeVisible({

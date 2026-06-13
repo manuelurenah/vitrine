@@ -1,23 +1,13 @@
 'use client';
 
-import {
-  Camera,
-  ChevronRight,
-  Grid,
-  Layers,
-  ListChecks,
-  Loader2,
-  RefreshCw,
-  Sparkles,
-  X,
-} from 'lucide-react';
+import { ChevronRight, ListChecks, Sparkles, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { CreativeCard, GradientThumb, SectionHead } from '@/components/campaigns';
+import { CreativeCard, GradientThumb } from '@/components/campaigns';
 import { FilterPills } from '@/components/campaigns/FilterPills';
 import { ProductPickerDialog } from '@/components/catalog';
-import { Button, BuzzPill, Chip } from '@/components/ui';
+import { Button, BuzzPill } from '@/components/ui';
 import { buildCampaignNewHref } from '@/lib/campaignHref';
 import type { Product } from '@/lib/catalog';
 import type { Photoshoot, PhotoshootTile } from '@/lib/photoshoots';
@@ -29,31 +19,12 @@ type Props = {
   sourceProduct?: Product | null;
 };
 
-type Layout = 'template' | 'grid';
-
 // All photoshoot tiles inherit the same ratio from the brief.
 function ratioToPresetId(ratio: string): 'li' | 'ig-feed' | 'ig-story' | 'yt' {
   if (ratio === '1:1') return 'li';
   if (ratio === '4:5') return 'ig-feed';
   if (ratio === '9:16') return 'ig-story';
   return 'yt';
-}
-
-/**
- * Estimate the buzz cost for regenerating all tiles in a template group.
- * Apportions the shoot's total estimated buzz by group size:
- *   cost = round(estimatedBuzz * groupTileCount / totalTileCount)
- * Falls back to 20 when no estimate exists (matches per-tile regenerate display).
- */
-function computeTemplateCost(
-  groupTiles: PhotoshootTile[],
-  allTiles: PhotoshootTile[],
-  shootEstimatedBuzz: number,
-): number {
-  const totalTileCount = allTiles.length;
-  if (totalTileCount === 0) return 0;
-  if (!shootEstimatedBuzz) return 20;
-  return Math.round((shootEstimatedBuzz * groupTiles.length) / totalTileCount);
 }
 
 /**
@@ -75,53 +46,6 @@ export function computeReadyAssetIds(
 }
 
 // ---------------------------------------------------------------------------
-// SourceProductCard — left column of the 3-col results header
-// ---------------------------------------------------------------------------
-function SourceProductCard({
-  shoot,
-  sourceProduct,
-}: {
-  shoot: Photoshoot;
-  sourceProduct?: Product | null;
-}) {
-  const name = sourceProduct?.name ?? shoot.brief.productName;
-
-  return (
-    <div className="flex flex-col gap-3 rounded-[14px] border border-line bg-bg-2 p-4">
-      <div className="flex items-center gap-3">
-        {sourceProduct?.heroUrl ? (
-          <img
-            src={sourceProduct.heroUrl}
-            alt={name}
-            className="h-[52px] w-[52px] flex-none rounded-[10px] object-cover"
-          />
-        ) : (
-          <GradientThumb tone="volt" className="h-[52px] w-[52px] flex-none" />
-        )}
-        <div className="min-w-0">
-          <p className="truncate font-medium text-[13px] leading-snug text-fg-0">{name}</p>
-          <p className="mt-0.5 font-mono text-[10px] tracking-[0.05em] text-fg-3">
-            // templates · {shoot.brief.templateIds.length}
-          </p>
-        </div>
-      </div>
-      {shoot.brief.templateIds.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {shoot.brief.templateIds.map((tid) => {
-            const tpl = PHOTOSHOOT_TEMPLATES[tid];
-            return (
-              <Chip key={tid} active={false}>
-                {tpl?.label ?? tid}
-              </Chip>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // PhotoshootResults
 // ---------------------------------------------------------------------------
 export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
@@ -130,20 +54,7 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
   const [selecting, setSelecting] = useState(false);
   const [selectedTileIds, setSelectedTileIds] = useState<Set<string>>(() => new Set());
   const [dialogAssetIds, setDialogAssetIds] = useState<string[]>([]);
-  // Map from templateId → whether a template-level regenerate is in flight.
-  const [templateRegenerating, setTemplateRegenerating] = useState<Record<string, boolean>>({});
   const [activeFilter, setActiveFilter] = useState<string>('all');
-  const [layout, setLayout] = useState<Layout>('template');
-
-  const tilesByTemplate = useMemo(() => {
-    const map = new Map<string, typeof shoot.tiles>();
-    for (const t of shoot.tiles) {
-      const arr = map.get(t.templateId) ?? [];
-      arr.push(t);
-      map.set(t.templateId, arr);
-    }
-    return map;
-  }, [shoot.tiles]);
 
   // Map tile id → resolved asset id. Only populated for tiles whose workflow
   // finished AND whose asset link is set; these are eligible for bulk actions
@@ -173,6 +84,9 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
   const readyCount = readyAssetIds.length;
   const selectedCount = selectedTileIds.size;
   const showBulkBar = selecting && selectedCount > 0;
+
+  const productName = sourceProduct?.name ?? shoot.brief.productName;
+  const templateCount = shoot.brief.templateIds.length;
 
   // Build filter options from unique template groups present in the shoot's tiles
   const filterOptions = useMemo(() => {
@@ -233,30 +147,12 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
     setSelectedTileIds(new Set());
     router.push(`/brand/catalog/${productId}`);
     router.refresh();
-    // eslint-disable-next-line no-console
     console.info(`added ${addedCount} image${addedCount === 1 ? '' : 's'} to product`);
   }
 
   function startCampaignWith(assetIds: string[]) {
     if (assetIds.length === 0) return;
     router.push(buildCampaignNewHref(assetIds));
-  }
-
-  async function regenerateTemplate(templateId: string) {
-    if (templateRegenerating[templateId]) return;
-    setTemplateRegenerating((prev) => ({ ...prev, [templateId]: true }));
-    try {
-      const res = await fetch(`/api/photoshoot/${shoot.id}/templates/${templateId}/regenerate`, {
-        method: 'POST',
-      });
-      if (res.ok) {
-        // Server returns new workflowIds; router.refresh re-fetches the shoot
-        // so CreativeCards remount with updated tile data and resume polling.
-        router.refresh();
-      }
-    } finally {
-      setTemplateRegenerating((prev) => ({ ...prev, [templateId]: false }));
-    }
   }
 
   const statusLine =
@@ -278,175 +174,90 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
         <span className="truncate px-1.5 py-0.5 text-fg-1">{shoot.title}</span>
       </nav>
 
-      {/* 3-col header: source product | title + status | actions */}
-      <header className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr_280px]">
-        {/* LEFT — source product card */}
-        <div data-testid="pshoot-source-product">
-          <SourceProductCard shoot={shoot} sourceProduct={sourceProduct} />
-        </div>
-
-        {/* CENTER — title + status */}
-        <div className="flex flex-col items-start gap-3 lg:items-center lg:text-center">
-          <div className="inline-flex items-center gap-2 rounded-pill border border-line-volt bg-volt-soft px-3 py-1">
-            <Camera size={13} strokeWidth={1.75} className="text-volt" />
-            <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-volt">
-              photoshoot · results
+      {/* Header — compact, single-row meta + actions, matching campaign detail */}
+      <header className="mt-4 flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {/* Compact source-product reference + counts */}
+          <div
+            data-testid="pshoot-source-product"
+            className="flex min-w-0 items-center gap-2.5"
+          >
+            {sourceProduct?.heroUrl ? (
+              <img
+                src={sourceProduct.heroUrl}
+                alt={productName}
+                className="h-7 w-7 flex-none rounded-[7px] object-cover"
+              />
+            ) : (
+              <GradientThumb tone="volt" className="h-7 w-7 flex-none rounded-[7px]" />
+            )}
+            <span className="truncate text-[13px] font-medium text-fg-0">{productName}</span>
+            <span className="t-eyebrow truncate">
+              // {templateCount} template{templateCount === 1 ? '' : 's'} · {totalCount} shot
+              {totalCount === 1 ? '' : 's'}
             </span>
           </div>
-          <h1 className="t-h2 text-fg-0">{shoot.title}</h1>
-          <p className="font-mono text-[12px] text-fg-3">{statusLine}</p>
+
+          {/* Actions */}
+          <div className="flex flex-wrap items-center gap-2">
+            <BuzzPill amount={shoot.estimatedBuzz} />
+            {isCooking && (
+              <span className="inline-flex items-center gap-[5px] font-mono text-[11px] uppercase tracking-[0.1em] text-volt">
+                <Sparkles size={12} strokeWidth={1.75} /> cooking
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={toggleSelectMode}
+              aria-pressed={selecting}
+              className="inline-flex h-7 items-center gap-1.5 rounded-[7px] border border-line bg-bg-1 px-2.5 font-mono text-[11px] uppercase tracking-[0.1em] text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-2 hover:text-fg-0 aria-pressed:border-line-volt aria-pressed:bg-volt-soft aria-pressed:text-volt"
+            >
+              <ListChecks size={12} strokeWidth={1.75} />
+              {selecting ? 'cancel' : 'select'}
+            </button>
+          </div>
         </div>
 
-        {/* RIGHT — actions */}
-        <div className="flex flex-col items-start gap-3 lg:items-end">
-          <BuzzPill amount={shoot.estimatedBuzz} />
-          {isCooking && (
-            <span className="inline-flex items-center gap-[5px] font-mono text-[11px] uppercase tracking-[0.1em] text-volt">
-              <Sparkles size={12} strokeWidth={1.75} /> cooking
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={toggleSelectMode}
-            aria-pressed={selecting}
-            className="inline-flex h-7 items-center gap-1.5 rounded-[7px] border border-line bg-bg-1 px-2.5 font-mono text-[11px] uppercase tracking-[0.1em] text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-2 hover:text-fg-0 aria-pressed:border-line-volt aria-pressed:bg-volt-soft aria-pressed:text-volt"
-          >
-            <ListChecks size={12} strokeWidth={1.75} />
-            {selecting ? 'cancel' : 'select'}
-          </button>
-        </div>
+        <h1 className="t-h2 text-fg-0">{shoot.title}</h1>
+        <p className="font-mono text-[12px] text-fg-3">{statusLine}</p>
       </header>
 
-      {/* Filter chips + layout toggle */}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-        <div data-testid="pshoot-filters">
-          <FilterPills options={filterOptions} active={activeFilter} onChange={setActiveFilter} />
-        </div>
-        <div
-          role="group"
-          aria-label="layout toggle"
-          className="flex items-center gap-0.5 rounded-[8px] border border-line bg-bg-2 p-0.5"
-        >
-          <button
-            type="button"
-            data-testid="pshoot-layout-template"
-            aria-pressed={layout === 'template'}
-            onClick={() => setLayout('template')}
-            className="inline-flex h-6 items-center gap-1.5 rounded-[6px] px-2.5 font-mono text-[11px] uppercase tracking-[0.08em] text-fg-2 transition-colors duration-fast ease-out hover:text-fg-0 aria-pressed:bg-bg-1 aria-pressed:text-fg-0 aria-pressed:shadow-sm"
-          >
-            <Layers size={11} strokeWidth={1.75} />
-            by template
-          </button>
-          <button
-            type="button"
-            data-testid="pshoot-layout-grid"
-            aria-pressed={layout === 'grid'}
-            onClick={() => setLayout('grid')}
-            className="inline-flex h-6 items-center gap-1.5 rounded-[6px] px-2.5 font-mono text-[11px] uppercase tracking-[0.08em] text-fg-2 transition-colors duration-fast ease-out hover:text-fg-0 aria-pressed:bg-bg-1 aria-pressed:text-fg-0 aria-pressed:shadow-sm"
-          >
-            <Grid size={11} strokeWidth={1.75} />
-            grid
-          </button>
-        </div>
+      {/* Filter chips */}
+      <div className="mt-6" data-testid="pshoot-filters">
+        <FilterPills options={filterOptions} active={activeFilter} onChange={setActiveFilter} />
       </div>
 
-      {/* Content: template layout */}
-      {layout === 'template' &&
-        Array.from(tilesByTemplate.entries()).map(([templateId, tiles]) => {
-          const tpl = PHOTOSHOOT_TEMPLATES[templateId as keyof typeof PHOTOSHOOT_TEMPLATES];
-          const isRegenning = Boolean(templateRegenerating[templateId]);
-          const groupCost = computeTemplateCost(
-            tiles as PhotoshootTile[],
-            shoot.tiles,
-            shoot.estimatedBuzz,
-          );
-          // Hide the entire section when a filter is active and this template's
-          // group doesn't match. Tiles stay mounted so CreativeCard polling continues.
-          const sectionVisible = activeFilter === 'all' || tpl?.group === activeFilter;
-
+      {/* Flat grid — same surface as the campaign detail page */}
+      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        {shoot.tiles.map((tile) => {
+          const tileAssetId = tileAssetById.get(tile.id) ?? null;
+          // Wrap in a div rather than conditionally rendering to keep
+          // CreativeCard mounted (polling must continue for cooking tiles).
+          const visible = tileMatchesFilter(tile);
           return (
-            <section key={templateId} className={sectionVisible ? 'mt-10' : 'hidden'}>
-              <SectionHead
-                title={tpl?.label ?? templateId}
-                count={`${tiles.length} variant${tiles.length === 1 ? '' : 's'}`}
-                action={
-                  <button
-                    type="button"
-                    data-testid={`regenerate-template-${templateId}`}
-                    aria-label={`regenerate template ${tpl?.label ?? templateId}`}
-                    disabled={isRegenning}
-                    onClick={() => regenerateTemplate(templateId)}
-                    className="inline-flex items-center gap-1.5 rounded-[6px] px-2 py-0.5 font-mono text-[11px] uppercase tracking-[0.08em] text-fg-3 transition-colors duration-fast ease-out hover:bg-bg-2 hover:text-fg-1 disabled:pointer-events-none disabled:opacity-50"
-                  >
-                    {isRegenning ? (
-                      <Loader2 size={11} strokeWidth={1.75} className="animate-spin" />
-                    ) : (
-                      <RefreshCw size={11} strokeWidth={1.75} />
-                    )}
-                    regenerate template · {groupCost} buzz
-                  </button>
-                }
+            <div
+              key={tile.id}
+              data-testid={`pshoot-tile-${tile.id}`}
+              className={visible ? undefined : 'hidden'}
+            >
+              <CreativeCard
+                workflowId={tile.workflowId}
+                presetId={presetId}
+                initialStatus={tile.status}
+                quantity={tile.quantity}
+                regenerate={{ kind: 'photoshoot', id: shoot.id, tileId: tile.id }}
+                context="photoshoot"
+                tileAssetId={tileAssetId}
+                selectMode={selecting}
+                selected={selectedTileIds.has(tile.id)}
+                onToggleSelect={() => toggleTile(tile.id)}
+                onUseAsProduct={(assetId) => openProductDialog([assetId])}
+                onUseInCampaign={(assetId) => startCampaignWith([assetId])}
               />
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                {tiles.map((tile) => {
-                  const tileAssetId = tileAssetById.get(tile.id) ?? null;
-                  return (
-                    <div key={tile.id} data-testid={`pshoot-tile-${tile.id}`}>
-                      <CreativeCard
-                        workflowId={tile.workflowId}
-                        presetId={presetId}
-                        initialStatus={tile.status}
-                        quantity={tile.quantity}
-                        regenerate={{ kind: 'photoshoot', id: shoot.id, tileId: tile.id }}
-                        context="photoshoot"
-                        tileAssetId={tileAssetId}
-                        selectMode={selecting}
-                        selected={selectedTileIds.has(tile.id)}
-                        onToggleSelect={() => toggleTile(tile.id)}
-                        onUseAsProduct={(assetId) => openProductDialog([assetId])}
-                        onUseInCampaign={(assetId) => startCampaignWith([assetId])}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
+            </div>
           );
         })}
-
-      {/* Content: flat grid layout */}
-      {layout === 'grid' && (
-        <div className="mt-10 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {shoot.tiles.map((tile) => {
-            const tileAssetId = tileAssetById.get(tile.id) ?? null;
-            // Wrap in a div rather than conditionally rendering to keep
-            // CreativeCard mounted (polling must continue for cooking tiles).
-            const visible = tileMatchesFilter(tile);
-            return (
-              <div
-                key={tile.id}
-                data-testid={`pshoot-tile-${tile.id}`}
-                className={visible ? undefined : 'hidden'}
-              >
-                <CreativeCard
-                  workflowId={tile.workflowId}
-                  presetId={presetId}
-                  initialStatus={tile.status}
-                  quantity={tile.quantity}
-                  regenerate={{ kind: 'photoshoot', id: shoot.id, tileId: tile.id }}
-                  context="photoshoot"
-                  tileAssetId={tileAssetId}
-                  selectMode={selecting}
-                  selected={selectedTileIds.has(tile.id)}
-                  onToggleSelect={() => toggleTile(tile.id)}
-                  onUseAsProduct={(assetId) => openProductDialog([assetId])}
-                  onUseInCampaign={(assetId) => startCampaignWith([assetId])}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
+      </div>
 
       {/* Bulk action bar */}
       {showBulkBar && (
