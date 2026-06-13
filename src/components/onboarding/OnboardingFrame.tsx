@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Wordmark } from '@/components/shell';
 import { ONBOARDING_STEPS, type OnboardingStep } from './steps';
 import { useOnboardingKeyboardNav } from './useOnboardingKeyboardNav';
@@ -15,6 +15,17 @@ type Props = {
 export function OnboardingFrame({ step, children, skipHref = '/onboarding/dna' }: Props) {
   useOnboardingKeyboardNav(step);
   const stepIndex = ONBOARDING_STEPS.indexOf(step);
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function signOut() {
+    setSigningOut(true);
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    } finally {
+      setSigningOut(false);
+    }
+  }
   return (
     <div className="relative min-h-screen overflow-hidden bg-bg-0">
       <div
@@ -55,6 +66,15 @@ export function OnboardingFrame({ step, children, skipHref = '/onboarding/dna' }
           >
             skip →
           </Link>
+          <span aria-hidden className="h-3 w-px bg-line-subtle" />
+          <button
+            type="button"
+            onClick={signOut}
+            disabled={signingOut}
+            className="font-mono text-[11px] uppercase tracking-[0.1em] text-fg-3 transition-colors duration-fast ease-out hover:text-fg-1 disabled:opacity-50"
+          >
+            {signingOut ? 'signing out…' : 'sign out'}
+          </button>
         </div>
       </header>
 

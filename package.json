@@ -52,7 +52,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1057.0",
     "@aws-sdk/s3-request-presigner": "^3.1057.0",
-    "@civitai/app-sdk": "file:../civitai-app-starters/packages/civitai-app-sdk",
+    "@civitai/app-sdk": "^0.6.0",
     "@t3-oss/env-nextjs": "^0.13.0",
     "drizzle-orm": "^0.45.2",
     "jszip": "^3.10.1",
