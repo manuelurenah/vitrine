@@ -77,6 +77,8 @@ export type BuildCampaignPromptInput = {
   referenceCount?: number;
   userOverride?: string;
   adCopy?: AdCopy | null;
+  /** When true, instruct the model to incorporate the supplied brand logo. */
+  logo?: boolean;
 };
 
 function copyPlacement(preset: PresetDef): string {
@@ -109,8 +111,12 @@ function copyLayer(preset: PresetDef, adCopy: AdCopy): string {
   return parts.join('. ');
 }
 
+function logoLayer(): string {
+  return 'incorporate the supplied brand logo as a small mark in a corner, preserving its exact shape, proportions, and colors; do not distort or restyle it';
+}
+
 export function buildCampaignPrompt(input: BuildCampaignPromptInput): EnhancedPrompt {
-  const { brief, brand, preset, referenceCount = 0, userOverride, adCopy } = input;
+  const { brief, brand, preset, referenceCount = 0, userOverride, adCopy, logo } = input;
 
   const baseDescription = (brief.description?.trim() || brief.prompt?.trim() || '').replace(
     /\s+/g,
@@ -134,8 +140,9 @@ export function buildCampaignPrompt(input: BuildCampaignPromptInput): EnhancedPr
     ? `${preset.styleNotes}. on-brand, product-forward, polished ad creative, high quality, commercial-grade composition`
     : `${preset.styleNotes}. on-brand, product-forward, no text overlay, high quality`;
   const copyStr = hasCopy ? copyLayer(preset, adCopy) : '';
+  const logoStr = logo ? logoLayer() : '';
 
-  const finalPrompt = assemble([intentStr, base, brandStr, refStr, styleStr, copyStr]);
+  const finalPrompt = assemble([intentStr, base, brandStr, refStr, styleStr, copyStr, logoStr]);
 
   return {
     base,

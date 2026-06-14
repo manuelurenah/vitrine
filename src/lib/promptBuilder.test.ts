@@ -163,6 +163,23 @@ describe('buildCampaignPrompt', () => {
   });
 });
 
+describe('buildCampaignPrompt logo', () => {
+  it('omits the logo directive by default', () => {
+    const p = buildCampaignPrompt({ brief: baseBrief, preset: PRESETS['ig-feed'], referenceCount: 1 });
+    expect(p.finalPrompt.toLowerCase()).not.toContain('brand logo');
+  });
+
+  it('adds the logo directive when logo is true', () => {
+    const p = buildCampaignPrompt({
+      brief: baseBrief,
+      preset: PRESETS['ig-feed'],
+      referenceCount: 1,
+      logo: true,
+    });
+    expect(p.finalPrompt.toLowerCase()).toContain('brand logo');
+  });
+});
+
 describe('buildPhotoshootPrompt', () => {
   it('builds prompt from product name + notes + template style', () => {
     const out = buildPhotoshootPrompt({
