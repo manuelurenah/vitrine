@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { cn } from '@/components/ui';
 
-export type BrandSubTabId = 'dna' | 'catalog' | 'assets' | 'book';
+export type BrandSubTabId = 'dna' | 'assets' | 'book';
 
 type SubTabDef = {
   id: BrandSubTabId;
@@ -13,7 +13,6 @@ type SubTabDef = {
 
 const SUB_TABS: SubTabDef[] = [
   { id: 'dna', label: 'dna', href: '/brand' },
-  { id: 'catalog', label: 'catalog', href: '/brand/catalog' },
   { id: 'assets', label: 'assets', href: '/brand/assets' },
   /**
    * "book" (/brand/book) has no page route yet — the route returns 404

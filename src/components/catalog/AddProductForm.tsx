@@ -77,7 +77,7 @@ export function mergeImageAssetIds(
 }
 
 export function AddProductForm({
-  redirectTo = '/brand/catalog',
+  redirectTo = '/catalog',
   libraryAssets,
   prefillAssetIds,
 }: AddProductFormProps = {}) {

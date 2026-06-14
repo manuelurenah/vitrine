@@ -163,7 +163,7 @@ export function AssetsEmptyState({ onGenerate }: AssetsEmptyStateProps) {
       <p className="text-[12.5px] text-fg-3">
         or{' '}
         <Link
-          href="/brand/catalog"
+          href="/catalog"
           className="text-fg-2 underline decoration-line-subtle underline-offset-2 hover:text-fg-0 hover:decoration-line"
         >
           add a product to your catalog →

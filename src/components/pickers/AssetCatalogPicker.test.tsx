@@ -111,7 +111,7 @@ describe('ProductsTab rendering', () => {
     );
     expect(html).toContain('data-testid="picker-empty"');
     expect(html).toContain('no products yet');
-    expect(html).toContain('href="/brand/catalog"');
+    expect(html).toContain('href="/catalog"');
   });
 
   it('renders one card per product with controlled selection state', () => {

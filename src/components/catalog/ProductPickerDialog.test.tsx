@@ -40,12 +40,12 @@ const products: Product[] = [
 
 describe('buildNewProductHref', () => {
   it('encodes a single asset id with the asset: prefix', () => {
-    expect(buildNewProductHref(['a1'])).toBe('/brand/catalog/new?images=asset%3Aa1');
+    expect(buildNewProductHref(['a1'])).toBe('/catalog/new?images=asset%3Aa1');
   });
 
   it('joins multiple asset ids with a comma and url-encodes the whole list', () => {
     expect(buildNewProductHref(['a1', 'a2'])).toBe(
-      '/brand/catalog/new?images=asset%3Aa1%2Casset%3Aa2',
+      '/catalog/new?images=asset%3Aa1%2Casset%3Aa2',
     );
   });
 });

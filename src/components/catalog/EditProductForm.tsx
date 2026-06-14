@@ -71,7 +71,7 @@ export function EditProductForm({ product, initialImages, redirectTo }: EditProd
   const descriptionId = useId();
   const tagsId = useId();
   const statusId = useId();
-  const detailHref = redirectTo ?? `/brand/catalog/${product.id}`;
+  const detailHref = redirectTo ?? `/catalog/${product.id}`;
 
   const [name, setName] = useState(product.name);
   const [description, setDescription] = useState(product.notes ?? '');

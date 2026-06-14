@@ -16,7 +16,7 @@ export function DeleteProductButton({ productId }: Props) {
     setBusy(true);
     try {
       await fetch(`/api/catalog/products/${productId}`, { method: 'DELETE' });
-      router.push('/brand/catalog');
+      router.push('/catalog');
       router.refresh();
     } finally {
       setBusy(false);

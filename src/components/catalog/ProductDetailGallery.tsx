@@ -262,7 +262,7 @@ export function ProductDetailGallery({
     if (!window.confirm('delete this product? this is not reversible.')) return;
     const res = await fetch(`/api/catalog/products/${productId}`, { method: 'DELETE' });
     if (res.ok) {
-      router.push('/brand/catalog');
+      router.push('/catalog');
       router.refresh();
     }
   }

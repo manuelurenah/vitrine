@@ -145,7 +145,7 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
     setDialogAssetIds([]);
     setSelecting(false);
     setSelectedTileIds(new Set());
-    router.push(`/brand/catalog/${productId}`);
+    router.push(`/catalog/${productId}`);
     router.refresh();
     console.info(`added ${addedCount} image${addedCount === 1 ? '' : 's'} to product`);
   }

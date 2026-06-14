@@ -89,7 +89,7 @@ function CardMenu({ productId }: { productId: string }) {
           className="absolute right-0 mt-1 flex w-[160px] flex-col rounded-[10px] border border-line bg-bg-1 p-1 shadow-lg"
         >
           <Link
-            href={`/brand/catalog/${productId}/edit`}
+            href={`/catalog/${productId}/edit`}
             role="menuitem"
             onClick={() => setOpen(false)}
             className="rounded-[6px] px-2 py-1.5 text-left text-[13px] text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0"
@@ -122,7 +122,7 @@ function GridCard({ product, index }: { product: Product; index: number }) {
   return (
     <article className="group relative flex flex-col gap-3 rounded-[14px] border border-line-subtle bg-bg-2 p-3 transition-all duration-base ease-out hover:-translate-y-[2px] hover:border-line-strong">
       <Link
-        href={`/brand/catalog/${product.id}`}
+        href={`/catalog/${product.id}`}
         className="absolute inset-0 rounded-[14px]"
         aria-label={product.name}
       />
@@ -175,7 +175,7 @@ function ListRow({ product, index }: { product: Product; index: number }) {
   return (
     <article className="group relative flex items-center gap-3 rounded-[10px] border border-line-subtle bg-bg-2 px-3 py-2.5 transition-all duration-base ease-out hover:border-line-strong">
       <Link
-        href={`/brand/catalog/${product.id}`}
+        href={`/catalog/${product.id}`}
         className="absolute inset-0 rounded-[10px]"
         aria-label={product.name}
       />
@@ -338,7 +338,7 @@ export function CatalogControls({ products }: { products: Product[] }) {
 
       {/* new product CTA at bottom of populated list */}
       <div className="mt-6 flex justify-center">
-        <Link href="/brand/catalog/new">
+        <Link href="/catalog/new">
           <Button variant="ghost" leadingIcon={<Plus size={13} strokeWidth={1.75} />}>
             add another product
           </Button>

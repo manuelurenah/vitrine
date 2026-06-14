@@ -25,7 +25,7 @@ export function CatalogGrid({ products }: Props) {
           </p>
         </div>
         {/* Desktop-only header button; mobile uses FAB */}
-        <Link href="/brand/catalog/new" className="hidden sm:block">
+        <Link href="/catalog/new" className="hidden sm:block">
           <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />}>
             new product
           </Button>
@@ -46,7 +46,7 @@ export function CatalogGrid({ products }: Props) {
               add your first product. notes feed every campaign prompt and photoshoot template.
             </p>
           </div>
-          <Link href="/brand/catalog/new">
+          <Link href="/catalog/new">
             <Button variant="primary" leadingIcon={<Plus size={14} strokeWidth={1.75} />}>
               new product
             </Button>
@@ -66,7 +66,7 @@ export function CatalogGrid({ products }: Props) {
       )}
 
       {/* Mobile FAB — new product */}
-      {isMobile && <FAB href="/brand/catalog/new" label="new" aria-label="new product" />}
+      {isMobile && <FAB href="/catalog/new" label="new" aria-label="new product" />}
     </div>
   );
 }

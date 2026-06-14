@@ -268,7 +268,7 @@ export function ProductsTab({
         icon={<Box size={22} strokeWidth={1.5} />}
         title="no products yet."
         body="add a product to use it as a reference in generated images."
-        ctaHref="/brand/catalog"
+        ctaHref="/catalog"
         ctaLabel="open catalog"
       />
     );

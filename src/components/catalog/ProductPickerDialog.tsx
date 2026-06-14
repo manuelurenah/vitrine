@@ -22,14 +22,14 @@ export type ProductPickerDialogProps = {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Build the deep-link to `/brand/catalog/new` that pre-stages the chosen assets
+ * Build the deep-link to `/catalog/new` that pre-stages the chosen assets
  * via the `images=` query param. Matches the encoding contract expected by the
  * new-product page (single `encodeURIComponent` over the whole comma-joined
  * `asset:<id>` list).
  */
 export function buildNewProductHref(assetIds: string[]): string {
   const joined = assetIds.map((id) => `asset:${id}`).join(',');
-  return `/brand/catalog/new?images=${encodeURIComponent(joined)}`;
+  return `/catalog/new?images=${encodeURIComponent(joined)}`;
 }
 
 function filterProducts(products: Product[], query: string): Product[] {

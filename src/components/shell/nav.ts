@@ -16,7 +16,7 @@ export type NavItem = {
 export const NAV: NavItem[] = [
   { id: 'dna', label: 'brand dna', href: '/brand', icon: Dna },
   { id: 'overview', label: 'overview', href: '/brand', indent: true },
-  { id: 'catalog', label: 'catalog', href: '/brand/catalog', indent: true },
+  { id: 'catalog', label: 'catalog', href: '/catalog' },
   { id: 'assets', label: 'assets', href: '/brand/assets', indent: true },
   { id: 'campaigns', label: 'campaigns', href: '/campaigns', icon: Megaphone, shortcut: '⌘2' },
   { id: 'photoshoot', label: 'photoshoot', href: '/photoshoot', icon: Camera, shortcut: '⌘3' },
@@ -25,7 +25,7 @@ export const NAV: NavItem[] = [
 const PREFIX_TO_ID: Array<[string, NavId]> = [
   ['/campaigns', 'campaigns'],
   ['/photoshoot', 'photoshoot'],
-  ['/brand/catalog', 'catalog'],
+  ['/catalog', 'catalog'],
   ['/brand/assets', 'assets'],
   ['/brand', 'overview'],
 ];
