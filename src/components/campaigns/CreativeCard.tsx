@@ -1,6 +1,5 @@
 'use client';
 
-import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
 import { Check, Download, MoreVertical, Pencil, RefreshCw, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -9,6 +8,7 @@ import { PostGenActions } from '@/components/generations/PostGenActions';
 import { Badge, cn } from '@/components/ui';
 import { downloadImagesAsZip } from '@/lib/downloadZip';
 import { PRESETS, type PresetId } from '@/lib/presets';
+import { useTileWorkflow } from './useTileWorkflow';
 
 type RegenerateContext = {
   kind?: 'campaign' | 'photoshoot';
@@ -79,19 +79,6 @@ export function shouldShowTileMenu(args: {
   );
 }
 
-function statusFromSnap(snap: WorkflowSnapshot | null): CardStatus {
-  const s = (snap?.status ?? '').toLowerCase();
-  if (s === 'succeeded') return 'done';
-  if (s === 'failed' || s === 'canceled' || s === 'expired') return 'failed';
-  if (s === 'unassigned' || s === 'pending') return 'queued';
-  return 'cooking';
-}
-
-function imageUrlsFromSnap(snap: WorkflowSnapshot | null): string[] {
-  if (!snap) return [];
-  return extractImageUrls(snap);
-}
-
 export function CreativeCard({
   workflowId: initialWorkflowId,
   presetId,
@@ -111,10 +98,16 @@ export function CreativeCard({
   const router = useRouter();
   const preset = PRESETS[presetId];
   const aspect = preset.width / preset.height;
-  const [workflowId, setWorkflowId] = useState(initialWorkflowId);
-  const [status, setStatus] = useState<CardStatus>(initialStatus);
-  const [imgUrls, setImgUrls] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    workflowId,
+    status,
+    imageUrls: imgUrls,
+    error,
+    setStatus,
+    setImageUrls: setImgUrls,
+    setError,
+    setWorkflowId,
+  } = useTileWorkflow(initialWorkflowId, { status: initialStatus, imageUrls: [] });
   const [regenerating, setRegenerating] = useState(false);
   const [zipping, setZipping] = useState(false);
 
@@ -165,40 +158,6 @@ export function CreativeCard({
       setRegenerating(false);
     }
   }
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loop() {
-      while (!cancelled) {
-        try {
-          const res = await fetch(`/api/workflow/${workflowId}?wait=15000`);
-          if (!res.ok) {
-            const body = await res.json().catch(() => ({}));
-            setError(body?.error ?? `http ${res.status}`);
-            await new Promise((r) => setTimeout(r, 3000));
-            continue;
-          }
-          const data = (await res.json()) as { snapshot: WorkflowSnapshot; done: boolean };
-          if (cancelled) return;
-          const next = statusFromSnap(data.snapshot);
-          setStatus(next);
-          const urls = imageUrlsFromSnap(data.snapshot);
-          if (urls.length > 0) setImgUrls(urls);
-          if (data.done) return;
-        } catch (err) {
-          if (cancelled) return;
-          setError(err instanceof Error ? err.message : 'poll failed');
-          await new Promise((r) => setTimeout(r, 3000));
-        }
-      }
-    }
-
-    loop();
-    return () => {
-      cancelled = true;
-    };
-  }, [workflowId]);
 
   const firstUrl = imgUrls[0] ?? null;
 
