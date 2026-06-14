@@ -1,8 +1,8 @@
 'use client';
 
-import { Plus, Save, UploadCloud, X } from 'lucide-react';
+import { Loader2, Plus, RefreshCw, Save, UploadCloud, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { ColorPickerChip } from '@/components/onboarding/ColorPickerChip';
 import { LogoPreview } from '@/components/onboarding/LogoPreview';
 import { useLogoUpload } from '@/components/onboarding/useLogoUpload';
@@ -91,6 +91,14 @@ function EditorCard({
       <span className="t-eyebrow">// {title}</span>
       {children}
     </article>
+  );
+}
+
+// ── FieldLabel ────────────────────────────────────────────────────────────────
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-fg-3">{children}</span>
   );
 }
 
@@ -307,6 +315,49 @@ export function BrandEditor({ brand }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  // rescrape state
+  const [rescraping, setRescraping] = useState(false);
+
+  // ── dirty tracking ───────────────────────────────────────────────────────
+
+  const initial = useMemo(
+    () => ({
+      name: brand.name,
+      description: brand.description ?? '',
+      industry: brand.industry ?? '',
+      tagline: brand.tagline ?? '',
+      font: brand.font ?? '',
+      logoUrl: brand.logoUrl ?? null,
+      palette: brand.palette,
+      voice: brand.tone
+        ? brand.tone
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [],
+      values: brand.values,
+      aesthetic: brand.aesthetic,
+    }),
+    [brand],
+  );
+
+  const dirty = useMemo(() => {
+    const eqArr = (a: string[], b: string[]) =>
+      a.length === b.length && a.every((v, i) => v === b[i]);
+    return (
+      name !== initial.name ||
+      description !== initial.description ||
+      industry !== initial.industry ||
+      tagline !== initial.tagline ||
+      font !== initial.font ||
+      (logoUrl ?? null) !== initial.logoUrl ||
+      !eqArr(palette, initial.palette) ||
+      !eqArr(voice, initial.voice) ||
+      !eqArr(values, initial.values) ||
+      !eqArr(aesthetic, initial.aesthetic)
+    );
+  }, [name, description, industry, tagline, font, logoUrl, palette, voice, values, aesthetic, initial]);
+
   // ── palette helpers ──────────────────────────────────────────────────────
 
   function addColor(hex: string) {
@@ -353,6 +404,35 @@ export function BrandEditor({ brand }: Props) {
     aesthetic,
   });
 
+  // ── rescrape ──────────────────────────────────────────────────────────────
+
+  async function onRescrape() {
+    setRescraping(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/brand/${brand.id}/rescrape`, { method: 'POST' });
+      const body = await res.json();
+      if (!res.ok) {
+        setError(body?.error ?? `http ${res.status}`);
+        return;
+      }
+      const s = body.scraped as {
+        palette?: string[];
+        font?: string | null;
+        logoUrl?: string | null;
+        description?: string | null;
+      };
+      if (s.palette && s.palette.length) setPalette(s.palette.slice(0, 12));
+      if (s.font) setFont(s.font);
+      if (s.logoUrl) setLogoUrl(s.logoUrl);
+      if (s.description) setDescription(s.description);
+    } catch {
+      setError('rescrape failed');
+    } finally {
+      setRescraping(false);
+    }
+  }
+
   // ── submit ───────────────────────────────────────────────────────────────
 
   async function onSubmit(e: React.FormEvent) {
@@ -395,8 +475,10 @@ export function BrandEditor({ brand }: Props) {
 
   // ── identity card helpers ────────────────────────────────────────────────
 
+  const loadedSourceUrl = brand.sourceUrl ?? '';
+
   const hostnameDisplay = (() => {
-    const url = sourceUrl.trim();
+    const url = loadedSourceUrl.trim();
     if (!url) return null;
     try {
       return new URL(url).hostname.replace(/^www\./i, '');
@@ -442,26 +524,57 @@ export function BrandEditor({ brand }: Props) {
               <span className="font-mono text-[10.5px] text-fg-3">{hostnameDisplay}</span>
             )}
           </div>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="my brand"
-            required
-            aria-label="brand name"
-          />
-          <Input
-            value={industry}
-            onChange={(e) => setIndustry(e.target.value)}
-            placeholder="beauty · food · apparel"
-            aria-label="industry"
-          />
-          <Input
-            type="url"
-            value={sourceUrl}
-            onChange={(e) => setSourceUrl(e.target.value)}
-            placeholder="https://your-shop.co"
-            aria-label="source url"
-          />
+          <div className="flex flex-col gap-1">
+            <FieldLabel>brand name</FieldLabel>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="my brand"
+              required
+              aria-label="brand name"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <FieldLabel>industry</FieldLabel>
+            <Input
+              value={industry}
+              onChange={(e) => setIndustry(e.target.value)}
+              placeholder="beauty · food · apparel"
+              aria-label="industry"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <FieldLabel>url</FieldLabel>
+            {loadedSourceUrl ? (
+              <div className="flex items-center gap-2">
+                <span className="flex-1 truncate font-mono text-[12.5px] text-fg-2">
+                  {hostnameDisplay ?? loadedSourceUrl}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void onRescrape()}
+                  disabled={rescraping}
+                  className="inline-flex items-center gap-1.5 rounded-[8px] border border-line bg-bg-3 px-2.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.08em] text-fg-2 transition-colors duration-fast ease-out hover:border-line-volt hover:text-volt disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="rescrape brand url"
+                >
+                  {rescraping ? (
+                    <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+                  ) : (
+                    <RefreshCw size={12} strokeWidth={2} />
+                  )}
+                  rescrape
+                </button>
+              </div>
+            ) : (
+              <Input
+                type="url"
+                value={sourceUrl}
+                onChange={(e) => setSourceUrl(e.target.value)}
+                placeholder="https://your-shop.co"
+                aria-label="source url"
+              />
+            )}
+          </div>
         </EditorCard>
 
         {/* logo card */}
@@ -498,17 +611,6 @@ export function BrandEditor({ brand }: Props) {
           {logoUpload.status.kind === 'error' && (
             <span className="font-mono text-[11.5px] text-danger">{logoUpload.status.message}</span>
           )}
-        </EditorCard>
-
-        {/* tagline card */}
-        <EditorCard title="tagline">
-          <Input
-            value={tagline}
-            onChange={(e) => setTagline(e.target.value)}
-            placeholder="one-line hook · spoken aloud, not written"
-            className="font-display text-[18px] leading-[1.2] tracking-[-0.01em]"
-            aria-label="tagline"
-          />
         </EditorCard>
 
         {/* font card */}
@@ -566,15 +668,28 @@ export function BrandEditor({ brand }: Props) {
           )}
         </EditorCard>
 
-        {/* description card */}
+        {/* description + tagline card (merged) */}
         <EditorCard title="description" wide>
-          <Textarea
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="one-line pitch · who you make it for · what makes you different"
-            aria-label="description"
-          />
+          <div className="flex flex-col gap-1">
+            <FieldLabel>tagline</FieldLabel>
+            <Input
+              value={tagline}
+              onChange={(e) => setTagline(e.target.value)}
+              placeholder="one-line hook · spoken aloud, not written"
+              className="font-display text-[18px] leading-[1.2] tracking-[-0.01em]"
+              aria-label="tagline"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <FieldLabel>description</FieldLabel>
+            <Textarea
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="one-line pitch · who you make it for · what makes you different"
+              aria-label="description"
+            />
+          </div>
         </EditorCard>
 
         {/* voice chip group */}
@@ -637,8 +752,14 @@ export function BrandEditor({ brand }: Props) {
           <Button
             type="submit"
             variant="primary"
-            disabled={busy || name.trim().length === 0}
-            leadingIcon={<Save size={14} strokeWidth={1.75} />}
+            disabled={busy || !name.trim() || !dirty}
+            leadingIcon={
+              busy ? (
+                <Loader2 size={14} strokeWidth={1.75} className="animate-spin" />
+              ) : (
+                <Save size={14} strokeWidth={1.75} />
+              )
+            }
           >
             {busy ? 'saving…' : 'save changes'}
           </Button>
