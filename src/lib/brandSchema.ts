@@ -24,7 +24,7 @@ export const brandUpdateSchema = z.object({
   tagline: z.string().trim().max(200).nullable().optional(),
   font: z.string().trim().max(120).nullable().optional(),
   logoUrl: nullableUrl,
-  palette: z.array(hex).max(12).optional(),
+  palette: z.array(hex).max(6).optional(),
   values: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
   aesthetic: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
 });

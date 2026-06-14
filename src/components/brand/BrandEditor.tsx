@@ -364,8 +364,8 @@ export function BrandEditor({ brand }: Props) {
     const c = hex.toLowerCase();
     setPalette((cs) => {
       if (cs.includes(c)) return cs;
-      if (cs.length >= 12) {
-        setError('max 12 swatches');
+      if (cs.length >= 6) {
+        setError('max 6 swatches');
         return cs;
       }
       setError(null);
@@ -422,7 +422,7 @@ export function BrandEditor({ brand }: Props) {
         logoUrl?: string | null;
         description?: string | null;
       };
-      if (s.palette && s.palette.length) setPalette(s.palette.slice(0, 12));
+      if (s.palette && s.palette.length) setPalette(s.palette.slice(0, 6));
       if (s.font) setFont(s.font);
       if (s.logoUrl) setLogoUrl(s.logoUrl);
       if (s.description) setDescription(s.description);
@@ -619,7 +619,7 @@ export function BrandEditor({ brand }: Props) {
         </EditorCard>
 
         {/* palette card */}
-        <EditorCard title="palette" wide>
+        <EditorCard title="palette">
           {palette.length > 0 ? (
             <div className="flex flex-wrap items-center gap-3">
               {palette.map((c) => (
@@ -656,7 +656,7 @@ export function BrandEditor({ brand }: Props) {
                   </button>
                 </div>
               ))}
-              <ColorPickerChip onPick={addColor} />
+              {palette.length < 6 && <ColorPickerChip onPick={addColor} />}
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-3">
