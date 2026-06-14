@@ -100,7 +100,7 @@ export function AssetsGallery({
   const titleRow = (
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <span className="t-eyebrow">brand DNA · assets</span>
+        <span className="t-eyebrow">// assets</span>
         <h1 className="mt-1 t-h2 text-fg-0">your asset library.</h1>
         <p className="mt-1 max-w-[520px] text-[14px] leading-[1.5] text-fg-2">
           logos, past campaigns, partner marks, references — anything that isn&apos;t a product.
