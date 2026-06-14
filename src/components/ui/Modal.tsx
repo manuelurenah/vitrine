@@ -33,28 +33,24 @@ export function Modal({
   // render keeps the DOM around during the exit animation; initialized to `open`
   // so an initially-open modal is present on the very first render (SSR-safe).
   const [render, setRender] = useState(open);
-  // enter drives the CSS classes for open/closed transition states
-  const [enter, setEnter] = useState(false);
-  const [prevOpen, setPrevOpen] = useState(open);
+  // enter drives the CSS classes for open/closed transition states; initialized
+  // to `open` so an already-open modal renders in its entered state.
+  const [enter, setEnter] = useState(open);
 
-  // Drive the mount/exit transitions off `open` at render time rather than with a
-  // synchronous setState inside the effect (which triggers cascading renders).
-  // Mount immediately on open; begin the exit immediately on close. The async
-  // edges — play enter next frame, unmount after the transition — stay in the
-  // effect below.
-  if (open !== prevOpen) {
-    setPrevOpen(open);
-    if (open) setRender(true);
-    else setEnter(false);
-  }
-
+  // Mount/enter/exit are driven entirely from an effect (not via setState during
+  // render). The render-time approach is not safe under React 19 StrictMode's
+  // double-invoked render in dev: the modal would mount invisibly then immediately
+  // unmount, so the trigger looked like a no-op. The one extra render this costs on
+  // open is negligible for a modal.
   useEffect(() => {
     if (open) {
+      setRender(true);
       // Defer enter so the opening transition is seen (browser needs one frame)
       const raf = requestAnimationFrame(() => setEnter(true));
       return () => cancelAnimationFrame(raf);
     }
-    // Unmount after the exit transition (>160ms)
+    // Begin the exit immediately, then unmount after the transition (>160ms)
+    setEnter(false);
     const t = setTimeout(() => setRender(false), 180);
     return () => clearTimeout(t);
   }, [open]);
