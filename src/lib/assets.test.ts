@@ -107,7 +107,7 @@ vi.mock('@/lib/civitai', () => ({
   extractImageUrls: () => [],
 }));
 
-import { getPublicUrls, MissingReferenceError } from './assets';
+import { getPublicUrls, isLibraryAsset, MissingReferenceError } from './assets';
 
 const USER = 'user-1';
 
@@ -118,6 +118,21 @@ beforeEach(() => {
   getObjectAsDataUrlMock.mockClear();
   isLocalObjectStorageMock.mockReset();
   isLocalObjectStorageMock.mockReturnValue(false);
+});
+
+describe('isLibraryAsset', () => {
+  it('keeps uploaded assets (not generated)', () => {
+    expect(isLibraryAsset({ kind: 'upload', sourceTileId: null })).toBe(true);
+  });
+  it('keeps reference assets (not generated)', () => {
+    expect(isLibraryAsset({ kind: 'reference', sourceTileId: null })).toBe(true);
+  });
+  it('keeps ad-hoc generated assets (generated, no tile)', () => {
+    expect(isLibraryAsset({ kind: 'generated', sourceTileId: null })).toBe(true);
+  });
+  it('excludes campaign/photoshoot generated assets (generated + tile-linked)', () => {
+    expect(isLibraryAsset({ kind: 'generated', sourceTileId: 'tile-123' })).toBe(false);
+  });
 });
 
 describe('getPublicUrls', () => {

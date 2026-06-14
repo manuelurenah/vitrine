@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import { extractImageUrls, type WorkflowSnapshot } from '@/lib/civitai';
 import { db } from '@/lib/db';
 import {
@@ -127,6 +127,39 @@ export async function listAssets(userId: string, limit = 200): Promise<Asset[]> 
     .select()
     .from(assets)
     .where(and(eq(assets.userId, userId), isNull(assets.deletedAt)))
+    .orderBy(desc(assets.createdAt))
+    .limit(limit);
+  return rows.map(toAsset);
+}
+
+/**
+ * Predicate for the assets *library* view: uploads + ad-hoc generated assets,
+ * but NOT generated images that belong to a campaign or photoshoot tile (those
+ * have their own pages). Campaign/photoshoot outputs are the only generated
+ * rows with a `sourceTileId`, so the exclusion is exactly
+ * `generated && sourceTileId != null`.
+ */
+export function isLibraryAsset(a: { kind: AssetKind; sourceTileId: string | null }): boolean {
+  return !(a.kind === 'generated' && a.sourceTileId != null);
+}
+
+/**
+ * Like `listAssets` but scoped to the library view (see `isLibraryAsset`).
+ * `or(ne(kind,'generated'), isNull(sourceTileId))` is the SQL De Morgan form of
+ * "NOT (generated AND tile-linked)".
+ */
+export async function listLibraryAssets(userId: string, limit = 200): Promise<Asset[]> {
+  const rows = await db
+    .select()
+    .from(assets)
+    .where(
+      and(
+        eq(assets.userId, userId),
+        isNull(assets.deletedAt),
+        // exclude campaign/photoshoot generated images (they have their own pages)
+        or(ne(assets.kind, 'generated'), isNull(assets.sourceTileId)),
+      ),
+    )
     .orderBy(desc(assets.createdAt))
     .limit(limit);
   return rows.map(toAsset);
