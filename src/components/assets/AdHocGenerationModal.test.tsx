@@ -11,6 +11,27 @@ import {
 } from './AdHocGenerationModal';
 
 /* -------------------------------------------------------------------------- */
+/* test helpers                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Pull the visible text content of an accordion toggle out of SSR markup by its
+ * data-testid, stripping nested tags (e.g. the chevron <svg>) and whitespace so
+ * we can assert on the leading character of the actual label.
+ */
+function extractToggleText(html: string, testid: string): string {
+  const match = html.match(
+    new RegExp(`<button[^>]*data-testid="${testid}"[^>]*>([\\s\\S]*?)</button>`),
+  );
+  const inner = match?.[1];
+  if (inner === undefined) throw new Error(`toggle with data-testid="${testid}" not found`);
+  return inner
+    .replace(/<[^>]*>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/* -------------------------------------------------------------------------- */
 /* pure helpers                                                                */
 /* -------------------------------------------------------------------------- */
 
@@ -56,9 +77,68 @@ describe('AdHocGenerationModal — form state', () => {
     expect(twoActive).toBeNull();
     // references picker is collapsed by default
     expect(html).not.toContain('data-testid="adhoc-refs-region"');
-    expect(html).toContain('+ add reference images');
+    expect(html).toContain('reference images');
     // generate button is disabled when prompt is empty
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*data-testid="adhoc-generate"/);
+  });
+
+  it('autofocuses the prompt textarea on open', () => {
+    const html = renderToStaticMarkup(<AdHocGenerationModal open onClose={() => {}} />);
+    // SSR can't run the focus effect, but autoFocus renders as the `autofocus`
+    // attribute on the prompt textarea, which the browser/jsdom honors on mount.
+    expect(html).toMatch(/<textarea[^>]*id="adhoc-prompt"[^>]*autofocus/i);
+  });
+
+  it('renders accordion toggles with chevron-only labels (no +/− prefix)', () => {
+    const html = renderToStaticMarkup(
+      <FormView
+        form={DEFAULT_AD_HOC_FORM}
+        setForm={() => {}}
+        refsExpanded={false}
+        setRefsExpanded={() => {}}
+        negExpanded={false}
+        setNegExpanded={() => {}}
+        numImages={1}
+        submitting={false}
+        error={null}
+        onGenerate={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    // the toggle text content must not begin with a + or − sign
+    const negText = extractToggleText(html, 'adhoc-neg-toggle');
+    const refsText = extractToggleText(html, 'adhoc-refs-toggle');
+    expect(negText).not.toMatch(/^[+−-]/);
+    expect(refsText).not.toMatch(/^[+−-]/);
+    expect(negText).toContain('negative prompt');
+    expect(refsText).toContain('reference images');
+    // and the old prefixed copy is gone entirely
+    expect(html).not.toContain('+ negative prompt');
+    expect(html).not.toContain('+ add reference images');
+    expect(html).not.toContain('− negative prompt');
+    expect(html).not.toContain('− reference images');
+  });
+
+  it('renders the reference picker without a products tab (assets only)', () => {
+    const html = renderToStaticMarkup(
+      <FormView
+        form={DEFAULT_AD_HOC_FORM}
+        setForm={() => {}}
+        refsExpanded
+        setRefsExpanded={() => {}}
+        negExpanded={false}
+        setNegExpanded={() => {}}
+        numImages={1}
+        submitting={false}
+        error={null}
+        onGenerate={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    expect(html).toContain('data-testid="asset-catalog-picker"');
+    // assets-only: no tablist and no "products" tab control
+    expect(html).not.toContain('role="tablist"');
+    expect(html).not.toContain('>products<');
   });
 
   it('renders nothing when closed', () => {
@@ -84,7 +164,7 @@ describe('AdHocGenerationModal — form state', () => {
     );
     expect(html).toContain('data-testid="adhoc-refs-region"');
     expect(html).toContain('data-testid="asset-catalog-picker"');
-    expect(html).toContain('− reference images');
+    expect(html).toContain('reference images');
   });
 
   it('reveals the negative prompt area when expanded', () => {

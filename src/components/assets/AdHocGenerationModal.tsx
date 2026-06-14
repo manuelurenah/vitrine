@@ -2,7 +2,7 @@
 
 import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
 import { ChevronDown, ChevronUp, Loader2, Sparkles } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
 import { Button, BuzzPill, Chip, cn, FieldLabel, Modal, Textarea } from '@/components/ui';
 
@@ -410,16 +410,24 @@ export function FormView({
   onClose,
 }: FormViewProps) {
   const promptInvalid = form.prompt.trim().length === 0;
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+  // FormView mounts fresh on each modal open (see the keyed inner component),
+  // so this focuses the prompt every time the modal is opened.
+  useEffect(() => {
+    promptRef.current?.focus();
+  }, []);
   return (
     <div className="flex flex-col gap-5" data-testid="adhoc-form">
       {/* prompt */}
       <div>
         <FieldLabel htmlFor="adhoc-prompt">prompt</FieldLabel>
         <Textarea
+          ref={promptRef}
           id="adhoc-prompt"
           rows={4}
           maxLength={4000}
           required
+          autoFocus
           placeholder="describe what you want to generate…"
           value={form.prompt}
           aria-invalid={promptInvalid ? true : undefined}
@@ -442,7 +450,7 @@ export function FormView({
           data-testid="adhoc-neg-toggle"
         >
           {negExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          {negExpanded ? '− negative prompt' : '+ negative prompt'}
+          negative prompt
         </button>
         {negExpanded && (
           <div id="adhoc-neg" className="mt-2" data-testid="adhoc-neg-region">
@@ -548,7 +556,7 @@ export function FormView({
           data-testid="adhoc-refs-toggle"
         >
           {refsExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          {refsExpanded ? '− reference images' : '+ add reference images'}
+          reference images
           {form.referenceAssetIds.length > 0 && (
             <span className="ml-1 rounded-pill bg-volt-soft px-1.5 text-[10px] text-volt">
               {form.referenceAssetIds.length}
@@ -561,6 +569,8 @@ export function FormView({
               value={form.referenceAssetIds}
               onChange={(ids) => setForm({ ...form, referenceAssetIds: ids })}
               max={MAX_REFERENCES}
+              assetsOnly
+              includeGenerated={false}
             />
           </div>
         )}

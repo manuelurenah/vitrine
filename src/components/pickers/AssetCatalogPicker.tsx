@@ -23,6 +23,13 @@ export type AssetCatalogPickerProps = {
    * "send to product" hand-off can re-pick those images.
    */
   includeGenerated?: boolean;
+  /**
+   * When true, only the uploads (assets) tab is shown: the products tab and the
+   * tab-switcher strip are hidden, the assets view is pinned active, and no
+   * `product:`-prefixed ids can ever be selected. Used by reference pickers that
+   * should reference uploaded assets only. Defaults to false (full behavior).
+   */
+  assetsOnly?: boolean;
 };
 
 export type FetchState<T> = {
@@ -82,8 +89,12 @@ export function AssetCatalogPicker({
   className,
   initialTab = 'products',
   includeGenerated = false,
+  assetsOnly = false,
 }: AssetCatalogPickerProps) {
-  const [tab, setTab] = useState<TabKey>(initialTab);
+  const [tab, setTab] = useState<TabKey>(assetsOnly ? 'assets' : initialTab);
+  // When locked to assets, the products tab/switcher never renders, so `tab`
+  // can only ever be 'assets'.
+  const activeTab: TabKey = assetsOnly ? 'assets' : tab;
   const [products, setProducts] = useState<FetchState<Product>>({
     data: null,
     loading: true,
@@ -96,6 +107,11 @@ export function AssetCatalogPicker({
   });
 
   useEffect(() => {
+    // Assets-only pickers never render the products tab, so skip the fetch.
+    if (assetsOnly) {
+      setProducts({ data: [], loading: false, error: null });
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -119,7 +135,7 @@ export function AssetCatalogPicker({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [assetsOnly]);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,31 +186,37 @@ export function AssetCatalogPicker({
 
   return (
     <div className={cn('flex flex-col gap-4', className)} data-testid="asset-catalog-picker">
-      <div
-        role="tablist"
-        aria-label="Reference source"
-        className="flex items-center gap-1 self-start rounded-pill border border-line-subtle bg-bg-2 p-1"
-      >
-        <TabButton
-          active={tab === 'products'}
-          onClick={() => setTab('products')}
-          count={products.data?.length}
-        >
-          products
-        </TabButton>
-        <TabButton
-          active={tab === 'assets'}
-          onClick={() => setTab('assets')}
-          count={assets.data?.length}
-        >
-          uploads
-        </TabButton>
-        <span className="ml-2 mr-1 font-mono text-[10.5px] uppercase tracking-[0.1em] text-fg-3">
+      {assetsOnly ? (
+        <div className="self-start font-mono text-[10.5px] uppercase tracking-[0.1em] text-fg-3">
           {value.length}/{max} selected
-        </span>
-      </div>
+        </div>
+      ) : (
+        <div
+          role="tablist"
+          aria-label="Reference source"
+          className="flex items-center gap-1 self-start rounded-pill border border-line-subtle bg-bg-2 p-1"
+        >
+          <TabButton
+            active={tab === 'products'}
+            onClick={() => setTab('products')}
+            count={products.data?.length}
+          >
+            products
+          </TabButton>
+          <TabButton
+            active={tab === 'assets'}
+            onClick={() => setTab('assets')}
+            count={assets.data?.length}
+          >
+            uploads
+          </TabButton>
+          <span className="ml-2 mr-1 font-mono text-[10.5px] uppercase tracking-[0.1em] text-fg-3">
+            {value.length}/{max} selected
+          </span>
+        </div>
+      )}
 
-      {tab === 'products' ? (
+      {activeTab === 'products' ? (
         <ProductsTab
           state={products}
           selected={selected}
