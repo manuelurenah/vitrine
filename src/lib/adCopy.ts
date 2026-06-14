@@ -377,65 +377,17 @@ export async function generateCampaignDraft(
     return combined.includes('response_format') && combined.includes('not supported');
   }
 
-  const models = resolveModels();
-  const attempts: string[] = [];
-  let completion: Awaited<ReturnType<typeof callOne>> | null = null;
-  let usedModel: string | null = null;
-  let lastErr: unknown = null;
-
-  // Walk the chain. For each model, try once; on transient errors retry once
-  // with backoff; on response_format-not-supported, retry the same model
-  // without JSON mode (parseJson handles raw/prose output); on any other
-  // non-transient failure, advance to the next model in the chain.
-  for (const model of models) {
-    attempts.push(model);
-    let jsonMode = true;
-    let triedNoJsonMode = false;
-    // Per-model loop: handles retry-with-json-off + transient retry.
-    // Bail to next model after at most 3 attempts per model.
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        completion = await callOne(model, { jsonMode });
-        usedModel = model;
-        break;
-      } catch (err) {
-        lastErr = err;
-        if (isJsonModeUnsupported(err) && !triedNoJsonMode) {
-          console.warn(`[adCopy] ${model} rejected response_format — retrying without JSON mode`);
-          jsonMode = false;
-          triedNoJsonMode = true;
-          continue;
-        }
-        if (isTransientError(err)) {
-          console.warn(
-            `[adCopy] transient error from ${model} (status=${(err as { status?: number }).status}) — retrying after 1.5s`,
-          );
-          await new Promise((r) => setTimeout(r, 1500));
-          continue;
-        }
-        console.warn(`[adCopy] non-transient error from ${model} — advancing chain`, err);
-        break;
-      }
-    }
-    if (completion && usedModel) break;
-  }
-
-  if (!completion || !usedModel) {
-    const reason =
-      lastErr instanceof Error
-        ? `${lastErr.name}: ${lastErr.message.slice(0, 200)}`
-        : 'all_models_failed';
-    console.error(`[adCopy] all ${models.length} models in chain failed. Last error:`, lastErr);
-    return {
-      draft: fallbackDraft(prompt, brand, presetIds),
-      meta: { llm: 'fallback', attempts, reason },
-    };
-  }
-
-  try {
+  // Parse + validate a successful completion into a usable draft. Returns the
+  // draft on success, or a failure reason (empty / non-JSON output, or valid
+  // JSON whose shape we don't recognise) so the chain can advance to the next
+  // model instead of giving up to the local template.
+  function buildDraftFromCompletion(
+    completion: Awaited<ReturnType<typeof callOne>>,
+    model: string,
+  ): { ok: true; draft: CampaignDraft } | { ok: false; reason: string } {
     const text = completion.choices?.[0]?.message?.content ?? '';
     console.log(
-      `[adCopy] LLM raw response (model=${usedModel}, attempts=${attempts.length}, len=${text.length}):`,
+      `[adCopy] LLM raw response (model=${model}, len=${text.length}):`,
       text.slice(0, 1200),
     );
     const parsed = parseJson(text) as
@@ -443,11 +395,8 @@ export async function generateCampaignDraft(
       | Record<string, unknown>
       | null;
     if (!parsed || typeof parsed !== 'object') {
-      console.warn(`[adCopy] ${usedModel} returned non-JSON. raw=`, text.slice(0, 500));
-      return {
-        draft: fallbackDraft(prompt, brand, presetIds),
-        meta: { llm: 'fallback', model: usedModel, attempts, reason: 'invalid_json' },
-      };
+      console.warn(`[adCopy] ${model} returned non-JSON. raw=`, text.slice(0, 500));
+      return { ok: false, reason: 'invalid_json' };
     }
     // Some models return the brief and tiles at the top level instead of
     // wrapped. Accept both shapes so a slightly off-spec JSON still works.
@@ -491,9 +440,8 @@ export async function generateCampaignDraft(
       draft.adCopy[id] = candidate ?? fallbackCopy(seed, brand ?? null, id);
     }
 
-    // Detect "shape miss": LLM returned valid JSON but none of the fields
-    // we asked for landed. Pick up brief fields the LLM actually filled in
-    // (non-empty + different from fallback default) to decide.
+    // Detect "shape miss": LLM returned valid JSON but none of the fields we
+    // asked for landed — treat it as unusable so the chain advances.
     const briefFilledCount = [
       briefRaw.title,
       briefRaw.description,
@@ -502,32 +450,83 @@ export async function generateCampaignDraft(
       briefRaw.audience,
       briefRaw.aesthetics,
     ].filter((v) => typeof v === 'string' && v.trim().length > 0).length;
-    const shapeMiss = briefFilledCount === 0 && usableTileCount === 0;
-    if (shapeMiss) {
+    if (briefFilledCount === 0 && usableTileCount === 0) {
       console.warn(
-        `[adCopy] ${usedModel} returned JSON with no recognisable brief/tile fields. Parsed keys=`,
+        `[adCopy] ${model} returned JSON with no recognisable brief/tile fields. Parsed keys=`,
         Object.keys(top),
       );
-      return {
-        draft: fallbackDraft(prompt, brand, presetIds),
-        meta: {
-          llm: 'fallback',
-          model: usedModel,
-          attempts,
-          reason: 'unrecognised_shape',
-        },
-      };
+      return { ok: false, reason: 'unrecognised_shape' };
     }
 
-    return { draft, meta: { llm: 'ok', model: usedModel, attempts } };
-  } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') throw err;
-    const reason =
-      err instanceof Error ? `${err.name}: ${err.message.slice(0, 200)}` : 'unknown_error';
-    console.error('[adCopy] LLM draft parse/processing failed.', err);
-    return {
-      draft: fallbackDraft(prompt, brand, presetIds),
-      meta: { llm: 'fallback', model: usedModel ?? undefined, attempts, reason },
-    };
+    return { ok: true, draft };
   }
+
+  const models = resolveModels();
+  const attempts: string[] = [];
+  let lastErr: unknown = null;
+  let lastReason = 'all_models_failed';
+
+  // Walk the chain. For each model: try once; on transient errors retry with
+  // backoff; on response_format-not-supported, retry the same model without JSON
+  // mode (parseJson handles raw/prose output). A model that *succeeds* but yields
+  // unusable output (empty / non-JSON / wrong shape) advances to the next model,
+  // exactly like a hard error — so the whole chain is exhausted before we fall
+  // back to the local template.
+  for (const model of models) {
+    attempts.push(model);
+    let jsonMode = true;
+    let triedNoJsonMode = false;
+    let completion: Awaited<ReturnType<typeof callOne>> | null = null;
+
+    // Per-model loop: handles retry-with-json-off + transient retry.
+    // Bail to next model after at most 3 attempts per model.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        completion = await callOne(model, { jsonMode });
+        break;
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') throw err;
+        lastErr = err;
+        if (isJsonModeUnsupported(err) && !triedNoJsonMode) {
+          console.warn(`[adCopy] ${model} rejected response_format — retrying without JSON mode`);
+          jsonMode = false;
+          triedNoJsonMode = true;
+          continue;
+        }
+        if (isTransientError(err)) {
+          console.warn(
+            `[adCopy] transient error from ${model} (status=${(err as { status?: number }).status}) — retrying after 1.5s`,
+          );
+          await new Promise((r) => setTimeout(r, 1500));
+          continue;
+        }
+        console.warn(`[adCopy] non-transient error from ${model} — advancing chain`, err);
+        break;
+      }
+    }
+
+    if (!completion) {
+      lastReason =
+        lastErr instanceof Error
+          ? `${lastErr.name}: ${lastErr.message.slice(0, 200)}`
+          : 'request_failed';
+      continue;
+    }
+
+    const built = buildDraftFromCompletion(completion, model);
+    if (built.ok) {
+      return { draft: built.draft, meta: { llm: 'ok', model, attempts } };
+    }
+    console.warn(`[adCopy] ${model} produced unusable output (${built.reason}) — advancing chain`);
+    lastReason = built.reason;
+  }
+
+  console.error(
+    `[adCopy] all ${models.length} models in chain failed/unusable. reason=${lastReason}`,
+    lastErr,
+  );
+  return {
+    draft: fallbackDraft(prompt, brand, presetIds),
+    meta: { llm: 'fallback', attempts, reason: lastReason },
+  };
 }
