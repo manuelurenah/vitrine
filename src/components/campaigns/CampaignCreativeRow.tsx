@@ -2,7 +2,7 @@
 
 import { Download, MoreVertical, Pencil, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui';
 import type { CampaignTile } from '@/lib/campaigns';
 import { downloadImagesAsZip } from '@/lib/downloadZip';
@@ -103,6 +103,27 @@ function RowImage({
   onRegenerate: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Click-outside + Escape to dismiss the menu. Mirrors the `TileMenu`
+  // pattern in `CreativeCard` so the campaign overlays behave consistently.
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDocClick(e: MouseEvent) {
+      if (!menuRef.current) return;
+      if (e.target instanceof Node && menuRef.current.contains(e.target)) return;
+      setMenuOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setMenuOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
 
   function downloadOne() {
     if (!url) return;
@@ -126,25 +147,32 @@ function RowImage({
         <div className="absolute inset-0 animate-pulse bg-bg-3" data-testid="row-image-skeleton" />
       )}
       {url && (
-        <div className="absolute right-1.5 top-1.5">
+        <div ref={menuRef} className="absolute right-1.5 top-1.5">
           <button
             type="button"
             data-testid="row-image-menu"
             aria-label="image options"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
             className="grid size-6 place-items-center rounded-[6px] bg-black/55 text-white backdrop-blur-md"
           >
             <MoreVertical size={13} strokeWidth={1.75} />
           </button>
           {menuOpen && (
-            <div className="absolute right-0 top-7 z-10 w-36 overflow-hidden rounded-[8px] border border-line-subtle bg-bg-1 py-1 shadow-lg">
+            <div
+              role="menu"
+              className="absolute right-0 top-7 z-10 w-36 overflow-hidden rounded-[8px] border border-line-subtle bg-bg-1 py-1 shadow-lg"
+            >
               <Link
+                role="menuitem"
                 href={editHref}
                 className="flex items-center gap-2 px-3 py-1.5 text-[12px] text-fg-1 hover:bg-bg-2"
               >
                 <Pencil size={12} strokeWidth={1.75} /> edit
               </Link>
               <button
+                role="menuitem"
                 type="button"
                 onClick={() => {
                   downloadOne();
@@ -155,6 +183,7 @@ function RowImage({
                 <Download size={12} strokeWidth={1.75} /> download
               </button>
               <button
+                role="menuitem"
                 type="button"
                 onClick={() => {
                   onRegenerate();
