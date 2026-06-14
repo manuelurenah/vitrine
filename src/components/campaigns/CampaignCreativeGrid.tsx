@@ -5,7 +5,7 @@ import { PRESETS } from '@/lib/presets';
 import type { CampaignTile } from '@/lib/campaigns';
 import type { PresetId } from '@/lib/presets';
 import { FilterPills, type FilterOption } from './FilterPills';
-import { CreativeCard } from './CreativeCard';
+import { CampaignCreativeRow } from './CampaignCreativeRow';
 
 type Props = {
   campaignId: string;
@@ -44,27 +44,17 @@ export function CampaignCreativeGrid({ campaignId, tiles }: Props) {
         />
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {tiles.map((tile) => (
-          // Keep card mounted even when filtered out — it polls a live workflow.
+      <div className="flex flex-col">
+        {tiles.map((tile) => {
+          // Keep the row mounted even when filtered out — it polls a live workflow.
           // Toggle visibility via CSS only so polling stays alive.
-          <div
-            key={tile.id}
-            className={
-              activeFilter === 'all' || tile.presetId === activeFilter ? undefined : 'hidden'
-            }
-          >
-            <CreativeCard
-              workflowId={tile.workflowId}
-              presetId={tile.presetId}
-              initialStatus={tile.status}
-              quantity={tile.quantity}
-              regenerate={{ kind: 'campaign', id: campaignId, tileId: tile.id }}
-              adCopy={tile.adCopy}
-              editHref={`/campaigns/${campaignId}/c/${tile.id}`}
-            />
-          </div>
-        ))}
+          const visible = activeFilter === 'all' || tile.presetId === activeFilter;
+          return (
+            <div key={tile.id} className={visible ? '' : 'hidden'}>
+              <CampaignCreativeRow campaignId={campaignId} tile={tile} />
+            </div>
+          );
+        })}
       </div>
     </>
   );
