@@ -1,11 +1,11 @@
 'use client';
 
-import { Image, LayoutGrid, List, MoreHorizontal, Plus } from 'lucide-react';
+import { Image, LayoutGrid, List, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { GradientThumb, type ThumbTone } from '@/components/campaigns';
-import { Badge, Button, Chip, Select, cn } from '@/components/ui';
+import { Badge, Chip, Select, cn } from '@/components/ui';
 import type { Product, ProductStatus } from '@/lib/catalog';
 
 const TONES: ThumbTone[] = ['volt', 'ion', 'ultraviolet', 'flux', 'buzz'];
@@ -92,8 +92,9 @@ function CardMenu({ productId }: { productId: string }) {
             href={`/catalog/${productId}/edit`}
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="rounded-[6px] px-2 py-1.5 text-left text-[13px] text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0"
+            className="inline-flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[13px] text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0"
           >
+            <Pencil size={14} strokeWidth={1.75} />
             edit
           </Link>
           <button
@@ -101,8 +102,9 @@ function CardMenu({ productId }: { productId: string }) {
             type="button"
             disabled={deleting}
             onClick={handleDelete}
-            className="rounded-[6px] px-2 py-1.5 text-left text-[13px] text-danger transition-colors hover:bg-danger-soft disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[13px] text-danger transition-colors hover:bg-danger-soft disabled:cursor-not-allowed disabled:opacity-40"
           >
+            <Trash2 size={14} strokeWidth={1.75} />
             {deleting ? 'deleting…' : 'delete'}
           </button>
         </div>
@@ -336,14 +338,6 @@ export function CatalogControls({ products }: { products: Product[] }) {
         </div>
       )}
 
-      {/* new product CTA at bottom of populated list */}
-      <div className="mt-6 flex justify-center">
-        <Link href="/catalog/new">
-          <Button variant="ghost" leadingIcon={<Plus size={13} strokeWidth={1.75} />}>
-            add another product
-          </Button>
-        </Link>
-      </div>
     </>
   );
 }
