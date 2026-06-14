@@ -89,7 +89,7 @@ function CardMenu({ productId }: { productId: string }) {
           className="absolute right-0 mt-1 flex w-[160px] flex-col rounded-[10px] border border-line bg-bg-1 p-1 shadow-lg"
         >
           <Link
-            href={`/catalog/${productId}/edit`}
+            href={`/catalog/${productId}`}
             role="menuitem"
             onClick={() => setOpen(false)}
             className="inline-flex items-center gap-2 rounded-[6px] px-2 py-1.5 text-left text-[13px] text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0"
