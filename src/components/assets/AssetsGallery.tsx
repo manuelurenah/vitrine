@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { FAB } from '@/components/shell';
 import { Button, cn, Select } from '@/components/ui';
 import { FilterPills } from '@/components/campaigns/FilterPills';
@@ -76,16 +76,24 @@ export function AssetsGallery({
     new Set([...cooking.map((c) => c.workflowId), ...extraCooking]),
   );
 
-  const handleSubmitted = (workflowId: string) => {
-    setExtraCooking((prev) => (prev.includes(workflowId) ? prev : [...prev, workflowId]));
-    setGenOpen(false);
-    router.refresh();
-  };
+  // Stable identities so CookingAssetCard's poll effect (keyed on workflowId)
+  // isn't torn down + restarted on every gallery re-render.
+  const handleSubmitted = useCallback(
+    (workflowId: string) => {
+      setExtraCooking((prev) => (prev.includes(workflowId) ? prev : [...prev, workflowId]));
+      setGenOpen(false);
+      router.refresh();
+    },
+    [router],
+  );
 
-  const handleCookingDone = (workflowId: string) => {
-    setExtraCooking((prev) => prev.filter((id) => id !== workflowId));
-    router.refresh();
-  };
+  const handleCookingDone = useCallback(
+    (workflowId: string) => {
+      setExtraCooking((prev) => prev.filter((id) => id !== workflowId));
+      router.refresh();
+    },
+    [router],
+  );
 
   const cookingCards =
     cookingIds.length > 0 ? (

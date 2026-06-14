@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2, Sparkles } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/components/ui';
 
 /**
@@ -20,6 +20,15 @@ export function CookingAssetCard({
 }) {
   const [failed, setFailed] = useState(false);
 
+  // Keep the latest onDone in a ref so the poll effect can call it WITHOUT
+  // listing it as a dependency. If `onDone` were a dependency, a new callback
+  // identity on every parent render would tear down and restart the loop,
+  // firing an immediate refetch each time — a request storm that pegs the page
+  // (especially after completion, when refresh → re-render → refetch → done
+  // → refresh would tight-loop until the server stops listing the workflow).
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -37,9 +46,13 @@ export function CookingAssetCard({
               setFailed(true);
               return;
             }
-            onDone(workflowId);
+            onDoneRef.current(workflowId);
             return;
           }
+          // Not terminal. The server long-poll already held ~wait ms, but pace
+          // defensively so a fast/early return (error JSON, wait=0, immediate
+          // non-terminal) can never become a hot loop.
+          await new Promise((r) => setTimeout(r, 1500));
         } catch {
           if (cancelled) return;
           await new Promise((r) => setTimeout(r, 3000));
@@ -49,7 +62,7 @@ export function CookingAssetCard({
     return () => {
       cancelled = true;
     };
-  }, [workflowId, onDone]);
+  }, [workflowId]);
 
   return (
     <div
