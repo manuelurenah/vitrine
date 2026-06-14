@@ -59,6 +59,8 @@ export default async function CreativeEditorPage({ params }: { params: Params })
         campaignId={id}
         campaignTitle={campaign.title}
         brandName={brand?.name ?? null}
+        brandPalette={brand?.palette ?? []}
+        brandLogoUrl={brand?.logoUrl ?? null}
         tile={tile}
         versions={versions}
       />

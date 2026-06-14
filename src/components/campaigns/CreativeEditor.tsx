@@ -28,6 +28,8 @@ type Props = {
   campaignId: string;
   campaignTitle: string;
   brandName: string | null;
+  brandPalette: string[];
+  brandLogoUrl: string | null;
   tile: CampaignTile;
   versions: TileVersionEntry[];
 };
@@ -36,7 +38,15 @@ type Props = {
 // Component
 // ---------------------------------------------------------------------------
 
-export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, versions }: Props) {
+export function CreativeEditor({
+  campaignId,
+  campaignTitle,
+  brandName,
+  brandPalette,
+  brandLogoUrl,
+  tile,
+  versions,
+}: Props) {
   const router = useRouter();
   const preset = PRESETS[tile.presetId];
   const aspect = preset.width / preset.height;
@@ -73,6 +83,10 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
   const [promptValue, setPromptValue] = useState(tile.prompt);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // ---- brand overrides (palette + logo) ------------------------------------
+  const [palette, setPalette] = useState<string[]>(brandPalette.slice(0, 6));
+  const [includeLogo, setIncludeLogo] = useState(false);
 
   // Sync panel state to currently-viewed version's adCopy
   useEffect(() => {
@@ -375,10 +389,59 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
           </div>
         </PanelRow>
 
-        {/* logo panel — read-only v1 */}
+        {/* palette — editable */}
+        <PanelRow label="palette">
+          <div className="mt-1 flex flex-wrap gap-2">
+            {palette.map((c, i) => (
+              <label
+                key={i}
+                className="relative size-7 cursor-pointer overflow-hidden rounded-[6px] border border-line-subtle"
+              >
+                <span className="absolute inset-0" style={{ backgroundColor: c }} />
+                <input
+                  type="color"
+                  aria-label={`palette color ${i + 1}`}
+                  value={/^#[0-9a-fA-F]{6}$/.test(c) ? c : '#000000'}
+                  onChange={(e) => setPalette((p) => p.map((x, j) => (j === i ? e.target.value : x)))}
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                />
+              </label>
+            ))}
+            {palette.length < 6 && (
+              <button
+                type="button"
+                data-testid="editor-palette-add"
+                aria-label="add color"
+                onClick={() => setPalette((p) => [...p, '#888888'])}
+                className="grid size-7 place-items-center rounded-[6px] border border-dashed border-line-subtle text-fg-3 hover:text-fg-1"
+              >
+                +
+              </button>
+            )}
+          </div>
+          <p className="mt-2 text-[11px] text-fg-3">applied when you regenerate.</p>
+        </PanelRow>
+
+        {/* logo — toggle + preview */}
         <PanelRow label="logo">
-          <div className="mt-1 flex h-12 items-center justify-center rounded-[8px] border border-dashed border-line-subtle">
-            <span className="text-[11px] text-fg-3">logo editing coming soon.</span>
+          <div className="mt-1 flex items-center gap-3">
+            <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-[8px] border border-line-subtle bg-bg-3">
+              {brandLogoUrl ? (
+                <img src={brandLogoUrl} alt="brand logo" className="h-full w-full object-contain" />
+              ) : (
+                <span className="text-[9px] text-fg-3">no logo</span>
+              )}
+            </div>
+            <label className="flex items-center gap-2 text-[12px] text-fg-1">
+              <input
+                type="checkbox"
+                data-testid="editor-logo-toggle"
+                checked={includeLogo}
+                disabled={!brandLogoUrl}
+                onChange={(e) => setIncludeLogo(e.target.checked)}
+              />
+              include logo on regenerate
+            </label>
           </div>
         </PanelRow>
 
