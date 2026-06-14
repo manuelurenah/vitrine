@@ -42,7 +42,7 @@ test.describe('Brand pages render', () => {
 
   test('assets gallery renders with empty state when no uploads', async ({ page, baseURL }) => {
     await signInToApp(page, baseURL!);
-    await page.goto(`${baseURL}/brand/assets`);
+    await page.goto(`${baseURL}/assets`);
     await expect(page.getByRole('heading', { name: /your asset library/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /upload your first/i })).toBeVisible();
   });

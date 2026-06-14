@@ -15,7 +15,7 @@ test.describe('Photoshoot subject deep-links', () => {
     const assetId = await seedAsset({ kind: 'upload' });
 
     await signInToApp(page, baseURL!);
-    await page.goto(`${baseURL}/brand/assets/${assetId}`);
+    await page.goto(`${baseURL}/assets/${assetId}`);
 
     await page.getByRole('link', { name: /use as photoshoot subject/i }).click();
 
@@ -41,10 +41,11 @@ test.describe('Photoshoot subject deep-links', () => {
     const productId = await seedProduct({ name: 'lumen hero', heroAssetId });
 
     await signInToApp(page, baseURL!);
-    await page.goto(`${baseURL}/brand/catalog/${productId}`);
+    await page.goto(`${baseURL}/catalog/${productId}`);
 
-    // ProductDetailGallery CTA was renamed from "use as photoshoot subject" to "start photoshoot"
-    await page.getByRole('link', { name: /start photoshoot/i }).click();
+    // The photoshoot CTA now lives in ProductDetailHeader as a secondary
+    // "use in photoshoot" anchor (links to /photoshoot/new?subject=product:<id>).
+    await page.getByRole('link', { name: /use in photoshoot/i }).click();
 
     await page.waitForURL(/\/photoshoot\/new\?subject=/, { timeout: 10_000 });
     const url = new URL(page.url());

@@ -3,16 +3,19 @@ import { signInToApp } from './helpers/auth';
 import { markOnboardingComplete, resetUserData } from './helpers/db';
 
 /**
- * Phase 2 workstream O — Ad-hoc generation from /brand/assets.
+ * Phase 2 workstream O — Ad-hoc generation from /assets.
  *
- * Drives the AdHocGenerationModal end-to-end against MSW-mocked orchestrator
- * handlers: open → fill → generate → poll → results → save. Also covers the
- * "close mid-poll" escape hatch and verifies the modal's key-based remount
- * resets transient state on the next open.
+ * The modal flow was reworked: there is no in-modal polling/results/selection
+ * step anymore. The flow is now:
+ *   open modal → fill prompt → generate → modal CLOSES immediately → a
+ *   placeholder "cooking" card (CookingAssetCard) appears in the /assets grid →
+ *   it long-polls /api/workflow/{id} until terminal → the workflow route
+ *   auto-persists the result as an asset → router.refresh() surfaces it in the
+ *   grid (no separate "save selected" step).
  *
  * MSW progression for imageGen is deterministic (pending → processing →
- * succeeded) in `src/mocks/handlers.ts` so this spec does not need to stub
- * any network calls itself.
+ * succeeded) in `src/mocks/handlers.ts` so this spec does not need to stub any
+ * network calls itself.
  */
 
 test.describe('Ad-hoc generation modal', () => {
@@ -21,13 +24,13 @@ test.describe('Ad-hoc generation modal', () => {
     await markOnboardingComplete();
   });
 
-  test('opens modal, generates, polls, picks one image, saves to library', async ({
+  test('opens modal, generates, modal closes, cooking card lands as an asset', async ({
     page,
     baseURL,
   }) => {
     test.setTimeout(120_000);
     await signInToApp(page, baseURL!);
-    await page.goto(`${baseURL}/brand/assets`);
+    await page.goto(`${baseURL}/assets`);
 
     // Empty state for a freshly-reset user — both empty-state and header CTAs
     // exist on the page depending on asset count, so target by testid.
@@ -40,6 +43,9 @@ test.describe('Ad-hoc generation modal', () => {
     const form = page.getByTestId('adhoc-form');
     await expect(form).toBeVisible();
 
+    // The prompt autofocuses on open (FormView focuses the textarea on mount).
+    await expect(page.locator('#adhoc-prompt')).toBeFocused();
+
     await page
       .locator('#adhoc-prompt')
       .fill('studio-lit hero shot of a ceramic mug, soft shadows, warm tones');
@@ -51,11 +57,11 @@ test.describe('Ad-hoc generation modal', () => {
     await page.getByTestId('adhoc-num-inc').click();
     await expect(page.getByTestId('adhoc-num-value')).toHaveText('2');
 
-    // ---- submit + transition to polling ----
+    // ---- submit: POST /api/assets/generate, then the modal closes itself ----
     const generatePromise = page.waitForResponse(
       (r) =>
         r.url().includes('/api/assets/generate') &&
-        !r.url().includes('/save') &&
+        !r.url().includes('/estimate') &&
         r.request().method() === 'POST',
       { timeout: 20_000 },
     );
@@ -69,56 +75,33 @@ test.describe('Ad-hoc generation modal', () => {
     expect(generateBody.workflowId).toBeTruthy();
     expect(generateBody.estimatedBuzz).toBeGreaterThan(0);
 
-    await expect(page.getByTestId('adhoc-polling')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId('adhoc-polling-prompt')).toContainText(/ceramic mug/i);
+    // Modal closes immediately on a successful submit — the form disappears.
+    await expect(form).toBeHidden({ timeout: 10_000 });
 
-    // ---- wait for results ----
-    const results = page.getByTestId('adhoc-results');
-    await expect(results).toBeVisible({ timeout: 60_000 });
+    // A placeholder "cooking" card appears in the grid while the workflow runs.
+    // It may resolve quickly against the MSW-mocked orchestrator, so don't fail
+    // if it has already flipped to a real asset by the time we look — assert
+    // either the cooking card OR the landed asset is present.
+    const cookingCard = page.getByTestId('cooking-asset-card').first();
+    const anyAssetTile = page.getByRole('link', { name: /^open / }).first();
+    await expect(cookingCard.or(anyAssetTile)).toBeVisible({ timeout: 15_000 });
 
-    // 2 images requested → 2 result cards.
-    await expect(page.getByTestId('adhoc-result-0')).toBeVisible();
-    await expect(page.getByTestId('adhoc-result-1')).toBeVisible();
+    // ---- results land as an asset ----
+    // CookingAssetCard polls /api/workflow/{id} until terminal; the workflow
+    // route auto-persists the result, then router.refresh() surfaces it. Wait
+    // for the cooking card to disappear and a real asset tile to appear.
+    await expect(cookingCard).toBeHidden({ timeout: 60_000 });
+    await expect(anyAssetTile).toBeVisible({ timeout: 60_000 });
 
-    // ---- pick one image + save ----
-    await page.getByTestId('adhoc-result-0').click();
-    await expect(page.getByTestId('adhoc-result-0')).toHaveAttribute('aria-checked', 'true');
-
-    const saveBtn = page.getByTestId('adhoc-save-selected');
-    await expect(saveBtn).toBeEnabled();
-
-    const savePromise = page.waitForResponse(
-      (r) => r.url().includes('/api/assets/generate/save') && r.request().method() === 'POST',
-      { timeout: 20_000 },
-    );
-    await saveBtn.click();
-    const saveResp = await savePromise;
-    expect(saveResp.status()).toBe(200);
-    const saveBody = (await saveResp.json()) as { savedAssetIds?: string[] };
-    expect(saveBody.savedAssetIds?.length ?? 0).toBeGreaterThanOrEqual(1);
-
-    // ---- modal closes + page refreshes; gallery now has at least one tile.
-    await expect(results).toBeHidden({ timeout: 10_000 });
-    // After router.refresh(), the assets page should leave the empty state.
-    // Two reliable signals: the header generate-modal CTA appears, OR the
-    // empty-state heading disappears. Either is sufficient.
-    await expect(
-      page.getByTestId('open-generate-modal').or(page.getByTestId('open-generate-modal-empty')),
-    ).toBeVisible();
-    // If the gallery rendered tiles, the "N total" counter shows up.
-    const total = page.getByText(/\b1 total\b/i);
-    // Soft assert — don't fail the whole run if router.refresh() raced the DB
-    // commit on slow CI. The save endpoint already returned 200.
-    await total.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => undefined);
+    // The page should have left the pure empty state — the header generate CTA
+    // (only rendered once assets exist) is a reliable signal.
+    await expect(page.getByTestId('open-generate-modal')).toBeVisible({ timeout: 10_000 });
   });
 
-  test('close mid-poll dismisses the modal and resets state on reopen', async ({
-    page,
-    baseURL,
-  }) => {
+  test('cancel closes the modal and the form resets on reopen', async ({ page, baseURL }) => {
     test.setTimeout(60_000);
     await signInToApp(page, baseURL!);
-    await page.goto(`${baseURL}/brand/assets`);
+    await page.goto(`${baseURL}/assets`);
 
     const openBtn = page
       .getByTestId('open-generate-modal-empty')
@@ -126,26 +109,17 @@ test.describe('Ad-hoc generation modal', () => {
     await openBtn.first().click();
 
     await expect(page.getByTestId('adhoc-form')).toBeVisible();
+
+    // Type into the form, then cancel without generating.
     await page.locator('#adhoc-prompt').fill('a minimal product flatlay, top-down');
+    await page.getByTestId('adhoc-num-inc').click();
+    await expect(page.getByTestId('adhoc-num-value')).toHaveText('2');
 
-    const generatePromise = page.waitForResponse(
-      (r) =>
-        r.url().includes('/api/assets/generate') &&
-        !r.url().includes('/save') &&
-        r.request().method() === 'POST',
-      { timeout: 20_000 },
-    );
-    await page.getByTestId('adhoc-generate').click();
-    await generatePromise;
+    await page.getByRole('button', { name: /^cancel$/i }).click();
+    await expect(page.getByTestId('adhoc-form')).toBeHidden({ timeout: 10_000 });
 
-    await expect(page.getByTestId('adhoc-polling')).toBeVisible({ timeout: 15_000 });
-
-    // Click the "close — keep cooking in the background" button mid-poll.
-    await page.getByRole('button', { name: /keep cooking in the background/i }).click();
-    await expect(page.getByTestId('adhoc-polling')).toBeHidden({ timeout: 10_000 });
-
-    // Reopen — should land back in the form phase with an empty prompt
-    // because the inner component is keyed on `open` and re-mounts.
+    // Reopen — the inner component is keyed on `open`, so it re-mounts with the
+    // default form state: empty prompt, 1 image, 1:1 aspect ratio.
     await openBtn.first().click();
     await expect(page.getByTestId('adhoc-form')).toBeVisible();
     await expect(page.locator('#adhoc-prompt')).toHaveValue('');

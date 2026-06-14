@@ -72,7 +72,7 @@ test.describe('Photoshoot cross-flow', () => {
     await page.getByTestId(`product-picker-item-${productId}`).click();
 
     // Navigates to the product detail page.
-    await page.waitForURL(new RegExp(`/brand/catalog/${productId}$`), { timeout: 15_000 });
+    await page.waitForURL(new RegExp(`/catalog/${productId}$`), { timeout: 15_000 });
 
     // DB: 2 product_assets rows attached to this product.
     const attached = await getProductAssetIds(productId);
@@ -105,7 +105,7 @@ test.describe('Photoshoot cross-flow', () => {
     await page.getByTestId('product-picker-new').first().click();
 
     // URL contains the encoded `images=` list of asset tokens.
-    await page.waitForURL(/\/brand\/catalog\/new\?images=/, { timeout: 10_000 });
+    await page.waitForURL(/\/catalog\/new\?images=/, { timeout: 10_000 });
     const url = new URL(page.url());
     const images = url.searchParams.get('images') ?? '';
     for (const aid of shoot.assetIds) {

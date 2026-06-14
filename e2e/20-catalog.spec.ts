@@ -10,10 +10,10 @@ test.describe('Catalog CRUD', () => {
 
   test('creates a product, lists it, and deletes it', async ({ page, baseURL }) => {
     await signInToApp(page, baseURL!);
-    await page.goto(`${baseURL}/brand/catalog`);
+    await page.goto(`${baseURL}/catalog`);
     await expect(page.getByRole('heading', { name: /your products/i })).toBeVisible();
 
-    await page.goto(`${baseURL}/brand/catalog/new`);
+    await page.goto(`${baseURL}/catalog/new`);
     await expect(page.getByRole('heading', { name: /add a product/i })).toBeVisible();
 
     // AddProductForm has: product name, description (optional), tags (optional).
@@ -27,7 +27,7 @@ test.describe('Catalog CRUD', () => {
     await page.getByLabel(/description/i).fill('test product created by playwright.');
     await page.getByRole('button', { name: /save as draft/i }).click();
 
-    await page.waitForURL(/\/brand\/catalog$/, { timeout: 15_000 });
+    await page.waitForURL(/\/catalog$/, { timeout: 15_000 });
     await expect(page.getByText(productName, { exact: false })).toBeVisible();
 
     // DB: one product row should exist.
@@ -40,17 +40,18 @@ test.describe('Catalog CRUD', () => {
     const listBody = (await listRes.json()) as { products: Array<{ id: string; name: string }> };
     const created = listBody.products.find((p) => p.name === productName);
     expect(created).toBeDefined();
-    await page.goto(`${baseURL}/brand/catalog/${created!.id}`);
+    await page.goto(`${baseURL}/catalog/${created!.id}`);
     await expect(page.getByRole('heading', { name: productName })).toBeVisible();
 
-    // Delete is inside the MoreMenu (•••) on the detail page.
-    // ProductDetailGallery renders: button[aria-label="more product actions"] →
-    // menu → button[role="menuitem"] "delete product" → window.confirm → router.push
+    // Delete is inside the context menu (•••) in the detail header.
+    // ProductDetailHeader renders: button[aria-label="more product actions"] →
+    // menu → button[role="menuitem"] "delete product" → window.confirm →
+    // router.push('/catalog')
     page.once('dialog', (d) => d.accept());
     await page.getByRole('button', { name: /more product actions/i }).click();
     await page.getByRole('menuitem', { name: /delete product/i }).click();
 
-    await page.waitForURL(/\/brand\/catalog$/, { timeout: 15_000 });
+    await page.waitForURL(/\/catalog$/, { timeout: 15_000 });
     await expect(page.getByText(productName)).toHaveCount(0);
 
     // DB confirms deletion.

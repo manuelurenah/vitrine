@@ -2,7 +2,6 @@ import { expect, test } from './fixtures';
 import { signInToApp } from './helpers/auth';
 import {
   countRows,
-  getAssetCollection,
   getProductAssetIds,
   markOnboardingComplete,
   resetUserData,
@@ -22,7 +21,7 @@ test.describe('Catalog + uploader library picker', () => {
     const assetId = await seedAsset({ kind: 'upload', collection: 'references' });
 
     await signInToApp(page, baseURL!);
-    await page.goto(`${baseURL}/brand/catalog/new`);
+    await page.goto(`${baseURL}/catalog/new`);
 
     // Switch to the "pick from library" tab.
     await page.getByRole('tab', { name: /pick from library/i }).click();
@@ -42,7 +41,7 @@ test.describe('Catalog + uploader library picker', () => {
     await page.getByRole('button', { name: /add to catalog/i }).click();
 
     // Redirects back to the catalog list.
-    await page.waitForURL(/\/brand\/catalog$/, { timeout: 15_000 });
+    await page.waitForURL(/\/catalog$/, { timeout: 15_000 });
 
     // DB: one product with one product_assets row pointing at the library asset.
     expect(await countRows('products')).toBe(1);
@@ -59,42 +58,10 @@ test.describe('Catalog + uploader library picker', () => {
     expect(attached).toEqual([assetId]);
   });
 
-  test('AssetUploader library tab → promote re-tags collection without new row', async ({
-    page,
-    baseURL,
-  }) => {
-    const assetId = await seedAsset({ kind: 'upload', collection: 'references' });
-    const beforeAssets = await countRows('assets');
-
-    await signInToApp(page, baseURL!);
-    await page.goto(`${baseURL}/brand/assets/new`);
-
-    // The library tab only renders when libraryAssets > 0, which the seed
-    // above guarantees.
-    await page.getByRole('tab', { name: /pick from library/i }).click();
-
-    await expect(page.getByTestId('asset-catalog-picker')).toBeVisible();
-    // The picker listbox is role="listbox"; each card is role="option".
-    // Scope to the picker container to avoid matching <option> elements inside
-    // the collection <select> that also match getByRole('option') globally.
-    const picker = page.getByTestId('asset-catalog-picker');
-    const option = picker.getByRole('option').first();
-    await option.click();
-    await expect(option).toHaveAttribute('aria-selected', 'true');
-
-    // Pick the `logos` collection (default is already `logos`, but be
-    // explicit — the seeded asset is in `references`, so the promote action
-    // labels itself "promote to library").
-    await page.getByLabel(/collection/i).selectOption('logos');
-
-    await page.getByRole('button', { name: /promote to library|re-tag/i }).click();
-
-    // Redirects back to the assets list.
-    await page.waitForURL(/\/brand\/assets$/, { timeout: 15_000 });
-
-    // DB: same asset id, collection now `logos`. No new rows.
-    expect(await countRows('assets')).toBe(beforeAssets);
-    const collection = await getAssetCollection(assetId);
-    expect(collection).toBe('logos');
-  });
+  // NOTE: the former "AssetUploader library tab → promote re-tags collection"
+  // test was removed. The AssetUploader (/assets/new) is now upload-only — the
+  // "upload" vs "pick from library" tabs and the "promote to library" action no
+  // longer exist, so there is nothing left to exercise here. The library-pick
+  // path is still covered by the new-product form test above (which uses the
+  // AddProductForm's own TabStrip, not the uploader).
 });

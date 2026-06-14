@@ -49,10 +49,10 @@ test.describe('mobile shell', () => {
   test('Modal renders as a BottomSheet on mobile', async ({ page, baseURL }) => {
     await signInToApp(page, baseURL!);
 
-    // Navigate to /brand/assets. After resetUserData there are no assets,
+    // Navigate to /assets. After resetUserData there are no assets,
     // so AssetsGallery renders AssetsEmptyState which has the
     // data-testid="open-generate-modal-empty" button.
-    await page.goto(`${baseURL}/brand/assets`);
+    await page.goto(`${baseURL}/assets`);
 
     // Open the generate modal via the empty-state CTA.
     const emptyStateCta = page.getByTestId('open-generate-modal-empty');

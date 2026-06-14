@@ -13,13 +13,24 @@ test.describe('Asset uploader UI', () => {
     baseURL,
   }) => {
     await signInToApp(page, baseURL!);
-    await page.goto(`${baseURL}/brand/assets/new`);
+    await page.goto(`${baseURL}/assets/new`);
 
     await expect(page.getByRole('heading', { name: /add assets/i })).toBeVisible();
     await expect(page.getByText(/drop files here, or click to choose/i)).toBeVisible();
     await expect(page.getByLabel(/collection/i)).toBeVisible();
     await expect(page.getByLabel(/tags/i)).toBeVisible();
     await expect(page.getByLabel(/description/i)).toBeVisible();
+
+    // The uploader is upload-only now — the old "upload" vs "pick from library"
+    // tabs were removed, so no tablist should be present.
+    await expect(page.getByRole('tab')).toHaveCount(0);
+
+    // Accepted file types are restricted to svg/png/jpg (AssetUploader's
+    // ACCEPTED_MIME + the file input's accept attribute).
+    await expect(page.locator('input[type=file]')).toHaveAttribute(
+      'accept',
+      /\.svg.*\.png.*\.jpe?g/,
+    );
 
     const submit = page.getByRole('button', { name: /add to library/i });
     await expect(submit).toBeDisabled();
@@ -71,7 +82,7 @@ test.describe('Asset uploader UI', () => {
     });
 
     await signInToApp(page, baseURL!);
-    await page.goto(`${baseURL}/brand/assets/new`);
+    await page.goto(`${baseURL}/assets/new`);
 
     const fileInput = page.locator('input[type=file]');
     await fileInput.setInputFiles({
@@ -88,7 +99,7 @@ test.describe('Asset uploader UI', () => {
     await page.getByLabel(/tags/i).fill('e2e, hero');
     await page.getByRole('button', { name: /add to library/i }).click();
 
-    await page.waitForURL(/\/brand\/assets$/, { timeout: 15_000 });
+    await page.waitForURL(/\/assets$/, { timeout: 15_000 });
 
     expect(finalizePayload).not.toBeNull();
     expect((finalizePayload as { bucket: string }).bucket).toBe('assets');
