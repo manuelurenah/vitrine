@@ -1,3 +1,5 @@
+import { ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 import { AddProductForm } from '@/components/catalog';
 import { listAssets } from '@/lib/assets';
 import { getSession } from '@/lib/session';
@@ -37,7 +39,13 @@ export default async function NewProductPage({ searchParams }: { searchParams: S
   return (
     <div className="mx-auto flex max-w-[760px] flex-col gap-6">
       <header className="flex flex-col gap-1.5">
-        <span className="t-eyebrow">brand DNA · new</span>
+        <Link
+          href="/catalog"
+          className="inline-flex items-center gap-2 rounded-pill border border-line-subtle bg-bg-2 px-[14px] py-[7px] text-[13px] font-medium text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0 self-start"
+        >
+          <ArrowLeft size={14} strokeWidth={1.75} /> catalog
+        </Link>
+        <span className="t-eyebrow">// catalog</span>
         <h1 className="t-h2 text-fg-0">add a product.</h1>
         <p className="text-[13.5px] text-fg-2">drop product photos — first one is the hero.</p>
       </header>
