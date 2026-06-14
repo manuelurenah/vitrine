@@ -108,7 +108,7 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
             <Sparkles size={13} strokeWidth={1.75} /> generate
           </button>
           <Link
-            href="/brand/assets/new"
+            href="/assets/new"
             className="inline-flex items-center gap-1.5 rounded-[9px] border border-line-volt bg-volt-soft px-3 py-[7px] font-mono text-[11px] uppercase tracking-[0.1em] text-volt hover:bg-volt/15"
           >
             <Upload size={13} strokeWidth={1.75} /> upload
@@ -195,7 +195,7 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
       />
 
       {/* Mobile FAB — upload */}
-      {isMobile && <FAB href="/brand/assets/new" label="upload" aria-label="upload asset" />}
+      {isMobile && <FAB href="/assets/new" label="upload" aria-label="upload asset" />}
     </div>
   );
 }
@@ -307,7 +307,7 @@ function AssetTile({
 
   return (
     <Link
-      href={`/brand/assets/${item.id}`}
+      href={`/assets/${item.id}`}
       aria-label={`open ${displayName}`}
       className={cn(
         'group relative flex aspect-square flex-col overflow-hidden rounded-[12px] border border-line-subtle bg-bg-2',
@@ -355,7 +355,7 @@ function AssetListRow({ item, collection }: { item: Asset; collection: string })
 
   return (
     <Link
-      href={`/brand/assets/${item.id}`}
+      href={`/assets/${item.id}`}
       aria-label={`open ${displayName}`}
       className={cn(
         'group flex items-center gap-3 rounded-[10px] border border-line-subtle bg-bg-2 px-3 py-2.5',

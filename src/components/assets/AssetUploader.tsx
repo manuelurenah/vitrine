@@ -91,7 +91,7 @@ export type AssetUploaderProps = {
   libraryAssets?: Asset[];
 };
 
-export function AssetUploader({ redirectTo = '/brand/assets', libraryAssets }: AssetUploaderProps) {
+export function AssetUploader({ redirectTo = '/assets', libraryAssets }: AssetUploaderProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const collectionId = useId();

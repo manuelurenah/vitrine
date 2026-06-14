@@ -239,7 +239,7 @@ describe('AssetsTab rendering', () => {
     );
     expect(html).toContain('data-testid="picker-empty"');
     expect(html).toContain('no uploads yet');
-    expect(html).toContain('href="/brand/assets/new"');
+    expect(html).toContain('href="/assets/new"');
   });
 
   it('filters out generated assets — only user uploads/references count', () => {

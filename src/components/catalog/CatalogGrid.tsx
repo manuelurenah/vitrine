@@ -54,7 +54,7 @@ export function CatalogGrid({ products }: Props) {
           <p className="text-[12.5px] text-fg-3">
             or skip for now —{' '}
             <Link
-              href="/brand/assets/new"
+              href="/assets/new"
               className="text-fg-2 underline underline-offset-2 hover:text-fg-0"
             >
               upload to assets instead →

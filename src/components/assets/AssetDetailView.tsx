@@ -121,7 +121,7 @@ export function AssetDetailView({
         setDeleting(false);
         return;
       }
-      router.push('/brand/assets');
+      router.push('/assets');
       router.refresh();
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'delete failed');
@@ -146,11 +146,11 @@ export function AssetDetailView({
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        router.push('/brand/assets');
+        router.push('/assets');
       } else if (e.key === 'ArrowLeft' && prevId) {
-        router.push(`/brand/assets/${prevId}`);
+        router.push(`/assets/${prevId}`);
       } else if (e.key === 'ArrowRight' && nextId) {
-        router.push(`/brand/assets/${nextId}`);
+        router.push(`/assets/${nextId}`);
       }
     }
     window.addEventListener('keydown', onKey);
@@ -165,7 +165,7 @@ export function AssetDetailView({
           aria-label="breadcrumb"
           className="inline-flex items-center gap-[6px] font-mono text-[12px] text-fg-2"
         >
-          <Link href="/brand/assets" className="hover:text-fg-1">
+          <Link href="/assets" className="hover:text-fg-1">
             assets
           </Link>
           <span className="text-fg-3">/</span>
@@ -203,7 +203,7 @@ export function AssetDetailView({
             <Trash2 size={15} strokeWidth={1.75} />
           </button>
           <Link
-            href="/brand/assets"
+            href="/assets"
             aria-label="close"
             className="grid h-9 w-9 place-items-center rounded-[10px] border border-line bg-bg-2 text-fg-1 transition-colors duration-fast ease-out hover:border-line-strong hover:bg-bg-3 hover:text-fg-0"
           >
@@ -218,7 +218,7 @@ export function AssetDetailView({
         <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-12 py-8">
           {prevId && (
             <Link
-              href={`/brand/assets/${prevId}`}
+              href={`/assets/${prevId}`}
               aria-label="previous"
               className="absolute left-4 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-line bg-black/75 text-fg-0 hover:border-line-strong hover:bg-bg-3"
             >
@@ -247,7 +247,7 @@ export function AssetDetailView({
           )}
           {nextId && (
             <Link
-              href={`/brand/assets/${nextId}`}
+              href={`/assets/${nextId}`}
               aria-label="next"
               className="absolute right-4 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full border border-line bg-black/75 text-fg-0 hover:border-line-strong hover:bg-bg-3"
             >
@@ -401,7 +401,7 @@ export function AssetDetailView({
             return (
               <Link
                 key={s.id}
-                href={`/brand/assets/${s.id}`}
+                href={`/assets/${s.id}`}
                 aria-label={`asset ${s.id}`}
                 aria-current={isSelected ? 'true' : undefined}
                 className={

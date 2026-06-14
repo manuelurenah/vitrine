@@ -26,7 +26,6 @@ function mobileTabFromPath(pathname: string): MobileTabId {
 
 /** Derive the active BrandSubTab from the current pathname (only used on /brand routes). */
 function brandSubTabFromPath(pathname: string): BrandSubTabId {
-  if (pathname === '/brand/assets' || pathname.startsWith('/brand/assets/')) return 'assets';
   if (pathname === '/brand/book' || pathname.startsWith('/brand/book/')) return 'book';
   return 'dna';
 }

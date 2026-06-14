@@ -24,7 +24,7 @@ export default async function NewAssetPage() {
         </p>
       </header>
 
-      <AssetUploader redirectTo="/brand/assets" libraryAssets={libraryAssets} />
+      <AssetUploader redirectTo="/assets" libraryAssets={libraryAssets} />
     </div>
   );
 }

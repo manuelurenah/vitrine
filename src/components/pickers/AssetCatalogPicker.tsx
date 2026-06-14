@@ -342,7 +342,7 @@ export function AssetsTab({
         icon={<Upload size={22} strokeWidth={1.5} />}
         title="no uploads yet."
         body="upload product photos, logos, or moodboard images to use as references."
-        ctaHref="/brand/assets/new"
+        ctaHref="/assets/new"
         ctaLabel="upload assets"
       />
     );

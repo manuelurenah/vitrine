@@ -103,7 +103,7 @@ export function PhotoshootList({ shoots }: Props) {
 
         <div className="mt-3 flex flex-wrap justify-center gap-2 font-mono text-[12.5px] text-fg-3">
           <span>just want to edit or generate a single image?</span>
-          <Link href="/brand/assets" className="text-fg-1 hover:text-fg-0">
+          <Link href="/assets" className="text-fg-1 hover:text-fg-0">
             → assets · generate or edit
           </Link>
         </div>

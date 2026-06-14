@@ -76,7 +76,7 @@ export function AssetsEmptyState({ onGenerate }: AssetsEmptyStateProps) {
 
       {/* big dropzone area */}
       <Link
-        href="/brand/assets/new"
+        href="/assets/new"
         className={cn(
           'group flex w-full max-w-[520px] flex-col items-center gap-3 rounded-[16px]',
           'border-2 border-dashed border-line px-8 py-10',
@@ -130,7 +130,7 @@ export function AssetsEmptyState({ onGenerate }: AssetsEmptyStateProps) {
       <div className="grid w-full max-w-[520px] grid-cols-2 gap-3 sm:grid-cols-4">
         {COLLECTION_CARDS.map((c) => {
           const Icon = c.icon;
-          const href = `/brand/assets/new?collection=${encodeURIComponent(c.slug)}`;
+          const href = `/assets/new?collection=${encodeURIComponent(c.slug)}`;
           return (
             <Link
               key={c.id}
