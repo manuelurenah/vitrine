@@ -216,7 +216,7 @@ export function ProductDetailGallery({
                 type="button"
                 title="edit photo (coming soon)"
                 aria-label="edit photo (coming soon)"
-                className="grid size-7 place-items-center rounded-pill bg-bg-0/80 text-fg-0 transition-colors hover:bg-bg-0 cursor-not-allowed opacity-60"
+                className="grid size-7 place-items-center rounded-pill bg-bg-0 text-fg-0 transition-colors hover:bg-bg-0 cursor-not-allowed opacity-60"
                 disabled
               >
                 <Wand2 size={13} strokeWidth={1.75} />
@@ -228,7 +228,7 @@ export function ProductDetailGallery({
                 aria-label="remove this photo"
                 disabled={deletingId === hero.id}
                 onClick={() => deletePhoto(hero)}
-                className="grid size-7 place-items-center rounded-pill bg-bg-0/80 text-fg-0 transition-colors hover:bg-bg-0 disabled:opacity-50"
+                className="grid size-7 place-items-center rounded-pill bg-bg-0 text-fg-0 transition-colors hover:bg-bg-0 disabled:opacity-50"
               >
                 <Trash2 size={13} strokeWidth={1.75} />
               </button>
