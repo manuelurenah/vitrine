@@ -102,7 +102,12 @@ export async function recordGeneration(input: RecordGenerationInput): Promise<Ge
 
 function mapSnapshotStatus(snapshot: WorkflowSnapshot): WorkflowDbStatus {
   const status = String(snapshot.status ?? '').toLowerCase();
-  if (status.includes('success') || status.includes('done') || status.includes('complete')) {
+  // Match the `succe` prefix, not `success`: the canonical orchestrator terminal
+  // status is `succeeded`, which does NOT contain the substring `success`. Using
+  // `success` left succeeded workflows mapped to `queued`, so ad-hoc generations
+  // (which surface via generation.status) stayed "cooking" forever even after
+  // their images landed. Mirrors the `isSuccess` check in api/workflow/[id].
+  if (status.includes('succe') || status.includes('done') || status.includes('complete')) {
     return 'done';
   }
   if (status.includes('fail') || status.includes('error')) return 'failed';

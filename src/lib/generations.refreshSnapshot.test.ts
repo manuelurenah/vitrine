@@ -102,12 +102,12 @@ beforeEach(() => {
 
 describe('refreshGenerationSnapshot', () => {
   it('calls getWorkflowSnapshot, then persists the snapshot via updateGenerationFromSnapshot', async () => {
-    // NB: the existing `mapSnapshotStatus` looks for the substring 'success'
-    // (not 'succeeded'). Use a terminal-success string the mapper actually
-    // recognises — anything containing 'success' / 'done' / 'complete'.
+    // Use the canonical orchestrator terminal status `succeeded` — it does NOT
+    // contain the substring `success`, so this guards the regression where
+    // mapSnapshotStatus left succeeded workflows mapped to `queued`.
     const fresh = {
       id: 'wf_xyz',
-      status: 'success',
+      status: 'succeeded',
       cost: { total: 12 },
       steps: [{ output: { images: [{ url: 'https://orch/1.png', available: true }] } }],
     };
