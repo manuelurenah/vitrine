@@ -107,7 +107,12 @@ vi.mock('@/lib/civitai', () => ({
   extractImageUrls: () => [],
 }));
 
-import { getPublicUrls, isLibraryAsset, MissingReferenceError } from './assets';
+import {
+  getPublicUrls,
+  inferContentTypeFromUrl,
+  isLibraryAsset,
+  MissingReferenceError,
+} from './assets';
 
 const USER = 'user-1';
 
@@ -132,6 +137,25 @@ describe('isLibraryAsset', () => {
   });
   it('excludes campaign/photoshoot generated assets (generated + tile-linked)', () => {
     expect(isLibraryAsset({ kind: 'generated', sourceTileId: 'tile-123' })).toBe(false);
+  });
+});
+
+describe('inferContentTypeFromUrl', () => {
+  it('maps image extensions to MIME types', () => {
+    expect(inferContentTypeFromUrl('a/b/0.jpg')).toBe('image/jpeg');
+    expect(inferContentTypeFromUrl('x.jpeg')).toBe('image/jpeg');
+    expect(inferContentTypeFromUrl('x.png')).toBe('image/png');
+    expect(inferContentTypeFromUrl('x.webp')).toBe('image/webp');
+  });
+  it('strips query strings before reading the extension (orchestrator blob urls)', () => {
+    expect(
+      inferContentTypeFromUrl('https://orch/blobs/9701629f-be96-0.jpg?sig=abc&exp=2027'),
+    ).toBe('image/jpeg');
+  });
+  it('returns null for unknown/missing extensions and nullish input', () => {
+    expect(inferContentTypeFromUrl('4-20260602174404108/0')).toBeNull();
+    expect(inferContentTypeFromUrl(null)).toBeNull();
+    expect(inferContentTypeFromUrl(undefined)).toBeNull();
   });
 });
 

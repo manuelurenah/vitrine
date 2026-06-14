@@ -43,6 +43,63 @@ export type Asset = {
   createdAt: number;
 };
 
+/**
+ * Best-effort MIME type from a URL or storage key's file extension. Used as a
+ * read-time fallback (assets whose `contentType` was never stored — e.g.
+ * orchestrator-synced generated images created before that column was
+ * populated) and at sync time to derive a type from the orchestrator blob URL.
+ * Query strings are stripped before reading the extension.
+ */
+export function inferContentTypeFromUrl(src: string | null | undefined): string | null {
+  if (!src) return null;
+  const path = src.split('?')[0]!.toLowerCase();
+  const dot = path.lastIndexOf('.');
+  if (dot === -1) return null;
+  switch (path.slice(dot + 1)) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'webp':
+      return 'image/webp';
+    case 'gif':
+      return 'image/gif';
+    case 'mp4':
+      return 'video/mp4';
+    case 'webm':
+      return 'video/webm';
+    default:
+      return null;
+  }
+}
+
+/**
+ * Walk a workflow snapshot's produced images and index per-image metadata
+ * (dimensions + inferred content type) by their resolved URL, so the asset
+ * sync can store proper `contentType`/`width`/`height` instead of leaving them
+ * null (which renders as a generic "file" with no preview).
+ */
+function imageMetaFromSnapshot(
+  snapshot: WorkflowSnapshot,
+): Map<string, { width: number | null; height: number | null; contentType: string | null }> {
+  const map = new Map<string, { width: number | null; height: number | null; contentType: string | null }>();
+  const steps =
+    (snapshot as { steps?: Array<{ output?: { images?: Array<Record<string, unknown>> } }> }).steps ??
+    [];
+  for (const step of steps) {
+    for (const img of step.output?.images ?? []) {
+      const url = typeof img.url === 'string' ? img.url : null;
+      if (!url) continue;
+      const width = typeof img.width === 'number' ? img.width : null;
+      const height = typeof img.height === 'number' ? img.height : null;
+      const ref = typeof img.id === 'string' ? img.id : url;
+      map.set(url, { width, height, contentType: inferContentTypeFromUrl(ref) });
+    }
+  }
+  return map;
+}
+
 function toAsset(row: AssetRow): Asset {
   return {
     id: row.id,
@@ -53,7 +110,9 @@ function toAsset(row: AssetRow): Asset {
     bucket: row.bucket,
     storageKey: row.storageKey,
     publicUrl: row.publicUrl,
-    contentType: row.contentType,
+    // Fall back to inferring from the URL/key when the column is null so legacy
+    // generated assets (synced before contentType was stored) still render.
+    contentType: row.contentType ?? inferContentTypeFromUrl(row.publicUrl ?? row.storageKey),
     byteSize: row.byteSize,
     width: row.width,
     height: row.height,
@@ -252,6 +311,7 @@ export async function syncAssetsFromSnapshot(
   const urls = extractImageUrls(snapshot);
   if (urls.length === 0) return 0;
 
+  const meta = imageMetaFromSnapshot(snapshot);
   const workflowId = snapshot.id;
   const bucket = env.S3_BUCKET_ASSETS ?? 'assets';
 
@@ -276,6 +336,7 @@ export async function syncAssetsFromSnapshot(
   for (let i = 0; i < urls.length; i++) {
     const url = urls[i]!;
     const storageKey = `${workflowId}/${i}`;
+    const m = meta.get(url);
     const [row] = await db
       .insert(assets)
       .values({
@@ -284,6 +345,9 @@ export async function syncAssetsFromSnapshot(
         bucket,
         storageKey,
         publicUrl: url,
+        contentType: m?.contentType ?? inferContentTypeFromUrl(url),
+        width: m?.width ?? null,
+        height: m?.height ?? null,
         workflowId,
         sourceTileId,
       })
