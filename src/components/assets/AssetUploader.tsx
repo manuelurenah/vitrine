@@ -4,9 +4,8 @@ import {
   Check,
   FileText,
   Image as ImageIcon,
-  Library,
   Plus,
-  Sparkles,
+  Save,
   Trash2,
   Upload,
   Video,
@@ -14,14 +13,18 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
-import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
-import { Button, Chip, cn, FieldLabel, Input, TabStrip, Textarea } from '@/components/ui';
-import type { Asset } from '@/lib/assets';
+import { Button, Chip, cn, FieldLabel, Input, Textarea } from '@/components/ui';
 
 const COLLECTIONS = ['logos', 'partners', 'past campaigns', 'references'] as const;
 type Collection = (typeof COLLECTIONS)[number];
 
 const MAX_BYTES = 20 * 1024 * 1024;
+const ACCEPTED_MIME = new Set([
+  'image/svg+xml',
+  'image/png',
+  'image/jpeg',
+  'image/jpg', // defensive — some browsers report this for .jpg
+]);
 
 type StagedStatus = 'queued' | 'signing' | 'uploading' | 'saving' | 'done' | 'failed';
 
@@ -88,17 +91,12 @@ function putWithProgress(
 
 export type AssetUploaderProps = {
   redirectTo?: string;
-  libraryAssets?: Asset[];
 };
 
-export function AssetUploader({ redirectTo = '/assets', libraryAssets }: AssetUploaderProps) {
+export function AssetUploader({ redirectTo = '/assets' }: AssetUploaderProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const collectionId = useId();
-  const uploadPanelId = useId();
-  const libraryPanelId = useId();
-
-  const hasLibrary = (libraryAssets?.length ?? 0) > 0;
 
   const [staged, setStaged] = useState<Staged[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -107,19 +105,6 @@ export function AssetUploader({ redirectTo = '/assets', libraryAssets }: AssetUp
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'upload' | 'library'>('upload');
-  const [libraryPicked, setLibraryPicked] = useState<string[]>([]);
-  const [promoting, setPromoting] = useState(false);
-
-  const libraryById = useMemo(() => {
-    const map = new Map<string, Asset>();
-    for (const a of libraryAssets ?? []) map.set(a.id, a);
-    return map;
-  }, [libraryAssets]);
-
-  const pickedAsset =
-    libraryPicked.length > 0 ? (libraryById.get(libraryPicked[0]!) ?? null) : null;
-  const isAlreadyInCollection = pickedAsset?.metadata?.collection === collection;
 
   const tags = useMemo(
     () =>
@@ -135,10 +120,14 @@ export function AssetUploader({ redirectTo = '/assets', libraryAssets }: AssetUp
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const list = Array.from(files);
-    setFormError(null);
+    const rejected: string[] = [];
     setStaged((prev) => {
       const next: Staged[] = [...prev];
       for (const file of list) {
+        if (!ACCEPTED_MIME.has(file.type)) {
+          rejected.push(file.name);
+          continue;
+        }
         if (file.size > MAX_BYTES) {
           next.push({
             id: crypto.randomUUID(),
@@ -153,6 +142,11 @@ export function AssetUploader({ redirectTo = '/assets', libraryAssets }: AssetUp
       }
       return next;
     });
+    setFormError(
+      rejected.length > 0
+        ? `unsupported file type — only svg, png, jpg allowed (${rejected.join(', ')})`
+        : null,
+    );
   }, []);
 
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -172,15 +166,6 @@ export function AssetUploader({ redirectTo = '/assets', libraryAssets }: AssetUp
 
   function patch(id: string, p: Partial<Staged>) {
     setStaged((prev) => prev.map((s) => (s.id === id ? { ...s, ...p } : s)));
-  }
-
-  function onPickerChange(ids: string[]) {
-    // Cap at 1 asset — uploader promotes a single asset at a time.
-    const next = ids
-      .filter((s) => s.startsWith('asset:'))
-      .map((s) => s.slice('asset:'.length))
-      .slice(0, 1);
-    setLibraryPicked(next);
   }
 
   async function uploadOne(s: Staged): Promise<boolean> {
@@ -248,7 +233,6 @@ export function AssetUploader({ redirectTo = '/assets', libraryAssets }: AssetUp
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (tab === 'library') return; // library tab uses its own action button.
     setFormError(null);
     setSubmitting(true);
     const queued = staged.filter((s) => s.status === 'queued');
@@ -267,202 +251,81 @@ export function AssetUploader({ redirectTo = '/assets', libraryAssets }: AssetUp
     }
   }
 
-  async function onPromote() {
-    if (!pickedAsset || promoting) return;
-    setFormError(null);
-    setPromoting(true);
-    try {
-      const res = await fetch(`/api/assets/${pickedAsset.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ collection }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        setFormError(body?.error ?? `promote http ${res.status}`);
-        setPromoting(false);
-        return;
-      }
-      router.push(redirectTo);
-      router.refresh();
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'promote failed');
-      setPromoting(false);
-    }
-  }
-
-  const pickedFilename = pickedAsset
-    ? (pickedAsset.storageKey.split('/').pop() ?? pickedAsset.id)
-    : null;
-
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-6">
-      {hasLibrary && (
-        <TabStrip
-          value={tab}
-          onChange={setTab}
-          label="asset source"
-          tabs={[
-            {
-              key: 'upload',
-              label: 'upload',
-              icon: <Upload size={12} strokeWidth={1.75} />,
-            },
-            {
-              key: 'library',
-              label: 'pick from library',
-              icon: <Library size={12} strokeWidth={1.75} />,
-            },
-          ]}
-          panelIds={{ upload: uploadPanelId, library: libraryPanelId }}
-        />
-      )}
-
-      {(!hasLibrary || tab === 'upload') && (
+      <div className="flex flex-col gap-6">
         <div
-          {...(hasLibrary && {
-            role: 'tabpanel',
-            id: uploadPanelId,
-          })}
-          className="flex flex-col gap-6"
-        >
-          <div
-            onClick={() => inputRef.current?.click()}
-            onDragOver={(e) => {
+          onClick={() => inputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={onDrop}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                inputRef.current?.click();
-              }
-            }}
-            className={cn(
-              'flex cursor-pointer flex-col items-center gap-3 rounded-[14px] border border-dashed bg-bg-2/60 px-6 py-10 text-center transition-colors duration-fast ease-out',
-              dragOver
-                ? 'border-volt bg-volt-soft text-fg-0'
-                : 'border-line hover:border-line-volt hover:bg-bg-2',
-            )}
-          >
-            <span
-              className="grid h-12 w-12 place-items-center rounded-[12px] border border-line-volt"
-              style={{ background: 'rgba(0,255,157,0.18)' }}
-            >
-              <Upload size={22} strokeWidth={1.75} />
-            </span>
-            <div>
-              <h3 className="font-display text-[18px] font-semibold tracking-[-0.015em] text-fg-0">
-                drop files here, or click to choose
-              </h3>
-              <p className="mt-1 text-[12.5px] text-fg-2">
-                svg · png · jpg · pdf · mp4 — up to 20 mb each
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                inputRef.current?.click();
-              }}
-              leadingIcon={<Upload size={14} strokeWidth={1.75} />}
-            >
-              browse
-            </Button>
-            <input
-              ref={inputRef}
-              type="file"
-              multiple
-              accept="image/*,video/*,application/pdf"
-              className="hidden"
-              onChange={onPick}
-            />
-          </div>
-
-          {staged.length > 0 && (
-            <div>
-              <FieldLabel>{staged.length} files staged</FieldLabel>
-              <div className="flex flex-col gap-2">
-                {staged.map((s) => (
-                  <StagedRow key={s.id} item={s} onRemove={() => remove(s.id)} />
-                ))}
-              </div>
-            </div>
+              inputRef.current?.click();
+            }
+          }}
+          className={cn(
+            'flex cursor-pointer flex-col items-center gap-3 rounded-[14px] border border-dashed bg-bg-2/60 px-6 py-10 text-center transition-colors duration-fast ease-out',
+            dragOver
+              ? 'border-volt bg-volt-soft text-fg-0'
+              : 'border-line hover:border-line-volt hover:bg-bg-2',
           )}
-        </div>
-      )}
-
-      {hasLibrary && tab === 'library' && (
-        <div
-          role="tabpanel"
-          id={libraryPanelId}
-          className="flex flex-col gap-4 rounded-[14px] border border-line-subtle bg-bg-2/60 p-4"
         >
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-3">
-              pick an existing asset to promote
-            </span>
-            <span className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-fg-3">
-              {libraryPicked.length}/1 picked
-            </span>
+          <span
+            className="grid h-12 w-12 place-items-center rounded-[12px] border border-line-volt"
+            style={{ background: 'rgba(0,255,157,0.18)' }}
+          >
+            <Upload size={22} strokeWidth={1.75} />
+          </span>
+          <div>
+            <h3 className="font-display text-[18px] font-semibold tracking-[-0.015em] text-fg-0">
+              drop files here, or click to choose
+            </h3>
+            <p className="mt-1 text-[12.5px] text-fg-2">svg · png · jpg — up to 20 mb each</p>
           </div>
-          <AssetCatalogPicker
-            value={libraryPicked.map((id) => `asset:${id}`)}
-            onChange={onPickerChange}
-            max={1}
-            initialTab="assets"
-            includeGenerated
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              inputRef.current?.click();
+            }}
+            leadingIcon={<Upload size={14} strokeWidth={1.75} />}
+          >
+            browse
+          </Button>
+          <input
+            ref={inputRef}
+            type="file"
+            multiple
+            accept=".svg,.png,.jpg,.jpeg,image/svg+xml,image/png,image/jpeg"
+            className="hidden"
+            onChange={onPick}
           />
-          {pickedAsset && (
-            <div className="flex items-center gap-3 rounded-[12px] border border-line-subtle bg-bg-2 px-3 py-2.5">
-              <div className="grid h-10 w-10 place-items-center overflow-hidden rounded-[8px] border border-line bg-bg-3">
-                {pickedAsset.contentType?.startsWith('image/') && pickedAsset.publicUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={pickedAsset.publicUrl}
-                    alt={pickedFilename ?? ''}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <ImageIcon size={16} strokeWidth={1.75} />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] text-fg-0">
-                  {isAlreadyInCollection ? (
-                    <>
-                      <span className="font-medium">{pickedFilename}</span> already in{' '}
-                      <span className="font-medium">{collection}</span> — re-save?
-                    </>
-                  ) : (
-                    <>
-                      promoting <span className="font-medium">{pickedFilename}</span> to{' '}
-                      <span className="font-medium">{collection}</span>
-                    </>
-                  )}
-                </div>
-                <div className="truncate font-mono text-[10.5px] uppercase tracking-[0.08em] text-fg-3">
-                  from library · {pickedAsset.kind}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
-      )}
+
+        {staged.length > 0 && (
+          <div>
+            <FieldLabel>{staged.length} files staged</FieldLabel>
+            <div className="flex flex-col gap-2">
+              {staged.map((s) => (
+                <StagedRow key={s.id} item={s} onRemove={() => remove(s.id)} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-col gap-4 rounded-[14px] border border-line-subtle bg-bg-2 p-4">
         <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-3">
-          {tab === 'library'
-            ? 'applied to picked asset'
-            : staged.length > 0
-              ? `applied to all ${staged.length} files`
-              : 'applied to all files'}
+          {staged.length > 0 ? `applied to all ${staged.length} files` : 'applied to all files'}
         </span>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -484,54 +347,44 @@ export function AssetUploader({ redirectTo = '/assets', libraryAssets }: AssetUp
             </div>
           </div>
 
-          {tab !== 'library' && (
-            <div>
-              <FieldLabel htmlFor="asset-tags">tags</FieldLabel>
-              <Input
-                id="asset-tags"
-                value={tagsRaw}
-                onChange={(e) => setTagsRaw(e.target.value)}
-                placeholder="primary, dark, hero"
-              />
-              {tags.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {tags.map((t) => (
-                    <Chip key={t}>{t}</Chip>
-                  ))}
-                  <Chip>
-                    <Plus size={11} /> add
-                  </Chip>
-                </div>
-              )}
-            </div>
-          )}
+          <div>
+            <FieldLabel htmlFor="asset-tags">tags</FieldLabel>
+            <Input
+              id="asset-tags"
+              value={tagsRaw}
+              onChange={(e) => setTagsRaw(e.target.value)}
+              placeholder="primary, dark, hero"
+            />
+            {tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {tags.map((t) => (
+                  <Chip key={t}>{t}</Chip>
+                ))}
+                <Chip>
+                  <Plus size={11} /> add
+                </Chip>
+              </div>
+            )}
+          </div>
         </div>
 
-        {tab !== 'library' && (
-          <div>
-            <FieldLabel htmlFor="asset-desc">
-              description <span className="text-fg-3">· optional</span>
-            </FieldLabel>
-            <Textarea
-              id="asset-desc"
-              rows={2}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder='e.g. "primary mark on dark — use on packaging + collateral."'
-            />
-          </div>
-        )}
+        <div>
+          <FieldLabel htmlFor="asset-desc">
+            description <span className="text-fg-3">· optional</span>
+          </FieldLabel>
+          <Textarea
+            id="asset-desc"
+            rows={2}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder='e.g. "primary mark on dark — use on packaging + collateral."'
+          />
+        </div>
       </div>
 
       <div className="flex items-center justify-between border-t border-line-subtle pt-4">
         <span className="font-mono text-[12px] text-fg-2">
-          {tab === 'library' ? (
-            <>{libraryPicked.length === 0 ? 'pick an asset to promote' : 'ready to promote'}</>
-          ) : (
-            <>
-              {doneCount} of {staged.length} uploaded
-            </>
-          )}
+          {doneCount} of {staged.length} uploaded
           {formError ? <span className="ml-3 text-danger">· {formError}</span> : null}
         </span>
         <div className="flex items-center gap-2">
@@ -540,38 +393,19 @@ export function AssetUploader({ redirectTo = '/assets', libraryAssets }: AssetUp
             variant="secondary"
             size="md"
             onClick={() => router.push(redirectTo)}
-            disabled={submitting || promoting}
+            disabled={submitting}
           >
             cancel
           </Button>
-          {tab === 'library' ? (
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              disabled={!pickedAsset || promoting}
-              onClick={onPromote}
-              leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
-            >
-              {promoting
-                ? isAlreadyInCollection
-                  ? 're-tagging…'
-                  : 'promoting…'
-                : isAlreadyInCollection
-                  ? 're-tag'
-                  : 'promote to library'}
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              variant="primary"
-              size="md"
-              disabled={!canSubmit}
-              leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
-            >
-              {submitting ? 'uploading…' : 'add to library'}
-            </Button>
-          )}
+          <Button
+            type="submit"
+            variant="primary"
+            size="md"
+            disabled={!canSubmit}
+            leadingIcon={<Save size={14} strokeWidth={1.75} />}
+          >
+            {submitting ? 'uploading…' : 'add to library'}
+          </Button>
         </div>
       </div>
     </form>
