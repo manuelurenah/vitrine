@@ -1,6 +1,5 @@
 'use client';
 
-import { extractImageUrls, type WorkflowSnapshot } from '@civitai/app-sdk/orchestrator';
 import {
   ChevronLeft,
   ChevronRight,
@@ -19,6 +18,7 @@ import { PRESETS } from '@/lib/presets';
 import type { CampaignTile } from '@/lib/campaigns';
 import type { TileVersionEntry } from '@/lib/tileVersions';
 import { PanelRow } from './PanelRow';
+import { useTileWorkflow } from './useTileWorkflow';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -31,25 +31,6 @@ type Props = {
   tile: CampaignTile;
   versions: TileVersionEntry[];
 };
-
-type CardStatus = 'queued' | 'cooking' | 'done' | 'failed';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function statusFromSnap(snap: WorkflowSnapshot | null): CardStatus {
-  const s = (snap?.status ?? '').toLowerCase();
-  if (s === 'succeeded') return 'done';
-  if (s === 'failed' || s === 'canceled' || s === 'expired') return 'failed';
-  if (s === 'unassigned' || s === 'pending') return 'queued';
-  return 'cooking';
-}
-
-function imageUrlsFromSnap(snap: WorkflowSnapshot | null): string[] {
-  if (!snap) return [];
-  return extractImageUrls(snap);
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -66,39 +47,24 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
   const currentVersion = versions[versionIdx];
 
   // ---- workflow polling -----------------------------------------------------
-  const [workflowId, setWorkflowId] = useState(tile.workflowId);
-  const [imgUrls, setImgUrls] = useState<string[]>(tile.assetUrl ? [tile.assetUrl] : []);
-  const [pollStatus, setPollStatus] = useState<CardStatus>(tile.status);
+  const {
+    status: pollStatus,
+    imageUrls: liveUrls,
+    setWorkflowId,
+    setStatus,
+    setImageUrls,
+  } = useTileWorkflow(tile.workflowId, {
+    status: tile.status,
+    imageUrls: tile.assetUrl ? [tile.assetUrl] : [],
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loop() {
-      while (!cancelled) {
-        try {
-          const res = await fetch(`/api/workflow/${workflowId}?wait=15000`);
-          if (!res.ok) {
-            await new Promise((r) => setTimeout(r, 3000));
-            continue;
-          }
-          const data = (await res.json()) as { snapshot: WorkflowSnapshot; done: boolean };
-          if (cancelled) return;
-          setPollStatus(statusFromSnap(data.snapshot));
-          const urls = imageUrlsFromSnap(data.snapshot);
-          if (urls.length > 0) setImgUrls(urls);
-          if (data.done) return;
-        } catch {
-          if (cancelled) return;
-          await new Promise((r) => setTimeout(r, 3000));
-        }
-      }
-    }
-    loop();
-    return () => {
-      cancelled = true;
-    };
-  }, [workflowId]);
-
-  const firstImageUrl = imgUrls[0] ?? null;
+  // The image shown on the canvas is driven by the version being viewed. The
+  // latest version falls back to the live poll urls so a fresh regenerate is
+  // reflected before the page re-fetches; older versions use their stored asset.
+  const isLatestVersion = versionIdx >= versions.length - 1;
+  const canvasImageUrl = isLatestVersion
+    ? (liveUrls[0] ?? currentVersion?.assetUrl ?? null)
+    : (currentVersion?.assetUrl ?? null);
 
   // ---- adCopy / prompt editing state ---------------------------------------
   const [headline, setHeadline] = useState(tile.adCopy?.headline ?? '');
@@ -155,8 +121,8 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
 
   async function handleRegenerate(fixLayout?: boolean) {
     setRegenerating(true);
-    setImgUrls([]);
-    setPollStatus('cooking');
+    setImageUrls([]);
+    setStatus('cooking');
     try {
       const body: Record<string, unknown> = {};
       if (fixLayout) {
@@ -182,9 +148,9 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
 
   // ---- download ------------------------------------------------------------
   function handleDownload() {
-    if (!firstImageUrl) return;
+    if (!canvasImageUrl) return;
     const link = document.createElement('a');
-    link.href = firstImageUrl;
+    link.href = canvasImageUrl;
     link.download = `${preset.id}-${tile.id}`;
     link.rel = 'noopener noreferrer';
     link.click();
@@ -193,11 +159,6 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
   const totalVersions = versions.length;
   const displayVersionNum = totalVersions > 0 ? versionIdx + 1 : 1;
   const displayVersionTotal = totalVersions || 1;
-
-  // The adCopy we render on the canvas. If browsing a non-latest version, show
-  // that version's stored adCopy over the live image (v1 limitation: historical
-  // image assets aren't fetched separately).
-  const canvasAdCopy = currentVersion?.adCopy ?? tile.adCopy;
 
   return (
     <div
@@ -254,55 +215,14 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
           style={{ aspectRatio: aspect }}
         >
           {/* background image */}
-          {firstImageUrl ? (
+          {canvasImageUrl ? (
             <img
-              src={firstImageUrl}
+              src={canvasImageUrl}
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
             />
           ) : (
             <CanvasPlaceholder />
-          )}
-
-          {/* ad copy overlay */}
-          {canvasAdCopy && (
-            <div className="absolute inset-0 flex flex-col justify-between p-4">
-              <div>
-                {(brandName ?? preset?.id) && (
-                  <p
-                    className="font-mono text-[9px] uppercase tracking-[0.08em] text-white/70"
-                    style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
-                  >
-                    {brandName ?? preset.id}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  {canvasAdCopy.headline && (
-                    <p
-                      className="font-display text-[clamp(22px,4vw,36px)] font-extrabold leading-[1.0] tracking-[-0.04em] text-white"
-                      style={{ textShadow: '0 2px 12px rgba(0,0,0,0.5)', maxWidth: 260 }}
-                    >
-                      {canvasAdCopy.headline}
-                    </p>
-                  )}
-                  {brandName && (
-                    <p className="mt-3.5 font-display text-[16px] font-bold text-white/90">
-                      {brandName}
-                    </p>
-                  )}
-                </div>
-                {canvasAdCopy.cta && (
-                  <div
-                    className="shrink-0 rounded-pill bg-volt px-[14px] py-[7px] font-display text-[12px] font-bold text-fg-on-volt"
-                    style={{ boxShadow: '0 0 18px var(--volt-glow)' }}
-                  >
-                    {canvasAdCopy.cta}
-                  </div>
-                )}
-              </div>
-            </div>
           )}
 
           {/* cooking / queued overlay */}
@@ -358,7 +278,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
             type="button"
             data-testid="editor-download"
             aria-label="download"
-            disabled={!firstImageUrl}
+            disabled={!canvasImageUrl}
             onClick={handleDownload}
             className="grid size-8 place-items-center rounded-[8px] border border-line-subtle bg-bg-2 text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0 disabled:opacity-40"
           >
@@ -386,7 +306,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
           </button>
         </div>
 
-        <p className="text-[12px] text-fg-3">edit on the right · or click the canvas to inspect.</p>
+        <p className="text-[12px] text-fg-3">edit fields on the right · changes apply when you regenerate.</p>
       </div>
 
       {/* ------------------------------------------------------------------ */}
@@ -396,8 +316,8 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
         {/* image panel — read-only v1 */}
         <PanelRow label="image" defaultOpen>
           <div className="relative mt-1 h-[110px] overflow-hidden rounded-[8px] bg-bg-3">
-            {firstImageUrl ? (
-              <img src={firstImageUrl} alt="" className="h-full w-full object-cover" />
+            {canvasImageUrl ? (
+              <img src={canvasImageUrl} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="absolute inset-0 animate-pulse bg-bg-3" />
             )}
