@@ -1,11 +1,10 @@
 'use client';
 
-import { Camera, MoreHorizontal, Plus, Trash2, Upload, Wand2 } from 'lucide-react';
+import { Trash2, Upload, Wand2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { GradientThumb } from '@/components/campaigns';
-import { buildPhotoshootNewHref } from '@/lib/campaignHref';
 import type { CampaignSummary } from '@/lib/campaigns';
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -43,85 +42,16 @@ type Props = {
   productName: string;
   images: GalleryImage[];
   campaigns: CampaignSummary[];
-  editHref: string;
-  photoshootHref: string;
-  campaignHref: string;
 };
 
 // ---------------------------------------------------------------------------
-// More (•••) menu — reuses the same bespoke pattern as TileMenu in CreativeCard
-// ---------------------------------------------------------------------------
-function MoreMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDocClick(e: MouseEvent) {
-      if (!menuRef.current) return;
-      if (e.target instanceof Node && menuRef.current.contains(e.target)) return;
-      setOpen(false);
-    }
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [open]);
-
-  return (
-    <div ref={menuRef} className="relative">
-      <button
-        type="button"
-        aria-label="more product actions"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center justify-center size-[34px] rounded-pill border border-line-subtle bg-bg-2 text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0"
-      >
-        <MoreHorizontal size={15} strokeWidth={1.75} />
-      </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 mt-1 flex w-[160px] flex-col rounded-[10px] border border-line bg-bg-1 p-1 shadow-lg z-50"
-        >
-          <button
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              onEdit();
-            }}
-            className="rounded-[6px] px-2 py-1.5 text-left text-[13px] text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0"
-          >
-            edit product
-          </button>
-          <button
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              onDelete();
-            }}
-            className="rounded-[6px] px-2 py-1.5 text-left text-[13px] text-red-400 transition-colors hover:bg-bg-3 hover:text-red-300"
-          >
-            delete product
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Main gallery + action strip
+// Main gallery + image strip
 // ---------------------------------------------------------------------------
 export function ProductDetailGallery({
   productId,
   productName,
   images: initialImages,
   campaigns,
-  editHref,
-  photoshootHref,
-  campaignHref,
 }: Props) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -255,40 +185,8 @@ export function ProductDetailGallery({
     e.target.value = '';
   }
 
-  // -------------------------------------------------------------------------
-  // Product delete (whole product)
-  // -------------------------------------------------------------------------
-  async function deleteProduct() {
-    if (!window.confirm('delete this product? this is not reversible.')) return;
-    const res = await fetch(`/api/catalog/products/${productId}`, { method: 'DELETE' });
-    if (res.ok) {
-      router.push('/catalog');
-      router.refresh();
-    }
-  }
-
   return (
     <div className="flex flex-col gap-4">
-      {/* ------------------------------------------------------------------ */}
-      {/* Action bar: photoshoot CTA + campaign CTA + more menu              */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Link
-          href={photoshootHref}
-          className="inline-flex items-center gap-2 rounded-pill border border-line-subtle bg-bg-2 px-[14px] py-[7px] text-[13px] font-medium text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0"
-        >
-          <Camera size={13} strokeWidth={1.75} /> start photoshoot
-        </Link>
-        <Link
-          href={campaignHref}
-          className="inline-flex items-center gap-2 rounded-pill border border-line-subtle bg-bg-2 px-[14px] py-[7px] text-[13px] font-medium text-fg-1 transition-colors duration-fast ease-out hover:bg-bg-3 hover:text-fg-0"
-        >
-          use in a campaign
-        </Link>
-        <span className="flex-1" />
-        <MoreMenu onEdit={() => router.push(editHref)} onDelete={deleteProduct} />
-      </div>
-
       {/* ------------------------------------------------------------------ */}
       {/* Hero + strip                                                        */}
       {/* ------------------------------------------------------------------ */}
@@ -318,7 +216,7 @@ export function ProductDetailGallery({
                 type="button"
                 title="edit photo (coming soon)"
                 aria-label="edit photo (coming soon)"
-                className="grid size-7 place-items-center rounded-[6px] bg-bg-0/70 text-fg-0 backdrop-blur-sm transition-colors hover:bg-bg-2 cursor-not-allowed opacity-60"
+                className="grid size-7 place-items-center rounded-pill bg-bg-0/80 text-fg-0 transition-colors hover:bg-bg-0 cursor-not-allowed opacity-60"
                 disabled
               >
                 <Wand2 size={13} strokeWidth={1.75} />
@@ -330,7 +228,7 @@ export function ProductDetailGallery({
                 aria-label="remove this photo"
                 disabled={deletingId === hero.id}
                 onClick={() => deletePhoto(hero)}
-                className="grid size-7 place-items-center rounded-[6px] bg-bg-0/70 text-fg-0 backdrop-blur-sm transition-colors hover:bg-bg-2 disabled:opacity-50"
+                className="grid size-7 place-items-center rounded-pill bg-bg-0/80 text-fg-0 transition-colors hover:bg-bg-0 disabled:opacity-50"
               >
                 <Trash2 size={13} strokeWidth={1.75} />
               </button>
@@ -361,20 +259,7 @@ export function ProductDetailGallery({
             </button>
           ))}
 
-          {/* Add photo button — opens file picker */}
-          <button
-            type="button"
-            aria-label="add photo"
-            title="add photo"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-            className="flex-none w-[72px] aspect-square rounded-md border border-dashed border-line-subtle bg-bg-2 flex flex-col items-center justify-center gap-1 text-fg-2 hover:bg-bg-3 hover:text-fg-1 transition-colors disabled:opacity-50"
-          >
-            <Plus size={14} strokeWidth={1.75} />
-            <span className="text-[10px] leading-none">add</span>
-          </button>
-
-          {/* Upload file button — same as add but explicit label */}
+          {/* Upload file button — opens file picker */}
           <button
             type="button"
             aria-label="upload photo"
