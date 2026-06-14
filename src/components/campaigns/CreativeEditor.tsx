@@ -130,6 +130,37 @@ export function CreativeEditor({
     }
   }
 
+  // ---- live fix-layout estimate --------------------------------------------
+  const [fixCost, setFixCost] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/campaigns/${campaignId}/tiles/${tile.id}/estimate`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            relayout: true,
+            ...(palette.length > 0 ? { palette } : {}),
+            includeLogo,
+          }),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { cost: number };
+        if (!cancelled) setFixCost(data.cost);
+      } catch {
+        /* keep previous estimate */
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [campaignId, tile.id, palette, includeLogo]);
+
+  const fixCostLabel = fixCost === null ? '…' : String(fixCost);
+
   // ---- regenerate / fix layout ---------------------------------------------
   const [regenerating, setRegenerating] = useState(false);
 
@@ -144,6 +175,8 @@ export function CreativeEditor({
         // Re-layout the current creative, not the original product reference.
         body.relayout = true;
       }
+      if (palette.length > 0) body.palette = palette;
+      if (includeLogo) body.includeLogo = true;
       const res = await fetch(`/api/campaigns/${campaignId}/tiles/${tile.id}/regenerate`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -272,7 +305,7 @@ export function CreativeEditor({
             leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
           >
             fix layout
-            <span className="ml-1 font-mono text-[11px] opacity-70">· 3 buzz</span>
+            <span className="ml-1 font-mono text-[11px] opacity-70">· {fixCostLabel} buzz</span>
           </Button>
           <button
             type="button"
@@ -482,7 +515,7 @@ export function CreativeEditor({
           <div className="flex items-center gap-1.5">
             <Sparkles size={13} strokeWidth={1.75} className="text-volt" />
             <span className="font-display text-[13px] font-semibold text-fg-0">fix layout</span>
-            <span className="ml-auto font-mono text-[10px] text-volt">3 buzz</span>
+            <span className="ml-auto font-mono text-[10px] text-volt">{fixCostLabel} buzz</span>
           </div>
           <p className="mt-1 text-[12px] leading-[1.4] text-fg-1">
             re-balance type, image, and cta without changing the content.
