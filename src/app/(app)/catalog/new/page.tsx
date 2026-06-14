@@ -45,7 +45,6 @@ export default async function NewProductPage({ searchParams }: { searchParams: S
         >
           <ArrowLeft size={14} strokeWidth={1.75} /> catalog
         </Link>
-        <span className="t-eyebrow">// catalog</span>
         <h1 className="t-h2 text-fg-0">add a product.</h1>
         <p className="text-[13.5px] text-fg-2">drop product photos — first one is the hero.</p>
       </header>

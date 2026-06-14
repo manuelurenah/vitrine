@@ -20,7 +20,6 @@ export default async function NewAssetPage() {
         >
           <ArrowLeft size={14} strokeWidth={1.75} /> assets
         </Link>
-        <span className="t-eyebrow">// upload</span>
         <h1 className="t-h2 text-fg-0">add assets.</h1>
         <p className="text-[13.5px] text-fg-2">
           drop multiple files at once — we&apos;ll handle the rest.
