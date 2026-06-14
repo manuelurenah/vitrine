@@ -303,4 +303,40 @@ describe('POST /api/campaigns/[id]/tiles/[tileId]/regenerate', () => {
     const res = await POST(makeRequest() as never, makeParams());
     expect(res.status).toBe(402);
   });
+
+  it('includes the brand logo in images[] when includeLogo is true', async () => {
+    getCampaignMock.mockResolvedValueOnce(makeCampaign({ referenceAssetIds: ['a1'] }));
+    getDefaultBrandMock.mockResolvedValueOnce({
+      id: 'brand_1',
+      name: 'Acme',
+      palette: ['#111111'],
+      logoUrl: 'https://cdn.test/logo.png',
+    });
+    const req = new Request('http://localhost/api/campaigns/c1/tiles/t1/regenerate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ includeLogo: true }),
+    });
+    const res = await POST(req as never, makeParams());
+    expect(res.status).toBe(200);
+    expect(submitImageGenMock.mock.calls[0]![1].images).toContain('https://cdn.test/logo.png');
+  });
+
+  it('injects a palette override into the prompt', async () => {
+    getCampaignMock.mockResolvedValueOnce(makeCampaign());
+    getDefaultBrandMock.mockResolvedValueOnce({
+      id: 'brand_1',
+      name: 'Acme',
+      palette: ['#111111'],
+      logoUrl: null,
+    });
+    const req = new Request('http://localhost/api/campaigns/c1/tiles/t1/regenerate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ palette: ['#ABCDEF'] }),
+    });
+    const res = await POST(req as never, makeParams());
+    expect(res.status).toBe(200);
+    expect(submitImageGenMock.mock.calls[0]![1].prompt).toContain('#ABCDEF');
+  });
 });

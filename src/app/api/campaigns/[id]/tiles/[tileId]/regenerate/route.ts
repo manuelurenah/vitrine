@@ -4,10 +4,9 @@ import { getPublicUrls, MissingReferenceError } from '@/lib/assets';
 import { getDefaultBrand } from '@/lib/brand';
 import { recordBuzzEvent } from '@/lib/buzz';
 import { getCampaign, swapTileWorkflow } from '@/lib/campaigns';
-import { OrchestratorError, submitImageGen, type VitrineImageGenInput } from '@/lib/civitai';
+import { OrchestratorError, submitImageGen } from '@/lib/civitai';
 import { recordGeneration } from '@/lib/generations';
-import { PRESETS } from '@/lib/presets';
-import { buildCampaignPrompt, type EnhancedPrompt, resolveFinalPrompt } from '@/lib/promptBuilder';
+import { buildTileRegenInput } from '@/lib/regenerateInput';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
 
@@ -16,16 +15,13 @@ type Params = Promise<{ id: string; tileId: string }>;
 const bodySchema = z
   .object({
     promptHint: z.string().max(400).optional(),
-    /** Fix-layout: re-edit the tile's current creative instead of the product refs. */
     relayout: z.boolean().optional(),
+    /** Palette override (hex strings) applied to this generation only. */
+    palette: z.array(z.string().max(9)).max(8).optional(),
+    /** Include the brand logo in the generation. */
+    includeLogo: z.boolean().optional(),
   })
   .optional();
-
-function isEnhancedPrompt(value: unknown): value is EnhancedPrompt {
-  if (!value || typeof value !== 'object') return false;
-  const v = value as Record<string, unknown>;
-  return typeof v.finalPrompt === 'string' && typeof v.aspectRatio === 'string';
-}
 
 export async function POST(req: NextRequest, ctx: { params: Params }) {
   const session = await getSession();
@@ -43,7 +39,6 @@ export async function POST(req: NextRequest, ctx: { params: Params }) {
   const tile = campaign.tiles.find((t) => t.id === tileId);
   if (!tile) return NextResponse.json({ error: 'tile_not_found' }, { status: 404 });
 
-  const preset = PRESETS[tile.presetId];
   const brand = await getDefaultBrand(userKey);
 
   let refUrls: string[];
@@ -62,47 +57,25 @@ export async function POST(req: NextRequest, ctx: { params: Params }) {
     throw err;
   }
 
-  // Fix-layout re-balances the EXISTING creative, so it must edit the tile's
-  // current generated image — not the original product reference, which would
-  // throw away the cooked scene and revert the background to the raw product
-  // photo. Plain regenerate keeps using the product refs for a fresh variation.
-  const editImages = relayout && tile.assetUrl ? [tile.assetUrl] : refUrls;
-
-  // When the tile has ad copy, rebuild from the brief so the render directives
-  // (which live inside finalPrompt) stay current with the stored copy.
-  // Otherwise reuse the original persisted enhanced prompt for stable variation.
-  const persisted = campaign.enhancedPrompts?.[tile.presetId];
-  const enhanced: EnhancedPrompt = tile.adCopy
-    ? buildCampaignPrompt({
-        brief: campaign.brief,
-        brand,
-        preset,
-        referenceCount: editImages.length,
-        adCopy: tile.adCopy,
-      })
-    : isEnhancedPrompt(persisted)
-      ? persisted
-      : buildCampaignPrompt({
-          brief: campaign.brief,
-          brand,
-          preset,
-          referenceCount: editImages.length,
-        });
-
+  const palette = parsedBody.success ? parsedBody.data?.palette : undefined;
+  const includeLogo = parsedBody.success ? (parsedBody.data?.includeLogo ?? false) : false;
   const variation = Math.floor(Math.random() * 1000);
-  const basePrompt = resolveFinalPrompt(enhanced);
-  const baseWithHint = promptHint ? `${basePrompt}\n\n${promptHint}` : basePrompt;
-  const promptWithVariation = `${baseWithHint} · variation ${variation}`;
 
-  const quantity = tile.quantity ?? campaign.variantsPerPreset ?? 1;
-
-  const input: VitrineImageGenInput = {
-    prompt: promptWithVariation,
-    aspectRatio: enhanced.aspectRatio,
-    numImages: quantity,
-    ...(enhanced.negativePrompt ? { negativePrompt: enhanced.negativePrompt } : {}),
-    ...(editImages.length > 0 ? { images: editImages } : {}),
-  };
+  const { input, prompt: promptWithVariation } = buildTileRegenInput({
+    campaign,
+    tile,
+    brand,
+    refUrls,
+    variantsPerPreset: campaign.variantsPerPreset,
+    options: {
+      relayout,
+      ...(promptHint ? { promptHint } : {}),
+      ...(palette && palette.length > 0 ? { paletteOverride: palette } : {}),
+      includeLogo,
+      ...(includeLogo ? { logoUrl: brand?.logoUrl ?? null } : {}),
+      variation,
+    },
+  });
 
   try {
     const snap = await submitImageGen(session, input);
