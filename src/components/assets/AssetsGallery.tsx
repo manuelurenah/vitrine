@@ -19,8 +19,10 @@ import { FilterPills } from '@/components/campaigns/FilterPills';
 import type { FilterOption } from '@/components/campaigns/FilterPills';
 import { useMediaQuery } from '@/components/ui/useMediaQuery';
 import type { Asset } from '@/lib/assets';
+import type { ActiveAdhocGeneration } from '@/lib/generations';
 import { AdHocGenerationModal } from './AdHocGenerationModal';
 import { AssetsEmptyState } from './AssetsEmptyState';
+import { CookingAssetCard } from './CookingAssetCard';
 
 type ViewMode = 'grid' | 'list';
 type SortKey = 'recent' | 'name' | 'type';
@@ -51,13 +53,48 @@ function sortAssets(items: Asset[], sort: SortKey): Asset[] {
 // Known collections in display order
 const COLLECTION_ORDER = ['logos', 'partners', 'past campaigns', 'references'] as const;
 
-export function AssetsGallery({ assets }: { assets: Asset[] }) {
+export function AssetsGallery({
+  assets,
+  cooking = [],
+}: {
+  assets: Asset[];
+  cooking?: ActiveAdhocGeneration[];
+}) {
   const router = useRouter();
   const [genOpen, setGenOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sort, setSort] = useState<SortKey>('recent');
   const isMobile = useMediaQuery('(max-width: 767px)');
+
+  // Optimistic list of workflowIds submitted THIS session that the server
+  // `cooking` prop hasn't picked up yet (it refreshes on `router.refresh()`).
+  const [extraCooking, setExtraCooking] = useState<string[]>([]);
+
+  // Union of server-known + locally-submitted cooking workflowIds, deduped.
+  const cookingIds = Array.from(
+    new Set([...cooking.map((c) => c.workflowId), ...extraCooking]),
+  );
+
+  const handleSubmitted = (workflowId: string) => {
+    setExtraCooking((prev) => (prev.includes(workflowId) ? prev : [...prev, workflowId]));
+    setGenOpen(false);
+    router.refresh();
+  };
+
+  const handleCookingDone = (workflowId: string) => {
+    setExtraCooking((prev) => prev.filter((id) => id !== workflowId));
+    router.refresh();
+  };
+
+  const cookingCards =
+    cookingIds.length > 0 ? (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        {cookingIds.map((id) => (
+          <CookingAssetCard key={id} workflowId={id} onDone={handleCookingDone} />
+        ))}
+      </div>
+    ) : null;
 
   // Title row — shared between empty and populated states
   const titleRow = (
@@ -92,15 +129,17 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
 
   if (assets.length === 0) {
     return (
-      <>
+      <div className="flex flex-col gap-6">
         {titleRow}
-        <AssetsEmptyState onGenerate={() => setGenOpen(true)} />
+        {/* While something is cooking, show the placeholder cards instead of the
+            pure empty state — otherwise the just-submitted generation vanishes. */}
+        {cookingCards ?? <AssetsEmptyState onGenerate={() => setGenOpen(true)} />}
         <AdHocGenerationModal
           open={genOpen}
           onClose={() => setGenOpen(false)}
-          onSaved={() => router.refresh()}
+          onSubmitted={handleSubmitted}
         />
-      </>
+      </div>
     );
   }
 
@@ -213,6 +252,9 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
         </div>
       </div>
 
+      {/* Cooking placeholder cards — ad-hoc generations still in flight */}
+      {cookingCards}
+
       {/* Sections */}
       <div className="flex flex-col gap-8">
         {sections.map((s) => (
@@ -254,7 +296,7 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
       <AdHocGenerationModal
         open={genOpen}
         onClose={() => setGenOpen(false)}
-        onSaved={() => router.refresh()}
+        onSubmitted={handleSubmitted}
       />
 
       {/* Mobile FAB — upload */}

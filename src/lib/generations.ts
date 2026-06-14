@@ -1,5 +1,5 @@
 import 'server-only';
-import { eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { WorkflowSnapshot } from '@/lib/civitai';
 import { getWorkflowSnapshot, isTerminal } from '@/lib/civitai';
 import { db } from '@/lib/db';
@@ -158,4 +158,31 @@ export async function getGeneration(workflowId: string): Promise<Generation | nu
     .where(eq(generations.workflowId, workflowId))
     .limit(1);
   return row ? toGeneration(row) : null;
+}
+
+export type ActiveAdhocGeneration = { workflowId: string; prompt: string; numImages: number };
+
+/**
+ * Ad-hoc generations that are still in flight (queued or cooking) for a user.
+ * Drives the placeholder "cooking" cards in the asset library, which live-poll
+ * the workflow route until terminal and then resolve into saved assets.
+ */
+export async function listActiveAdhocGenerations(
+  userId: string,
+): Promise<ActiveAdhocGeneration[]> {
+  const rows = await db
+    .select()
+    .from(generations)
+    .where(
+      and(
+        eq(generations.userId, userId),
+        eq(generations.source, 'adhoc'),
+        inArray(generations.status, ['queued', 'cooking']),
+      ),
+    )
+    .orderBy(desc(generations.submittedAt));
+  return rows.map((r) => {
+    const input = (r.input ?? {}) as { numImages?: number };
+    return { workflowId: r.workflowId, prompt: r.prompt ?? '', numImages: input.numImages ?? 1 };
+  });
 }

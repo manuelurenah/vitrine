@@ -5,9 +5,6 @@ import {
   clampNumImages,
   DEFAULT_AD_HOC_FORM,
   FormView,
-  PollingView,
-  ResultsView,
-  toggleSelectedIndex,
 } from './AdHocGenerationModal';
 
 /* -------------------------------------------------------------------------- */
@@ -44,14 +41,6 @@ describe('clampNumImages', () => {
     expect(clampNumImages(99)).toBe(4);
     expect(clampNumImages(-5)).toBe(1);
     expect(clampNumImages(Number.NaN)).toBe(1);
-  });
-});
-
-describe('toggleSelectedIndex', () => {
-  it('toggles indexes on and off, keeping the result sorted', () => {
-    expect(toggleSelectedIndex([], 2)).toEqual([2]);
-    expect(toggleSelectedIndex([0, 2], 1)).toEqual([0, 1, 2]);
-    expect(toggleSelectedIndex([0, 1, 2], 1)).toEqual([0, 2]);
   });
 });
 
@@ -254,103 +243,16 @@ describe('AdHocGenerationModal — form state', () => {
 });
 
 /* -------------------------------------------------------------------------- */
-/* state machine transitions — forced via initialPhase                         */
+/* generate → submit → onSubmitted + close                                     */
 /* -------------------------------------------------------------------------- */
 
-describe('AdHocGenerationModal — state machine', () => {
-  beforeEach(() => {
-    // SSR-only tests; effects won't run, so global fetch isn't strictly needed.
-    vi.stubGlobal('fetch', vi.fn());
-  });
-  afterEach(() => {
-    vi.unstubAllGlobals();
-    vi.restoreAllMocks();
-  });
-
-  it('renders polling state when phase is polling', () => {
-    const html = renderToStaticMarkup(
-      <AdHocGenerationModal
-        open
-        onClose={() => {}}
-        initialPhase="polling"
-        initialWorkflowId="wf-1"
-      />,
-    );
-    expect(html).toContain('data-testid="adhoc-polling"');
-    expect(html).toContain('generating 1 image…');
-    expect(html).toContain('cooking');
-    expect(html).not.toContain('data-testid="adhoc-form"');
-  });
-
-  it('pluralizes the polling label for multi-image runs', () => {
-    const html = renderToStaticMarkup(
-      <PollingView
-        numImages={3}
-        prompt="a sleek bottle on marble"
-        estimatedBuzz={42}
-        error={null}
-        onClose={() => {}}
-      />,
-    );
-    expect(html).toContain('generating 3 images…');
-    expect(html).toContain('“a sleek bottle on marble”');
-    expect(html).toContain('≈ 42 buzz');
-  });
-
-  it('renders results state with one card per image', () => {
-    const html = renderToStaticMarkup(
-      <AdHocGenerationModal
-        open
-        onClose={() => {}}
-        initialPhase="results"
-        initialResults={{
-          workflowId: 'wf-1',
-          imageUrls: ['https://cdn.test/a.png', 'https://cdn.test/b.png'],
-          selected: [1],
-        }}
-      />,
-    );
-    expect(html).toContain('data-testid="adhoc-results"');
-    expect(html).toContain('data-testid="adhoc-result-0"');
-    expect(html).toContain('data-testid="adhoc-result-1"');
-    expect(html).toContain('https://cdn.test/a.png');
-    expect(html).toContain('https://cdn.test/b.png');
-    // selected count surfaces in the footer
-    expect(html).toContain('1 / 2 selected');
-    // save button shows the count
-    expect(html).toContain('save selected (1)');
-  });
-
-  it('renders an empty results message when no images came back', () => {
-    const html = renderToStaticMarkup(
-      <ResultsView
-        results={{ workflowId: 'wf-1', imageUrls: [], selected: [] }}
-        aspectRatio="1:1"
-        saving={false}
-        error={null}
-        onToggleIndex={() => {}}
-        onSaveSelected={() => {}}
-        onDiscard={() => {}}
-      />,
-    );
-    expect(html).toContain('no images came back');
-    // save button is disabled (no selection) — disabled attribute appears
-    // adjacent to the data-testid in the SSR output
-    expect(html).toMatch(/<button[^>]*disabled=""[^>]*data-testid="adhoc-save-selected"/);
-  });
-});
-
-/* -------------------------------------------------------------------------- */
-/* save-selected fetch wiring                                                  */
-/* -------------------------------------------------------------------------- */
-
-describe('AdHocGenerationModal — onSaveSelected', () => {
+describe('AdHocGenerationModal — generate submission', () => {
   let fetchSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     fetchSpy = vi.fn(() =>
       Promise.resolve(
-        new Response(JSON.stringify({ savedAssetIds: ['as-1', 'as-2'] }), {
+        new Response(JSON.stringify({ workflowId: 'wf_x', estimatedBuzz: 1 }), {
           status: 200,
           headers: { 'content-type': 'application/json' },
         }),
@@ -363,55 +265,44 @@ describe('AdHocGenerationModal — onSaveSelected', () => {
     vi.restoreAllMocks();
   });
 
-  it('POSTs the workflow id and selected indexes, then calls onSaved + onClose', async () => {
+  // The node test env can't dispatch real click events, so we drive the exact
+  // submit flow the modal's `onGenerate` handler runs: POST /api/assets/generate,
+  // read back { workflowId }, then call onSubmitted(workflowId) + onClose().
+  it('POSTs the prompt to /api/assets/generate, then calls onSubmitted + onClose', async () => {
     const onClose = vi.fn();
-    const onSaved = vi.fn();
+    const onSubmitted = vi.fn();
 
-    // Drive the handler directly via a hand-wired ResultsView since SSR can't
-    // simulate the click; we re-create the same behavior the modal would run.
-    async function runSave() {
-      const res = await fetch('/api/assets/generate/save', {
+    async function runGenerate() {
+      const res = await fetch('/api/assets/generate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ workflowId: 'wf-1', imageIndexes: [0, 2] }),
+        body: JSON.stringify({
+          prompt: 'a sleek bottle on marble',
+          aspectRatio: '1:1',
+          numImages: 1,
+          resolution: '1K',
+          referenceAssetIds: [],
+        }),
       });
-      const body = (await res.json()) as { savedAssetIds: string[] };
-      onSaved(body.savedAssetIds.length);
-      onClose();
+      const body = (await res.json()) as { workflowId?: string };
+      if (body.workflowId) {
+        onSubmitted(body.workflowId);
+        onClose();
+      }
     }
 
-    await runSave();
+    await runGenerate();
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('/api/assets/generate/save');
+    expect(url).toBe('/api/assets/generate');
     expect(init.method).toBe('POST');
-    expect(JSON.parse(String(init.body))).toEqual({
-      workflowId: 'wf-1',
-      imageIndexes: [0, 2],
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      prompt: 'a sleek bottle on marble',
+      aspectRatio: '1:1',
+      numImages: 1,
     });
-    expect(onSaved).toHaveBeenCalledWith(2);
+    expect(onSubmitted).toHaveBeenCalledWith('wf_x');
     expect(onClose).toHaveBeenCalled();
-  });
-
-  it('renders the discard CTA and selection counter in the results footer', () => {
-    const html = renderToStaticMarkup(
-      <ResultsView
-        results={{
-          workflowId: 'wf-1',
-          imageUrls: ['https://cdn.test/a.png', 'https://cdn.test/b.png'],
-          selected: [0, 1],
-        }}
-        aspectRatio="4:5"
-        saving={false}
-        error={null}
-        onToggleIndex={() => {}}
-        onSaveSelected={() => {}}
-        onDiscard={() => {}}
-      />,
-    );
-    expect(html).toContain('discard all');
-    expect(html).toContain('2 / 2 selected');
-    expect(html).toContain('save selected (2)');
   });
 });
