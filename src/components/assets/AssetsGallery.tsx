@@ -14,7 +14,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FAB } from '@/components/shell';
-import { cn } from '@/components/ui';
+import { Button, cn, Select } from '@/components/ui';
 import { FilterPills } from '@/components/campaigns/FilterPills';
 import type { FilterOption } from '@/components/campaigns/FilterPills';
 import { useMediaQuery } from '@/components/ui/useMediaQuery';
@@ -23,6 +23,30 @@ import { AdHocGenerationModal } from './AdHocGenerationModal';
 import { AssetsEmptyState } from './AssetsEmptyState';
 
 type ViewMode = 'grid' | 'list';
+type SortKey = 'recent' | 'name' | 'type';
+
+function sortAssets(items: Asset[], sort: SortKey): Asset[] {
+  const copy = [...items];
+  if (sort === 'name') {
+    copy.sort((a, b) => {
+      const nameA = (a.metadata?.description ?? a.storageKey.split('/').pop() ?? a.id).toLowerCase();
+      const nameB = (b.metadata?.description ?? b.storageKey.split('/').pop() ?? b.id).toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  } else if (sort === 'type') {
+    copy.sort((a, b) => {
+      const typeA = a.metadata?.collection ?? a.kind;
+      const typeB = b.metadata?.collection ?? b.kind;
+      const typeCmp = typeA.localeCompare(typeB);
+      if (typeCmp !== 0) return typeCmp;
+      return b.createdAt - a.createdAt;
+    });
+  } else {
+    // recent — desc by createdAt
+    copy.sort((a, b) => b.createdAt - a.createdAt);
+  }
+  return copy;
+}
 
 // Known collections in display order
 const COLLECTION_ORDER = ['logos', 'partners', 'past campaigns', 'references'] as const;
@@ -32,11 +56,44 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
   const [genOpen, setGenOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [sort, setSort] = useState<SortKey>('recent');
   const isMobile = useMediaQuery('(max-width: 767px)');
+
+  // Title row — shared between empty and populated states
+  const titleRow = (
+    <header className="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <span className="t-eyebrow">brand DNA · assets</span>
+        <h1 className="mt-1 t-h2 text-fg-0">your asset library.</h1>
+        <p className="mt-1 max-w-[520px] text-[14px] leading-[1.5] text-fg-2">
+          logos, past campaigns, partner marks, references — anything that isn&apos;t a product.
+          campaigns + shoots can pull from here.
+        </p>
+      </div>
+      {/* Desktop CTAs — Upload (primary) + Generate (secondary) */}
+      <div className="hidden items-center gap-2 sm:flex">
+        <Button
+          variant="secondary"
+          size="sm"
+          leadingIcon={<Sparkles size={13} strokeWidth={1.75} />}
+          onClick={() => setGenOpen(true)}
+          data-testid="open-generate-modal"
+        >
+          generate
+        </Button>
+        <Link href="/assets/new">
+          <Button variant="primary" size="sm" leadingIcon={<Upload size={13} strokeWidth={1.75} />}>
+            upload
+          </Button>
+        </Link>
+      </div>
+    </header>
+  );
 
   if (assets.length === 0) {
     return (
       <>
+        {titleRow}
         <AssetsEmptyState onGenerate={() => setGenOpen(true)} />
         <AdHocGenerationModal
           open={genOpen}
@@ -75,19 +132,25 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
     })),
   ];
 
-  // Sections to render
+  // Sections to render — items sorted within each section
   const sections =
     activeFilter === 'all'
-      ? allCollections.map((c) => ({ key: c, items: byCollection.get(c) ?? [] }))
+      ? allCollections.map((c) => ({
+          key: c,
+          items: sortAssets(byCollection.get(c) ?? [], sort),
+        }))
       : [
           {
             key: activeFilter,
-            items: byCollection.get(activeFilter) ?? [],
+            items: sortAssets(byCollection.get(activeFilter) ?? [], sort),
           },
         ];
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Title row with CTAs */}
+      {titleRow}
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3">
         <FilterPills
@@ -97,54 +160,54 @@ export function AssetsGallery({ assets }: { assets: Asset[] }) {
           className="min-w-0 flex-1"
         />
 
-        {/* Actions — wrap to new row on very narrow screens */}
+        {/* Controls — sort + view toggle */}
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setGenOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-[9px] border border-line-volt bg-volt-soft px-3 py-[7px] font-mono text-[11px] uppercase tracking-[0.1em] text-volt hover:bg-volt/15"
-            data-testid="open-generate-modal"
-          >
-            <Sparkles size={13} strokeWidth={1.75} /> generate
-          </button>
-          <Link
-            href="/assets/new"
-            className="inline-flex items-center gap-1.5 rounded-[9px] border border-line-volt bg-volt-soft px-3 py-[7px] font-mono text-[11px] uppercase tracking-[0.1em] text-volt hover:bg-volt/15"
-          >
-            <Upload size={13} strokeWidth={1.75} /> upload
-          </Link>
+          {/* Sort dropdown */}
+          <div className="w-[120px]">
+            <Select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              aria-label="sort assets"
+            >
+              <option value="recent">recent</option>
+              <option value="name">name</option>
+              <option value="type">type</option>
+            </Select>
+          </div>
 
           {/* Grid / list toggle */}
           <div
             role="group"
             aria-label="view mode"
-            className="flex overflow-hidden rounded-[9px] border border-line"
+            className="flex items-center rounded-[9px] border border-line bg-bg-2 p-[3px]"
           >
             <button
               type="button"
+              aria-label="grid view"
               aria-pressed={viewMode === 'grid'}
               onClick={() => setViewMode('grid')}
               className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-[7px] font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-fast',
+                'flex items-center justify-center rounded-[6px] p-1.5 transition-colors duration-fast',
                 viewMode === 'grid'
-                  ? 'bg-bg-2 text-fg-0'
-                  : 'text-fg-3 hover:bg-bg-2 hover:text-fg-1',
+                  ? 'bg-volt-soft text-volt'
+                  : 'text-fg-2 hover:bg-bg-3 hover:text-fg-0',
               )}
             >
-              <LayoutGrid size={12} strokeWidth={1.75} /> grid
+              <LayoutGrid size={14} strokeWidth={1.75} />
             </button>
             <button
               type="button"
+              aria-label="list view"
               aria-pressed={viewMode === 'list'}
               onClick={() => setViewMode('list')}
               className={cn(
-                'inline-flex items-center gap-1.5 border-l border-line px-3 py-[7px] font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-fast',
+                'flex items-center justify-center rounded-[6px] p-1.5 transition-colors duration-fast',
                 viewMode === 'list'
-                  ? 'bg-bg-2 text-fg-0'
-                  : 'text-fg-3 hover:bg-bg-2 hover:text-fg-1',
+                  ? 'bg-volt-soft text-volt'
+                  : 'text-fg-2 hover:bg-bg-3 hover:text-fg-0',
               )}
             >
-              <List size={12} strokeWidth={1.75} /> list
+              <List size={14} strokeWidth={1.75} />
             </button>
           </div>
         </div>
