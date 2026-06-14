@@ -1,7 +1,8 @@
 import 'server-only';
-import { and, asc, desc, eq, max } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, max } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
+  assets as assetsTable,
   campaignTiles as campaignTilesTable,
   campaigns as campaignsTable,
   tileVersions as tileVersionsTable,
@@ -30,7 +31,7 @@ type DbLike = Pick<typeof db, 'select' | 'insert'>;
 // DB helpers
 // ---------------------------------------------------------------------------
 
-function toTileVersionEntry(row: TileVersionRow): TileVersionEntry {
+function toTileVersionEntry(row: TileVersionRow, assetUrl: string | null = null): TileVersionEntry {
   return {
     id: row.id,
     version: row.version,
@@ -38,6 +39,7 @@ function toTileVersionEntry(row: TileVersionRow): TileVersionEntry {
     prompt: row.prompt,
     adCopy: (row.adCopy as AdCopy | null) ?? null,
     assetId: row.assetId ?? null,
+    assetUrl,
     changeNote: row.changeNote ?? null,
     createdAt: row.createdAt.getTime(),
   };
@@ -146,12 +148,31 @@ export async function listTileVersions(
     )
     .orderBy(asc(tileVersionsTable.version));
 
+  // Resolve one public URL per distinct workflowId (the first generated image).
+  const workflowIds = [...new Set(rows.map((r) => r.workflowId))];
+  const urlByWorkflow = new Map<string, string>();
+  if (workflowIds.length > 0) {
+    const assetRows = await db
+      .select({
+        workflowId: assetsTable.workflowId,
+        storageKey: assetsTable.storageKey,
+        publicUrl: assetsTable.publicUrl,
+      })
+      .from(assetsTable)
+      .where(and(inArray(assetsTable.workflowId, workflowIds), isNull(assetsTable.deletedAt)))
+      .orderBy(asc(assetsTable.storageKey));
+    for (const a of assetRows) {
+      if (a.workflowId && a.publicUrl && !urlByWorkflow.has(a.workflowId)) {
+        urlByWorkflow.set(a.workflowId, a.publicUrl);
+      }
+    }
+  }
+
   return rows.map((r) =>
-    toTileVersionEntry({
-      ...r,
-      tileId,
-      generationId: r.generationId ?? null,
-    } as TileVersionRow),
+    toTileVersionEntry(
+      { ...r, tileId, generationId: r.generationId ?? null } as TileVersionRow,
+      urlByWorkflow.get(r.workflowId) ?? null,
+    ),
   );
 }
 
@@ -253,6 +274,7 @@ export async function restoreTileVersion(
       prompt: target.prompt,
       adCopy: restoredAdCopy,
       assetId: restoredAssetId,
+      assetUrl: null,
       changeNote: `restored v${version}`,
       createdAt: Date.now(),
     } satisfies TileVersionEntry;

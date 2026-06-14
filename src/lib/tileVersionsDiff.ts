@@ -28,6 +28,7 @@ export type TileVersionEntry = {
   prompt: string;
   adCopy: AdCopy | null;
   assetId: string | null;
+  assetUrl: string | null;
   changeNote: string | null;
   createdAt: number;
 };
