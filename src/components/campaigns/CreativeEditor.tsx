@@ -312,7 +312,7 @@ export function CreativeEditor({ campaignId, campaignTitle, brandName, tile, ver
       {/* ------------------------------------------------------------------ */}
       {/* RIGHT — collapsible panels                                         */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-col gap-2.5">
+      <div className="flex flex-col gap-2.5 md:sticky md:top-6 md:max-h-[calc(100vh-3rem)] md:self-start md:overflow-y-auto">
         {/* image panel — read-only v1 */}
         <PanelRow label="image" defaultOpen>
           <div className="relative mt-1 h-[110px] overflow-hidden rounded-[8px] bg-bg-3">
