@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { BuzzPill } from '@/components/ui';
 import type { Campaign } from '@/lib/campaigns';
 import { CampaignCreativeGrid } from './CampaignCreativeGrid';
+import { CampaignHeaderEditable } from './CampaignHeaderEditable';
 import { ExportCampaignButton } from './ExportCampaignButton';
 import { SectionHead } from './SectionHead';
 
@@ -39,12 +40,11 @@ export function CampaignDetail({ campaign }: Props) {
             <ExportCampaignButton campaignId={campaign.id} disabled={doneCount === 0} />
           </div>
         </div>
-        <h1 className="t-h2 text-fg-0">{campaign.title}</h1>
-        {campaign.brief.description && (
-          <p className="max-w-[680px] text-[14px] leading-[1.5] text-fg-2">
-            {campaign.brief.description}
-          </p>
-        )}
+        <CampaignHeaderEditable
+          campaignId={campaign.id}
+          initialTitle={campaign.title}
+          initialDescription={campaign.brief.description ?? ''}
+        />
       </header>
 
       <section className="mt-10">

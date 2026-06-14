@@ -8,6 +8,7 @@ export { BuzzPill } from './BuzzPill';
 export { Chip } from './Chip';
 export { cn } from './cn';
 export { IconButton } from './IconButton';
+export { InlineEditText } from './InlineEditText';
 export { FieldLabel, Input, Textarea } from './Input';
 export { Select } from './Select';
 export { BottomSheet } from './BottomSheet';

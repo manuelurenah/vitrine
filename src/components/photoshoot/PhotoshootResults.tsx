@@ -7,7 +7,7 @@ import { useMemo, useState } from 'react';
 import { CreativeCard, GradientThumb } from '@/components/campaigns';
 import { FilterPills } from '@/components/campaigns/FilterPills';
 import { ProductPickerDialog } from '@/components/catalog';
-import { Button, BuzzPill } from '@/components/ui';
+import { Button, BuzzPill, InlineEditText } from '@/components/ui';
 import { buildCampaignNewHref } from '@/lib/campaignHref';
 import type { Product } from '@/lib/catalog';
 import type { Photoshoot, PhotoshootTile } from '@/lib/photoshoots';
@@ -178,10 +178,7 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
       <header className="mt-4 flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Compact source-product reference + counts */}
-          <div
-            data-testid="pshoot-source-product"
-            className="flex min-w-0 items-center gap-2.5"
-          >
+          <div data-testid="pshoot-source-product" className="flex min-w-0 items-center gap-2.5">
             {sourceProduct?.heroUrl ? (
               <img
                 src={sourceProduct.heroUrl}
@@ -218,7 +215,22 @@ export function PhotoshootResults({ shoot, products, sourceProduct }: Props) {
           </div>
         </div>
 
-        <h1 className="t-h2 text-fg-0">{shoot.title}</h1>
+        <h1>
+          <InlineEditText
+            value={shoot.title}
+            ariaLabel="edit photoshoot title"
+            className="t-h2 block w-full text-fg-0"
+            onSave={async (title) => {
+              const res = await fetch(`/api/photoshoot/${shoot.id}`, {
+                method: 'PATCH',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ title }),
+              });
+              if (!res.ok) throw new Error(`photoshoot patch failed: ${res.status}`);
+              router.refresh();
+            }}
+          />
+        </h1>
         <p className="font-mono text-[12px] text-fg-3">{statusLine}</p>
       </header>
 

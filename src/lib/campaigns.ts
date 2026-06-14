@@ -237,6 +237,39 @@ export async function deleteCampaign(userId: string, id: string): Promise<boolea
   return result.length > 0;
 }
 
+/**
+ * Update a campaign's editable header fields. Ownership-scoped: returns `null`
+ * if the campaign doesn't exist or belongs to another user. `title` is a column;
+ * `description` lives inside the `brief` jsonb, so it's merged onto the existing
+ * brief (read-modify-write). Only the keys present in `patch` are touched.
+ */
+export async function updateCampaign(
+  userId: string,
+  id: string,
+  patch: { title?: string; description?: string },
+): Promise<Campaign | null> {
+  const [existing] = await db
+    .select()
+    .from(campaignsTable)
+    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
+    .limit(1);
+  if (!existing) return null;
+
+  const update: Record<string, unknown> = { updatedAt: new Date() };
+  if (patch.title !== undefined) update.title = patch.title;
+  if (patch.description !== undefined) {
+    const brief = existing.brief as BriefForPresets;
+    update.brief = { ...brief, description: patch.description };
+  }
+
+  await db
+    .update(campaignsTable)
+    .set(update)
+    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)));
+
+  return loadCampaign(userId, id);
+}
+
 export async function updateTileStatus(
   userId: string,
   campaignId: string,

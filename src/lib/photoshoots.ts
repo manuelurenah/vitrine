@@ -236,6 +236,34 @@ export async function deletePhotoshoot(userId: string, id: string): Promise<bool
   return result.length > 0;
 }
 
+/**
+ * Update a photoshoot's editable header fields. Ownership-scoped: returns `null`
+ * if the shoot doesn't exist or belongs to another user. Only `title` is
+ * editable; presets/templates/ratio/variants drive cooking and stay immutable.
+ */
+export async function updatePhotoshoot(
+  userId: string,
+  id: string,
+  patch: { title?: string },
+): Promise<Photoshoot | null> {
+  const [existing] = await db
+    .select({ id: photoshootsTable.id })
+    .from(photoshootsTable)
+    .where(and(eq(photoshootsTable.id, id), eq(photoshootsTable.userId, userId)))
+    .limit(1);
+  if (!existing) return null;
+
+  const update: Record<string, unknown> = { updatedAt: new Date() };
+  if (patch.title !== undefined) update.title = patch.title;
+
+  await db
+    .update(photoshootsTable)
+    .set(update)
+    .where(and(eq(photoshootsTable.id, id), eq(photoshootsTable.userId, userId)));
+
+  return getPhotoshoot(userId, id);
+}
+
 function firstSnapshotImage(snapshot: unknown): string | null {
   if (!snapshot || typeof snapshot !== 'object') return null;
   try {
