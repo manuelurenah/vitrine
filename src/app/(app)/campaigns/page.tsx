@@ -26,6 +26,7 @@ export default async function CampaignsPage() {
       // Done campaigns show no badge; only surface the `cooking` state.
       status: done ? null : ('cooking' as const),
       tone: TONE_CYCLE[i % TONE_CYCLE.length]!,
+      thumbUrl: c.thumbUrl,
     };
   });
 

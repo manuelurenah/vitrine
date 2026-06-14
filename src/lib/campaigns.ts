@@ -42,6 +42,9 @@ export type Campaign = {
   variantsPerPreset: number;
   enhancedPrompts: Record<string, unknown> | null;
   tiles: CampaignTile[];
+  // First available done-tile image, used as a list/grid thumbnail. Null until
+  // at least one tile finishes with a linked asset.
+  thumbUrl: string | null;
   estimatedBuzz: number;
   audience: string | null;
   aesthetics: string | null;
@@ -66,6 +69,7 @@ function toCampaign(
   tiles: CampaignTileRow[],
   assetUrlByTileId: Map<string, string> = new Map(),
 ): Campaign {
+  const mappedTiles = tiles.map((t) => toTile(t, assetUrlByTileId.get(t.id)));
   return {
     id: row.id,
     userId: row.userId,
@@ -75,7 +79,8 @@ function toCampaign(
     referenceAssetIds: row.referenceAssetIds,
     variantsPerPreset: row.variantsPerPreset,
     enhancedPrompts: (row.enhancedPrompts as Record<string, unknown> | null) ?? null,
-    tiles: tiles.map((t) => toTile(t, assetUrlByTileId.get(t.id))),
+    tiles: mappedTiles,
+    thumbUrl: mappedTiles.find((t) => t.assetUrl)?.assetUrl ?? null,
     estimatedBuzz: row.estimatedBuzz,
     audience: row.audience,
     aesthetics: row.aesthetics,
@@ -219,7 +224,32 @@ export async function listCampaigns(userId: string): Promise<Campaign[]> {
     byCampaign.set(t.campaignId, bucket);
   }
 
-  return rows.map((r) => toCampaign(r, byCampaign.get(r.id) ?? []));
+  // Resolve thumbnails: one query for the public URLs of every done tile that
+  // has a linked, non-deleted asset. `toCampaign` derives each campaign's
+  // `thumbUrl` from the first tile (in createdAt order) that has an assetUrl.
+  const assetUrlByTileId = new Map<string, string>();
+  const tilesWithAsset = tiles.filter((t) => t.assetId !== null);
+  if (tilesWithAsset.length > 0) {
+    const assetRows = await db
+      .select({ id: assetsTable.id, publicUrl: assetsTable.publicUrl })
+      .from(assetsTable)
+      .where(
+        and(
+          inArray(
+            assetsTable.id,
+            tilesWithAsset.map((t) => t.assetId as string),
+          ),
+          isNull(assetsTable.deletedAt),
+        ),
+      );
+    const urlById = new Map(assetRows.map((a) => [a.id, a.publicUrl]));
+    for (const t of tilesWithAsset) {
+      const url = urlById.get(t.assetId as string);
+      if (url) assetUrlByTileId.set(t.id, url);
+    }
+  }
+
+  return rows.map((r) => toCampaign(r, byCampaign.get(r.id) ?? [], assetUrlByTileId));
 }
 
 /**

@@ -21,6 +21,7 @@ type PastCampaign = {
   count: string;
   status: BadgeKind | null;
   tone: ThumbTone;
+  thumbUrl?: string | null;
 };
 
 type Props = {

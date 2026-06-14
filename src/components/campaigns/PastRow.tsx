@@ -8,12 +8,13 @@ type Props = {
   count: string;
   status?: BadgeKind | null;
   tone?: ThumbTone;
+  thumbUrl?: string | null;
   last?: boolean;
   busy?: boolean;
   onDelete?: () => void;
 };
 
-export function PastRow({ name, date, count, status, tone, last, busy, onDelete }: Props) {
+export function PastRow({ name, date, count, status, tone, thumbUrl, last, busy, onDelete }: Props) {
   return (
     <div
       className={cn(
@@ -21,7 +22,17 @@ export function PastRow({ name, date, count, status, tone, last, busy, onDelete 
         !last && 'border-b border-line-subtle',
       )}
     >
-      <GradientThumb tone={tone} className="h-10 w-10 shrink-0 rounded-[8px]" />
+      {thumbUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={thumbUrl}
+          alt=""
+          className="h-10 w-10 shrink-0 rounded-[8px] object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <GradientThumb tone={tone} className="h-10 w-10 shrink-0 rounded-[8px]" />
+      )}
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14px] font-medium text-fg-0">{name}</div>
         <div className="mt-[2px] font-mono text-[11px] text-fg-2">
