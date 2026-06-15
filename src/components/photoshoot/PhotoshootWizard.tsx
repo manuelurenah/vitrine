@@ -16,7 +16,7 @@ import {
 } from '@/lib/photoshootTemplates';
 import type { EnhancedPrompt } from '@/lib/promptBuilder';
 
-const RATIOS: PhotoshootRatio[] = ['4:5', '9:16', '1:1'];
+const RATIOS: PhotoshootRatio[] = ['4:5', '9:16', '1:1', '16:9'];
 
 const GROUP_LABEL: Record<PhotoshootTemplate['group'], string> = {
   studio: 'studio',

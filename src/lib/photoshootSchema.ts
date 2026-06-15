@@ -4,7 +4,7 @@ import { isPhotoshootTemplateId, type PhotoshootTemplateId } from './photoshootT
 export const photoshootBriefSchema = z.object({
   productName: z.string().min(1).max(120),
   productNotes: z.string().min(1).max(2000),
-  ratio: z.enum(['1:1', '4:5', '9:16']),
+  ratio: z.enum(['1:1', '4:5', '9:16', '16:9']),
   variantsPerTemplate: z.number().int().min(1).max(4).default(1),
   templateIds: z
     .array(z.string())
