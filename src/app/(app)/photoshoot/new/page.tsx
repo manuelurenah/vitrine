@@ -1,6 +1,6 @@
 import { PhotoshootWizard } from '@/components/photoshoot/PhotoshootWizard';
-import { getAsset, listAssets } from '@/lib/assets';
-import { getProduct, listProducts } from '@/lib/catalog';
+import { listAssets } from '@/lib/assets';
+import { listProducts } from '@/lib/catalog';
 import { getBuzzAccount } from '@/lib/civitai';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
@@ -15,32 +15,49 @@ function firstString(v: string | string[] | undefined): string | undefined {
 }
 
 /**
- * Parse a `?subject=<kind>:<id>` deep-link param. Accepts `asset:<uuid>` and
- * `product:<uuid>`; anything else is ignored. The caller is responsible for
- * validating ownership via `getAsset` / `getProduct` (which are user-scoped).
+ * Parse a comma-separated `?refs=` param into prefixed reference ids. Mirrors
+ * the campaign page: keep only `product:`/`asset:` prefixed ids and cap at 4.
  */
-function parseSubjectParam(
-  raw: string | undefined,
-): { kind: 'asset' | 'product'; id: string } | null {
+function parseRefs(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => id.startsWith('product:') || id.startsWith('asset:'))
+    .slice(0, 4);
+}
+
+/**
+ * Parse a legacy `?subject=<kind>:<id>` deep-link param. Accepts `asset:<id>`
+ * and `product:<id>`; anything else returns null. We fold a valid subject into
+ * the refs list so deep-linked products/assets become a pre-selected reference.
+ */
+function parseSubjectRef(raw: string | undefined): string | null {
   if (!raw) return null;
   const colonIdx = raw.indexOf(':');
   if (colonIdx === -1) return null;
   const kind = raw.slice(0, colonIdx);
   const id = raw.slice(colonIdx + 1);
   if (!id) return null;
-  if (kind === 'asset' || kind === 'product') return { kind, id };
+  if (kind === 'asset' || kind === 'product') return `${kind}:${id}`;
   return null;
 }
 
 export default async function NewPhotoshootPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await getSession();
   const sp = await searchParams;
-  const subjectRaw = firstString(sp.subject);
+  const promptParam = firstString(sp.prompt)?.trim() || null;
+
+  // Compose the reference list from `?refs` plus a legacy `?subject`, deduped.
+  const refs = parseRefs(firstString(sp.refs));
+  const subjectRef = parseSubjectRef(firstString(sp.subject));
+  const referenceAssetIds = subjectRef
+    ? Array.from(new Set([subjectRef, ...refs])).slice(0, 4)
+    : refs;
 
   let buzz: Awaited<ReturnType<typeof getBuzzAccount>> | null = null;
   let libraryAssets: Awaited<ReturnType<typeof listAssets>> = [];
   let libraryProducts: Awaited<ReturnType<typeof listProducts>> = [];
-  let defaultSubject: { kind: 'asset' | 'product'; id: string } | null = null;
 
   if (session) {
     const userKey = await getUserKey(session);
@@ -49,25 +66,15 @@ export default async function NewPhotoshootPage({ searchParams }: { searchParams
       listAssets(userKey),
       listProducts(userKey),
     ]);
-
-    const parsed = parseSubjectParam(subjectRaw);
-    if (parsed) {
-      if (parsed.kind === 'asset') {
-        const a = await getAsset(userKey, parsed.id);
-        if (a) defaultSubject = { kind: 'asset', id: parsed.id };
-      } else {
-        const p = await getProduct(userKey, parsed.id);
-        if (p) defaultSubject = { kind: 'product', id: parsed.id };
-      }
-    }
   }
 
   return (
     <PhotoshootWizard
+      prompt={promptParam}
+      referenceAssetIds={referenceAssetIds}
       buzzBalance={buzz?.balance ?? null}
       libraryAssets={libraryAssets}
       libraryProducts={libraryProducts}
-      defaultSubject={defaultSubject}
     />
   );
 }
