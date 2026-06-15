@@ -70,13 +70,18 @@ function makeEnhanced(over: Partial<EnhancedPrompt> = {}): EnhancedPrompt {
   };
 }
 
+/** Render the wizard with the now-required library props supplied empty. */
+function renderWizard() {
+  return renderToStaticMarkup(<PhotoshootWizard libraryAssets={[]} libraryProducts={[]} />);
+}
+
 /* -------------------------------------------------------------------------- */
 /* isStep                                                                      */
 /* -------------------------------------------------------------------------- */
 
 describe('isStep', () => {
   it('accepts the three valid step values', () => {
-    expect(isStep('brief')).toBe(true);
+    expect(isStep('configure')).toBe(true);
     expect(isStep('review')).toBe(true);
     expect(isStep('submit')).toBe(true);
   });
@@ -85,6 +90,7 @@ describe('isStep', () => {
     expect(isStep(null)).toBe(false);
     expect(isStep(undefined)).toBe(false);
     expect(isStep('')).toBe(false);
+    expect(isStep('brief')).toBe(false);
     expect(isStep('done')).toBe(false);
   });
 });
@@ -122,10 +128,18 @@ describe('buildCookPayload', () => {
       'studio-clean': makeEnhanced({ finalPrompt: 'studio clean prompt' }),
       'lifestyle-kitchen': makeEnhanced({ finalPrompt: 'kitchen prompt' }),
     };
-    const payload = buildCookPayload(brief, [], enhanced, {});
+    const payload = buildCookPayload(brief, [], enhanced, {}, 'My Shoot');
     expect(Object.keys(payload.enhancedPrompts)).toEqual(['studio-clean', 'lifestyle-kitchen']);
     expect(payload.enhancedPrompts['studio-clean']?.finalPrompt).toBe('studio clean prompt');
     expect(payload.enhancedPrompts['studio-clean']?.userOverride).toBeUndefined();
+  });
+
+  it('carries the free-text title through alongside the brief', () => {
+    const brief = makeBrief();
+    const payload = buildCookPayload(brief, [], {}, {}, 'Golden Hour Set');
+    expect(payload.title).toBe('Golden Hour Set');
+    // title is independent of the product name
+    expect(payload.productName).toBe('lumen serum');
   });
 
   it('passes user overrides through as userOverride on the matching template only', () => {
@@ -134,9 +148,13 @@ describe('buildCookPayload', () => {
       'studio-clean': makeEnhanced(),
       'lifestyle-kitchen': makeEnhanced(),
     };
-    const payload = buildCookPayload(brief, [], enhanced, {
-      'studio-clean': '  my custom prompt  ',
-    });
+    const payload = buildCookPayload(
+      brief,
+      [],
+      enhanced,
+      { 'studio-clean': '  my custom prompt  ' },
+      'My Shoot',
+    );
     expect(payload.enhancedPrompts['studio-clean']?.userOverride).toBe('my custom prompt');
     expect(payload.enhancedPrompts['lifestyle-kitchen']?.userOverride).toBeUndefined();
   });
@@ -144,10 +162,13 @@ describe('buildCookPayload', () => {
   it('drops empty/whitespace overrides — they should not silently overwrite the assembled prompt', () => {
     const brief = makeBrief();
     const enhanced = { 'studio-clean': makeEnhanced(), 'lifestyle-kitchen': makeEnhanced() };
-    const payload = buildCookPayload(brief, [], enhanced, {
-      'studio-clean': '   ',
-      'lifestyle-kitchen': '',
-    });
+    const payload = buildCookPayload(
+      brief,
+      [],
+      enhanced,
+      { 'studio-clean': '   ', 'lifestyle-kitchen': '' },
+      'My Shoot',
+    );
     expect(payload.enhancedPrompts['studio-clean']?.userOverride).toBeUndefined();
     expect(payload.enhancedPrompts['lifestyle-kitchen']?.userOverride).toBeUndefined();
   });
@@ -159,13 +180,14 @@ describe('buildCookPayload', () => {
       [],
       { 'studio-clean': makeEnhanced() }, // missing lifestyle-kitchen
       {},
+      'My Shoot',
     );
     expect(Object.keys(payload.enhancedPrompts)).toEqual(['studio-clean']);
   });
 
   it('preserves referenceAssetIds + brief fields at the top level of the cook body', () => {
     const brief = makeBrief();
-    const payload = buildCookPayload(brief, ['product:p1'], {}, {});
+    const payload = buildCookPayload(brief, ['product:p1'], {}, {}, 'My Shoot');
     expect(payload.productName).toBe(brief.productName);
     expect(payload.productNotes).toBe(brief.productNotes);
     expect(payload.ratio).toBe(brief.ratio);
@@ -176,7 +198,7 @@ describe('buildCookPayload', () => {
 
   it('handles a missing preview gracefully (undefined enhancedFromPreview)', () => {
     const brief = makeBrief();
-    const payload = buildCookPayload(brief, [], undefined, { 'studio-clean': 'x' });
+    const payload = buildCookPayload(brief, [], undefined, { 'studio-clean': 'x' }, 'My Shoot');
     expect(payload.enhancedPrompts).toEqual({});
   });
 });
@@ -192,44 +214,45 @@ describe('PhotoshootWizard SSR step routing', () => {
     navigationMocks.router.push.mockClear();
   });
 
-  it('defaults to the brief step when no step query param is present', () => {
+  it('defaults to the configure step when no step query param is present', () => {
     navigationMocks.setStep(null);
-    const html = renderToStaticMarkup(<PhotoshootWizard />);
-    expect(html).toContain('data-step="brief"');
-    expect(html).toContain('data-testid="brief-step"');
+    const html = renderWizard();
+    expect(html).toContain('data-step="configure"');
+    expect(html).toContain('data-testid="configure-step"');
     expect(html).not.toContain('data-testid="review-step"');
   });
 
-  it('defaults to brief when step is something unknown', () => {
+  it('defaults to configure when step is something unknown', () => {
     navigationMocks.setStep('garbage');
-    const html = renderToStaticMarkup(<PhotoshootWizard />);
-    expect(html).toContain('data-step="brief"');
+    const html = renderWizard();
+    expect(html).toContain('data-step="configure"');
   });
 
   it('renders the review step when ?step=review', () => {
     navigationMocks.setStep('review');
-    const html = renderToStaticMarkup(<PhotoshootWizard />);
+    const html = renderWizard();
     expect(html).toContain('data-step="review"');
     expect(html).toContain('data-testid="review-step"');
-    expect(html).not.toContain('data-testid="brief-step"');
+    expect(html).not.toContain('data-testid="configure-step"');
   });
 
   it('renders the submit step when ?step=submit', () => {
     navigationMocks.setStep('submit');
-    const html = renderToStaticMarkup(<PhotoshootWizard />);
+    const html = renderWizard();
     expect(html).toContain('data-step="submit"');
     expect(html).toContain('data-testid="submit-step"');
   });
 
-  it('renders the AssetCatalogPicker inside the brief step', () => {
-    navigationMocks.setStep('brief');
-    const html = renderToStaticMarkup(<PhotoshootWizard />);
-    expect(html).toContain('data-testid="asset-catalog-picker"');
+  it('renders the name + prompt inputs inside the configure step', () => {
+    navigationMocks.setStep('configure');
+    const html = renderWizard();
+    expect(html).toContain('data-testid="photoshoot-name"');
+    expect(html).toContain('data-testid="photoshoot-prompt"');
   });
 
   it('renders the three-dot step indicator with aria-current on the active step', () => {
     navigationMocks.setStep('review');
-    const html = renderToStaticMarkup(<PhotoshootWizard />);
+    const html = renderWizard();
     expect(html).toContain('data-testid="step-dots"');
     expect(html).toContain('aria-current="step"');
   });
@@ -241,38 +264,39 @@ describe('PhotoshootWizard SSR step routing', () => {
 /* The wizard's preview state is fetched on the client; in SSR it's null and  */
 /* the cards render with empty enhanced data. We assert the per-template card */
 /* anchors exist so we know the row count tracks brief.templateIds (the       */
-/* default-on photoshoot templates), then assert structural anchors that the  */
-/* override/buzz/brand-disclose features hang off of.                          */
+/* recommended photoshoot templates seeded by default), then assert the       */
+/* structural anchors that override/buzz/brand-disclose features hang off of. */
 
 describe('PhotoshootWizard review step structure', () => {
   beforeEach(() => {
     navigationMocks.setStep('review');
   });
 
-  it('renders one template-card per default-on template id', () => {
-    const html = renderToStaticMarkup(<PhotoshootWizard />);
+  it('renders one template-card per seeded template id', () => {
+    const html = renderWizard();
     const cards = html.match(/data-testid="template-card"/g) ?? [];
-    // Default-on templates per photoshootTemplates.ts: 3 (studio-clean, lifestyle-kitchen, lifestyle-handheld, hero-wide)
+    // recommendedTemplateIds() seeds 3 (studio-clean, lifestyle-handheld, hero-wide).
     expect(cards.length).toBeGreaterThanOrEqual(3);
   });
 
   it('renders a buzz pill per card and a single total at the top', () => {
-    const html = renderToStaticMarkup(<PhotoshootWizard />);
+    const html = renderWizard();
     expect(html).toContain('data-testid="total-buzz"');
     const perCard = html.match(/data-testid="template-buzz"/g) ?? [];
     expect(perCard.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('exposes the brand-disclose toggle and the raw-prompt edit toggle on every card', () => {
-    const html = renderToStaticMarkup(<PhotoshootWizard />);
+  it('exposes the brand-disclose toggle and an always-editable prompt textarea on every card', () => {
+    const html = renderWizard();
     const brandToggles = html.match(/data-testid="brand-toggle"/g) ?? [];
-    const editToggles = html.match(/data-testid="edit-toggle"/g) ?? [];
-    expect(brandToggles.length).toBe(editToggles.length);
+    const textareas = html.match(/data-testid="override-textarea-/g) ?? [];
+    // one brand toggle + one editable prompt textarea per card
+    expect(brandToggles.length).toBe(textareas.length);
     expect(brandToggles.length).toBeGreaterThanOrEqual(1);
   });
 
   it('renders a Cook button anchored by data-testid', () => {
-    const html = renderToStaticMarkup(<PhotoshootWizard />);
+    const html = renderWizard();
     expect(html).toContain('data-testid="cook-button"');
     // initial total is 0 buzz before client-side preview lands
     expect(html).toContain('cook for 0 buzz');
@@ -297,14 +321,19 @@ describe('PhotoshootWizard fetch wiring (via exported helpers)', () => {
     expect(body.templateIds).toContain('studio-clean');
   });
 
-  it('cook payload puts brief at top level and references + enhancedPrompts alongside', () => {
+  it('cook payload puts brief + title at top level and references + enhancedPrompts alongside', () => {
     const brief = makeBrief();
     const enhanced = { 'studio-clean': makeEnhanced(), 'lifestyle-kitchen': makeEnhanced() };
-    const body = buildCookPayload(brief, ['product:p1'], enhanced, {
-      'studio-clean': 'my override',
-    });
-    // matches cook route schema (photoshootBriefSchema spread + extras)
+    const body = buildCookPayload(
+      brief,
+      ['product:p1'],
+      enhanced,
+      { 'studio-clean': 'my override' },
+      'Golden Hour Set',
+    );
+    // matches cook route schema (photoshootBriefSchema spread + title + extras)
     expect(body.productName).toBe(brief.productName);
+    expect(body.title).toBe('Golden Hour Set');
     expect(body.templateIds).toEqual(brief.templateIds);
     expect(body.referenceAssetIds).toEqual(['product:p1']);
     expect(body.enhancedPrompts['studio-clean']?.userOverride).toBe('my override');
@@ -313,40 +342,36 @@ describe('PhotoshootWizard fetch wiring (via exported helpers)', () => {
 });
 
 /* -------------------------------------------------------------------------- */
-/* Override editing triggers debounced re-preview                              */
+/* Override editing surface                                                     */
 /* -------------------------------------------------------------------------- */
-/* We can't drive React effects in node-mode vitest, but we can assert that   */
-/* the wizard exposes the textarea anchors on the review screen and that a    */
-/* fresh override produces a different cook payload — proof the override is   */
-/* the input the debounced re-preview + the cook submission both observe.     */
+/* The review step's final-prompt textarea is always editable (no toggle).    */
+/* We assert the textarea anchor renders per card and that a fresh override   */
+/* produces a different cook payload — proof the override is the input the    */
+/* debounced re-preview + the cook submission both observe.                   */
 
 describe('override editing surface', () => {
-  it('exposes a stable textarea anchor per template card on the review step', () => {
+  it('exposes a stable, always-rendered textarea anchor per template card on review', () => {
     navigationMocks.setStep('review');
-    const html = renderToStaticMarkup(<PhotoshootWizard />);
-    // textareas are gated behind the "edit raw prompt" toggle and only render
-    // when editing === true on a card. The toggles themselves render statically.
-    expect(html).toContain('data-testid="edit-toggle"');
+    const html = renderWizard();
+    expect(html).toContain('data-testid="override-textarea-studio-clean"');
   });
 
   it('an override mutates the cook payload deterministically', () => {
     const brief = makeBrief();
     const enhanced = { 'studio-clean': makeEnhanced({ finalPrompt: 'orig' }) };
-    const without = buildCookPayload(brief, [], enhanced, {});
-    const withOverride = buildCookPayload(brief, [], enhanced, {
-      'studio-clean': 'edited',
-    });
+    const without = buildCookPayload(brief, [], enhanced, {}, 'My Shoot');
+    const withOverride = buildCookPayload(
+      brief,
+      [],
+      enhanced,
+      { 'studio-clean': 'edited' },
+      'My Shoot',
+    );
     expect(without.enhancedPrompts['studio-clean']?.userOverride).toBeUndefined();
     expect(withOverride.enhancedPrompts['studio-clean']?.userOverride).toBe('edited');
     expect(withOverride.enhancedPrompts['studio-clean']?.finalPrompt).toBe('orig'); // base preserved
   });
 });
-
-/* -------------------------------------------------------------------------- */
-/* Live fetch wiring — render the wizard, run effects via dynamic import      */
-/* -------------------------------------------------------------------------- */
-/* Skipped: vitest runs in node and React's testing flows need DOM. The pure */
-/* helper tests above lock the wire format the live wizard sends.             */
 
 afterEach(() => {
   vi.clearAllMocks();

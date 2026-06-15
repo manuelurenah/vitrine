@@ -1,9 +1,8 @@
 'use client';
 
-import { ArrowLeft, Box, Camera, Check, Image as ImageIcon, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, Box, Image as ImageIcon, Loader2, Sparkles } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
 import { Button, BuzzPill, Chip, cn, FieldLabel, Input, Textarea } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
 import type { Product } from '@/lib/catalog';
@@ -16,7 +15,7 @@ import {
 } from '@/lib/photoshootTemplates';
 import type { EnhancedPrompt } from '@/lib/promptBuilder';
 
-const RATIOS: PhotoshootRatio[] = ['4:5', '9:16', '1:1'];
+const RATIOS: PhotoshootRatio[] = ['4:5', '9:16', '1:1', '16:9'];
 
 const GROUP_LABEL: Record<PhotoshootTemplate['group'], string> = {
   studio: 'studio',
@@ -24,14 +23,12 @@ const GROUP_LABEL: Record<PhotoshootTemplate['group'], string> = {
   hero: 'hero',
 };
 
-const RECOMMENDED_IDS: ReadonlySet<PhotoshootTemplateId> = new Set(recommendedTemplateIds());
-
 const ALL_TEMPLATES: PhotoshootTemplate[] = Object.values(PHOTOSHOOT_TEMPLATES);
 
-export type WizardStep = 'brief' | 'review' | 'submit';
+export type WizardStep = 'configure' | 'review' | 'submit';
 
 export function isStep(value: string | null | undefined): value is WizardStep {
-  return value === 'brief' || value === 'review' || value === 'submit';
+  return value === 'configure' || value === 'review' || value === 'submit';
 }
 
 /**
@@ -53,14 +50,17 @@ export function buildPreviewPayload(
  * Build the request body for `POST /api/photoshoot/cook`. Merges any
  * user-typed raw prompt overrides into the corresponding template's
  * `EnhancedPrompt.userOverride` field, leaving the rest of the prompt layers
- * intact so the audit trail keeps the brand-DNA composition.
+ * intact so the audit trail keeps the brand-DNA composition. The free-text
+ * `title` rides alongside the brief (independent of `productName`).
  */
 export function buildCookPayload(
   brief: Brief,
   referenceAssetIds: string[],
   enhancedFromPreview: Record<string, EnhancedPrompt> | undefined,
   userOverrides: Record<string, string>,
+  title: string,
 ): Brief & {
+  title: string;
   referenceAssetIds: string[];
   enhancedPrompts: Record<string, EnhancedPrompt>;
 } {
@@ -74,7 +74,24 @@ export function buildCookPayload(
       userOverride: trimmed ? trimmed : undefined,
     };
   }
-  return { ...brief, referenceAssetIds, enhancedPrompts };
+  return { ...brief, title, referenceAssetIds, enhancedPrompts };
+}
+
+/**
+ * Resolve the product name backing the brief's `productName` field. The wizard
+ * never collects a product name directly — it derives one from the first
+ * `product:<id>` reference (matched against the catalog). When no product is
+ * attached we fall back to `'product'` so the schema's `min(1)` is satisfied.
+ * Exported for unit testing.
+ */
+export function resolveProductName(referenceAssetIds: string[], products: Product[]): string {
+  const ref = referenceAssetIds.find((id) => id.startsWith('product:'));
+  if (ref) {
+    const productId = ref.slice('product:'.length);
+    const product = products.find((p) => p.id === productId);
+    if (product?.name.trim()) return product.name.trim();
+  }
+  return 'product';
 }
 
 type PreviewResponse = {
@@ -90,6 +107,15 @@ type CookResponse = {
   error?: string;
 };
 
+type DraftResponse = {
+  draft?: {
+    title: string;
+    prompt: string;
+    templateIds: PhotoshootTemplateId[];
+  };
+  error?: string;
+};
+
 export type Brief = {
   productName: string;
   productNotes: string;
@@ -98,77 +124,102 @@ export type Brief = {
   templateIds: PhotoshootTemplateId[];
 };
 
-export type Subject = { kind: 'asset'; id: string } | { kind: 'product'; id: string };
+/** A resolved reference thumbnail for the read-only configure display. */
+type ResolvedReference = {
+  id: string;
+  kind: 'product' | 'asset';
+  label: string;
+  thumbUrl: string | null;
+  isProduct: boolean;
+};
 
 /**
- * Pure helper: resolve a subject into the underlying asset id that the
- * orchestrator can fetch as a reference image.
- *
- * - `asset:<id>` → the asset id directly.
- * - `product:<id>` → the product's `heroAssetId` (first attached asset, per
- *   `createProduct` semantics). Returns `null` if the product has no hero —
- *   the caller falls back to a text-only brief.
- *
+ * Resolve the prefixed reference ids to thumbnails. `product:<id>` matches a
+ * catalog product (hero image), `asset:<id>` matches an uploaded asset (url).
  * Exported for unit testing.
  */
-export function resolveSubjectReference(
-  subject: Subject | null,
+export function resolveReferences(
+  referenceAssetIds: string[],
   products: Product[],
-  _assets: Asset[],
-): string | null {
-  if (!subject) return null;
-  if (subject.kind === 'asset') return subject.id;
-  const product = products.find((p) => p.id === subject.id);
-  return product?.heroAssetId ?? null;
+  assets: Asset[],
+): ResolvedReference[] {
+  const out: ResolvedReference[] = [];
+  for (const ref of referenceAssetIds) {
+    if (ref.startsWith('product:')) {
+      const id = ref.slice('product:'.length);
+      const product = products.find((p) => p.id === id);
+      const thumbUrl = product?.heroAssetId
+        ? (assets.find((a) => a.id === product.heroAssetId)?.publicUrl ?? product?.heroUrl ?? null)
+        : (product?.heroUrl ?? null);
+      out.push({
+        id: ref,
+        kind: 'product',
+        label: product?.name ?? 'product',
+        thumbUrl,
+        isProduct: true,
+      });
+    } else if (ref.startsWith('asset:')) {
+      const id = ref.slice('asset:'.length);
+      const asset = assets.find((a) => a.id === id);
+      const label = asset ? (asset.storageKey.split('/').pop() ?? asset.id) : 'upload';
+      out.push({
+        id: ref,
+        kind: 'asset',
+        label,
+        thumbUrl: asset?.publicUrl ?? null,
+        isProduct: false,
+      });
+    }
+  }
+  return out;
 }
 
 export type PhotoshootWizardProps = {
+  prompt?: string | null;
+  referenceAssetIds?: string[];
   buzzBalance?: number | null;
-  libraryAssets?: Asset[];
-  libraryProducts?: Product[];
-  defaultSubject?: Subject | null;
+  libraryAssets: Asset[];
+  libraryProducts: Product[];
 };
 
 export function PhotoshootWizard({
+  prompt = null,
+  referenceAssetIds = [],
   buzzBalance = null,
-  libraryAssets = [],
-  libraryProducts = [],
-  defaultSubject = null,
-}: PhotoshootWizardProps = {}) {
+  libraryAssets,
+  libraryProducts,
+}: PhotoshootWizardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawStep = searchParams?.get('step');
-  const step: WizardStep = isStep(rawStep) ? rawStep : 'brief';
+  const step: WizardStep = isStep(rawStep) ? rawStep : 'configure';
 
-  // --- brief state -----------------------------------------------------------
-  const [productName, setProductName] = useState('');
-  const [productNotes, setProductNotes] = useState('');
+  const hasPrompt = !!prompt?.trim();
+
+  // Product name is derived from the attached product reference (never typed).
+  const productName = useMemo(
+    () => resolveProductName(referenceAssetIds, libraryProducts),
+    [referenceAssetIds, libraryProducts],
+  );
+
+  const references = useMemo(
+    () => resolveReferences(referenceAssetIds, libraryProducts, libraryAssets),
+    [referenceAssetIds, libraryProducts, libraryAssets],
+  );
+
+  // --- configure state -------------------------------------------------------
+  // `title` is a free-text photoshoot name, independent of the product.
+  const [title, setTitle] = useState('');
+  // `masterPrompt` is the LLM-improved prompt; it maps to the brief's productNotes.
+  const [masterPrompt, setMasterPrompt] = useState('');
   const [ratio, setRatio] = useState<PhotoshootRatio>('4:5');
   const [variants, setVariants] = useState(1);
   const [templateIds, setTemplateIds] = useState<Set<PhotoshootTemplateId>>(
-    () => new Set(ALL_TEMPLATES.filter((t) => t.defaultOn).map((t) => t.id)),
+    () => new Set(recommendedTemplateIds()),
   );
-  const [referenceAssetIds, setReferenceAssetIds] = useState<string[]>([]);
-  const [subject, setSubject] = useState<Subject | null>(defaultSubject);
 
-  /**
-   * Subject → `referenceAssetIds` sync. Resolves the subject to its underlying
-   * asset id and merges it into the existing references (deduped via Set so we
-   * don't double-up if the user also picked it manually somewhere).
-   *
-   * Note: we don't try to "unmerge" the previous subject's asset id when the
-   * subject changes — references the user explicitly picked stay; only the
-   * derived subject reference is added. This keeps the state model simple.
-   */
-  useEffect(() => {
-    const subjectAssetId = resolveSubjectReference(subject, libraryProducts, libraryAssets);
-    if (!subjectAssetId) return;
-    const prefixed = `asset:${subjectAssetId}`;
-    setReferenceAssetIds((prev) => {
-      if (prev.includes(prefixed)) return prev;
-      return Array.from(new Set([prefixed, ...prev]));
-    });
-  }, [subject, libraryProducts, libraryAssets]);
+  // --- draft state -----------------------------------------------------------
+  const [drafting, setDrafting] = useState(hasPrompt);
 
   // --- preview / review state ------------------------------------------------
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
@@ -200,24 +251,76 @@ export function PhotoshootWizard({
 
   const buildBrief = useCallback((): Brief => {
     return {
-      productName: productName.trim() || 'untitled product',
+      productName,
       productNotes:
-        productNotes.trim() || 'small-batch product · studio clean · brand-forward, no overlays',
+        masterPrompt.trim() || 'small-batch product · studio clean · brand-forward, no overlays',
       ratio,
       variantsPerTemplate: variants,
       templateIds: Array.from(templateIds),
     };
-  }, [productName, productNotes, ratio, variants, templateIds]);
+  }, [productName, masterPrompt, ratio, variants, templateIds]);
+
+  // --- auto-draft on mount ---------------------------------------------------
+  // When arriving from the composer with a prompt, ask the server to improve it
+  // into a title + master prompt + recommended styles. Fire once per mount.
+  const didDraftRef = useRef(false);
+  useEffect(() => {
+    if (didDraftRef.current) return;
+    if (!hasPrompt) return;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const res = await fetch('/api/photoshoot/draft', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ prompt, referenceAssetIds, productName }),
+          signal: controller.signal,
+        });
+        // An aborted run (StrictMode remount / navigation) must not commit the
+        // dedupe guard or apply state — let the next effect run redo the draft.
+        if (controller.signal.aborted) return;
+        const json = (await res.json().catch(() => ({}))) as DraftResponse;
+        didDraftRef.current = true;
+        if (!res.ok || !json.draft) {
+          setTitle(productName !== 'product' ? productName : 'Photoshoot');
+          setMasterPrompt(prompt?.trim() ?? '');
+          setTemplateIds(new Set(recommendedTemplateIds()));
+          return;
+        }
+        setTitle(json.draft.title);
+        setMasterPrompt(json.draft.prompt);
+        setTemplateIds(
+          new Set(
+            json.draft.templateIds.length > 0 ? json.draft.templateIds : recommendedTemplateIds(),
+          ),
+        );
+      } catch (err) {
+        if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) {
+          // Aborted: do NOT set the guard — the remount will retry.
+          return;
+        }
+        didDraftRef.current = true;
+        setTitle(productName !== 'product' ? productName : 'Photoshoot');
+        setMasterPrompt(prompt?.trim() ?? '');
+        setTemplateIds(new Set(recommendedTemplateIds()));
+      } finally {
+        // Keep the "improving…" state across an aborted run so it doesn't flicker
+        // to an enabled-but-empty Continue; the retrying run clears it.
+        if (!controller.signal.aborted) setDrafting(false);
+      }
+    })();
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
    * Fetch a fresh preview from the server. Buzz pricing depends on the
-   * orchestrator estimate (image count, aspect, references) — not the prompt
-   * text — so we re-fetch on override edits to keep the displayed total
-   * grounded in a live estimate even when the user is mostly tweaking text.
+   * orchestrator estimate (image count, aspect, references) and the prompt
+   * text, so we re-fetch when any of those change.
    */
   const fetchPreview = useCallback(async () => {
     if (templateIds.size === 0) {
-      setPreviewError('pick at least one template');
+      setPreviewError('pick at least one style');
       return null;
     }
     setPreviewing(true);
@@ -247,28 +350,33 @@ export function PhotoshootWizard({
     }
   }, [templateIds, buildBrief, referenceAssetIds]);
 
-  // Debounced re-preview when overrides change while on the review step.
+  // Debounced live estimate while configuring or reviewing. Re-runs when the
+  // prompt, styles, ratio, variants, or overrides change. Skipped while the
+  // draft is still in flight (nothing meaningful to price yet) and when the
+  // master prompt is empty (the brief is invalid).
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (step !== 'review') return;
-    if (Object.keys(userOverrides).length === 0) return;
+    if (step === 'submit') return;
+    if (drafting) return;
+    if (!masterPrompt.trim()) return;
+    if (templateIds.size === 0) return;
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(() => {
       void fetchPreview();
-    }, 300);
+    }, 350);
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
-    // intentionally re-run on overrides only; fetchPreview captures current state
+    // fetchPreview captures the current brief; re-run on the inputs it depends on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userOverrides, step]);
+  }, [step, drafting, masterPrompt, ratio, variants, templateIds, userOverrides, referenceAssetIds]);
 
   // --- handlers --------------------------------------------------------------
 
   async function onContinueToReview(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
-    const result = await fetchPreview();
+    const result = preview ?? (await fetchPreview());
     if (result) goStep('review');
   }
 
@@ -283,6 +391,7 @@ export function PhotoshootWizard({
         referenceAssetIds,
         preview?.enhancedPrompts,
         userOverrides,
+        title.trim() || brief.productName,
       );
       const res = await fetch('/api/photoshoot/cook', {
         method: 'POST',
@@ -315,16 +424,7 @@ export function PhotoshootWizard({
   // --- derived ---------------------------------------------------------------
   const totalShots = templateIds.size * variants;
   const totalBuzz = preview?.totalBuzz ?? 0;
-
-  const groups = useMemo(() => {
-    const out: Record<PhotoshootTemplate['group'], PhotoshootTemplate[]> = {
-      studio: [],
-      lifestyle: [],
-      hero: [],
-    };
-    for (const t of ALL_TEMPLATES) out[t.group].push(t);
-    return out;
-  }, []);
+  const promptEmpty = !masterPrompt.trim();
 
   // --- render ----------------------------------------------------------------
   return (
@@ -333,39 +433,35 @@ export function PhotoshootWizard({
         <span className="t-eyebrow">
           // step 2 · shoot ·{' '}
           <span className="text-fg-1">
-            {step === 'brief' ? 'brief' : step === 'review' ? 'review' : 'cooking'}
+            {step === 'configure' ? 'configure' : step === 'review' ? 'review' : 'cooking'}
           </span>
         </span>
         <h1 className="mt-[6px] t-h1 text-fg-0">photoshoot.</h1>
         <p className="mx-auto mt-[6px] max-w-[540px] text-[15px] text-fg-2">
-          one product → a studio set. brief, review, cook.
+          one product → a studio set. configure, review, cook.
         </p>
         <StepDots step={step} />
       </header>
 
-      {step === 'brief' && (
-        <BriefStep
-          productName={productName}
-          productNotes={productNotes}
-          setProductName={setProductName}
-          setProductNotes={setProductNotes}
+      {step === 'configure' && (
+        <ConfigureStep
+          drafting={drafting}
+          references={references}
+          title={title}
+          setTitle={setTitle}
+          masterPrompt={masterPrompt}
+          setMasterPrompt={setMasterPrompt}
           ratio={ratio}
           setRatio={setRatio}
           variants={variants}
           setVariants={setVariants}
           templateIds={templateIds}
           toggleTemplate={toggleTemplate}
-          groups={groups}
-          referenceAssetIds={referenceAssetIds}
-          setReferenceAssetIds={setReferenceAssetIds}
-          subject={subject}
-          setSubject={setSubject}
-          libraryAssets={libraryAssets}
-          libraryProducts={libraryProducts}
           totalShots={totalShots}
           totalBuzz={totalBuzz}
           previewing={previewing}
           previewError={previewError}
+          promptEmpty={promptEmpty}
           onSubmit={onContinueToReview}
         />
       )}
@@ -380,7 +476,7 @@ export function PhotoshootWizard({
           userOverrides={userOverrides}
           setUserOverrides={setUserOverrides}
           submitError={submitError}
-          onBack={() => goStep('brief')}
+          onBack={() => goStep('configure')}
           onCook={onCook}
           buzzBalance={buzzBalance}
         />
@@ -396,7 +492,7 @@ export function PhotoshootWizard({
 /* -------------------------------------------------------------------------- */
 
 function StepDots({ step }: { step: WizardStep }) {
-  const items: WizardStep[] = ['brief', 'review', 'submit'];
+  const items: WizardStep[] = ['configure', 'review', 'submit'];
   return (
     <div
       className="mt-3 flex items-center justify-center gap-1.5"
@@ -421,178 +517,135 @@ function StepDots({ step }: { step: WizardStep }) {
   );
 }
 
-type BriefStepProps = {
-  productName: string;
-  productNotes: string;
-  setProductName: (v: string) => void;
-  setProductNotes: (v: string) => void;
+type ConfigureStepProps = {
+  drafting: boolean;
+  references: ResolvedReference[];
+  title: string;
+  setTitle: (v: string) => void;
+  masterPrompt: string;
+  setMasterPrompt: (v: string) => void;
   ratio: PhotoshootRatio;
   setRatio: (r: PhotoshootRatio) => void;
   variants: number;
   setVariants: (fn: (v: number) => number) => void;
   templateIds: Set<PhotoshootTemplateId>;
   toggleTemplate: (id: PhotoshootTemplateId) => void;
-  groups: Record<PhotoshootTemplate['group'], PhotoshootTemplate[]>;
-  referenceAssetIds: string[];
-  setReferenceAssetIds: (ids: string[]) => void;
-  subject: Subject | null;
-  setSubject: (s: Subject | null) => void;
-  libraryAssets: Asset[];
-  libraryProducts: Product[];
   totalShots: number;
   totalBuzz: number;
   previewing: boolean;
   previewError: string | null;
+  promptEmpty: boolean;
   onSubmit: (e: React.FormEvent) => void;
 };
 
-function BriefStep(props: BriefStepProps) {
+function ConfigureStep(props: ConfigureStepProps) {
   const {
-    productName,
-    productNotes,
-    setProductName,
-    setProductNotes,
+    drafting,
+    references,
+    title,
+    setTitle,
+    masterPrompt,
+    setMasterPrompt,
     ratio,
     setRatio,
     variants,
     setVariants,
     templateIds,
     toggleTemplate,
-    groups,
-    referenceAssetIds,
-    setReferenceAssetIds,
-    subject,
-    setSubject,
-    libraryAssets,
-    libraryProducts,
     totalShots,
     totalBuzz,
     previewing,
     previewError,
+    promptEmpty,
     onSubmit,
   } = props;
 
-  // The selected product name for labelling the recommended group
-  const selectedProductName = useMemo(() => {
-    if (subject?.kind === 'product') {
-      const p = libraryProducts.find((x) => x.id === subject.id);
-      return p?.name ?? productName;
-    }
-    return productName;
-  }, [subject, libraryProducts, productName]);
-
-  const recommendedLabel = selectedProductName
-    ? `recommended for ${selectedProductName}`
-    : 'recommended';
-
-  const recommendedTemplates = useMemo(
-    () => Array.from(RECOMMENDED_IDS).map((id) => PHOTOSHOOT_TEMPLATES[id]),
-    [],
-  );
+  const groups = useMemo(() => {
+    const out: Record<PhotoshootTemplate['group'], PhotoshootTemplate[]> = {
+      studio: [],
+      lifestyle: [],
+      hero: [],
+    };
+    for (const t of ALL_TEMPLATES) out[t.group].push(t);
+    return out;
+  }, []);
 
   return (
-    <form onSubmit={onSubmit} data-testid="brief-step">
+    <form onSubmit={onSubmit} data-testid="configure-step">
       <div className="mx-auto mt-10 grid w-full max-w-[1080px] grid-cols-1 gap-6 pb-36 md:grid-cols-[1fr_1.4fr] md:pb-24">
-        {/* LEFT COLUMN */}
-        <section className="flex flex-col gap-4">
-          {/* Product radio list — shown when there are catalog products */}
-          {libraryProducts.length > 0 ? (
-            <ProductRadioList
-              products={libraryProducts}
-              subject={subject}
-              setSubject={setSubject}
-              setProductName={setProductName}
-            />
-          ) : (
-            <SubjectPanel
-              subject={subject}
-              setSubject={setSubject}
-              libraryAssets={libraryAssets}
-              libraryProducts={libraryProducts}
-            />
+        {/* LEFT COLUMN — name + prompt + references */}
+        <section className="flex flex-col gap-5">
+          {references.length > 0 && (
+            <div className="flex flex-col gap-2" data-testid="reference-strip">
+              <h2 className="t-eyebrow">// subject &amp; references</h2>
+              <div className="flex flex-wrap gap-2">
+                {references.map((ref) => (
+                  <div
+                    key={ref.id}
+                    data-testid="reference-thumb"
+                    data-reference-id={ref.id}
+                    className={cn(
+                      'relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border bg-bg-3',
+                      ref.isProduct ? 'border-line-volt' : 'border-line-subtle',
+                    )}
+                    title={ref.label}
+                  >
+                    {ref.thumbUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={ref.thumbUrl}
+                        alt={ref.label}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : ref.isProduct ? (
+                      <Box size={20} strokeWidth={1.5} className="text-fg-2" />
+                    ) : (
+                      <ImageIcon size={20} strokeWidth={1.5} className="text-fg-2" />
+                    )}
+                    {ref.isProduct && (
+                      <span className="absolute bottom-0 left-0 right-0 bg-volt px-1 py-[1px] text-center font-mono text-[8px] uppercase tracking-[0.06em] text-fg-on-volt">
+                        product
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="font-mono text-[10.5px] text-fg-3">
+                delivered to the render as references · not editable here
+              </p>
+            </div>
           )}
 
-          <h2 className="t-eyebrow">// product</h2>
           <div>
-            <FieldLabel htmlFor="pn">name</FieldLabel>
+            <FieldLabel htmlFor="ps-name">name</FieldLabel>
             <Input
-              id="pn"
-              value={productName}
-              onChange={(e) => setProductName(e.target.value)}
-              placeholder="lumen golden serum"
+              id="ps-name"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="golden hour serum set"
+              data-testid="photoshoot-name"
             />
           </div>
-          <div>
-            <FieldLabel htmlFor="pd">notes</FieldLabel>
-            <Textarea
-              id="pd"
-              value={productNotes}
-              onChange={(e) => setProductNotes(e.target.value)}
-              rows={5}
-              placeholder="15ml amber dropper bottle · turmeric + bakuchiol · warm honey palette"
-            />
-          </div>
-          <p className="text-[12px] text-fg-3">
-            we&apos;ll inject these notes into every template prompt. brand dna fills the rest.
-          </p>
 
-          <div className="mt-2">
-            <FieldLabel>references · optional</FieldLabel>
-            <AssetCatalogPicker
-              value={referenceAssetIds}
-              onChange={setReferenceAssetIds}
-              max={4}
-              includeGenerated
+          <div>
+            <FieldLabel htmlFor="ps-prompt">prompt</FieldLabel>
+            <Textarea
+              id="ps-prompt"
+              value={masterPrompt}
+              onChange={(e) => setMasterPrompt(e.target.value)}
+              rows={6}
+              placeholder="15ml amber dropper on a warm wooden counter, soft window light, honey palette, candid editorial framing"
+              data-testid="photoshoot-prompt"
             />
+            <p className="mt-1 text-[12px] text-fg-3">
+              this prompt drives every style. brand dna fills the rest.
+            </p>
           </div>
         </section>
 
-        {/* RIGHT COLUMN */}
+        {/* RIGHT COLUMN — styles */}
         <section className="flex flex-col gap-6">
-          {/* Recommended group — prepended before the standard groups */}
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <h3 className="font-display text-[14.5px] font-semibold tracking-[-0.015em] text-fg-0">
-                {recommendedLabel}
-              </h3>
-              <span className="rounded-[4px] border border-line-volt bg-volt-soft px-[7px] py-[2px] font-mono text-[9.5px] uppercase tracking-[0.08em] text-volt">
-                based on brand dna
-              </span>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {recommendedTemplates.map((t) => {
-                const on = templateIds.has(t.id);
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => toggleTemplate(t.id)}
-                    aria-pressed={on}
-                    className={cn(
-                      'group relative flex flex-col gap-2 rounded-[14px] border bg-bg-2 p-4 text-left transition-all duration-fast ease-out',
-                      on
-                        ? 'border-line-volt shadow-bloom-volt-sm'
-                        : 'border-line-subtle hover:border-line-strong',
-                    )}
-                  >
-                    {on && (
-                      <span className="absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-pill bg-volt text-fg-on-volt">
-                        <Check size={12} strokeWidth={3} />
-                      </span>
-                    )}
-                    <span className="font-display text-[15px] font-semibold tracking-[-0.015em] text-fg-0">
-                      {t.label}
-                    </span>
-                    <span className="text-[12.5px] leading-[1.45] text-fg-2">
-                      {t.styleNotes.split(',').slice(0, 2).join(',')}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Standard groups */}
           {(['studio', 'lifestyle', 'hero'] as const).map((group) => (
             <div key={group} className="flex flex-col gap-3">
               <div className="flex items-center gap-2">
@@ -610,6 +663,9 @@ function BriefStep(props: BriefStepProps) {
                       type="button"
                       onClick={() => toggleTemplate(t.id)}
                       aria-pressed={on}
+                      data-testid="style-chip"
+                      data-template-id={t.id}
+                      data-active={on ? '' : undefined}
                       className={cn(
                         'group relative flex flex-col gap-2 rounded-[14px] border bg-bg-2 p-4 text-left transition-all duration-fast ease-out',
                         on
@@ -619,7 +675,19 @@ function BriefStep(props: BriefStepProps) {
                     >
                       {on && (
                         <span className="absolute right-3 top-3 grid h-5 w-5 place-items-center rounded-pill bg-volt text-fg-on-volt">
-                          <Check size={12} strokeWidth={3} />
+                          <svg
+                            viewBox="0 0 24 24"
+                            width="12"
+                            height="12"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                          >
+                            <path d="M5 12l5 5L20 7" />
+                          </svg>
                         </span>
                       )}
                       <span className="font-display text-[15px] font-semibold tracking-[-0.015em] text-fg-0">
@@ -655,7 +723,6 @@ function BriefStep(props: BriefStepProps) {
             ))}
           </div>
 
-          {/* Divider */}
           <span aria-hidden className="h-5 w-px shrink-0 bg-line-subtle" />
 
           {/* Variants stepper */}
@@ -680,19 +747,15 @@ function BriefStep(props: BriefStepProps) {
             </button>
           </div>
 
-          {/* Divider */}
           <span aria-hidden className="h-5 w-px shrink-0 bg-line-subtle" />
 
-          {/* Estimate copy */}
           <span className="font-mono text-[11px] uppercase tracking-[0.06em] text-fg-2">
-            {templateIds.size} template{templateIds.size === 1 ? '' : 's'} × {variants} variant
+            {templateIds.size} style{templateIds.size === 1 ? '' : 's'} × {variants} variant
             {variants === 1 ? '' : 's'}
           </span>
 
-          {/* Divider */}
           <span aria-hidden className="h-5 w-px shrink-0 bg-line-subtle" />
 
-          {/* Total shots */}
           <span className="font-mono text-[12px] text-fg-3">
             {totalShots} shot{totalShots === 1 ? '' : 's'}
           </span>
@@ -703,32 +766,32 @@ function BriefStep(props: BriefStepProps) {
 
           <span className="flex-1" />
 
+          {drafting && (
+            <span className="flex items-center gap-1 font-mono text-[11px] text-fg-3">
+              <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+              improving prompt…
+            </span>
+          )}
+
           <Button
             type="submit"
             variant="primary"
             size="lg"
-            disabled={previewing || templateIds.size === 0}
+            disabled={drafting || previewing || templateIds.size === 0 || promptEmpty}
             leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
+            data-testid="configure-continue"
           >
             {previewing ? (
               'estimating…'
             ) : (
               <>
-                generate
+                review
                 {totalBuzz > 0 && (
                   <span className="ml-1 font-mono text-[11px] opacity-70">· {totalBuzz} buzz</span>
                 )}
               </>
             )}
           </Button>
-
-          <span
-            aria-hidden
-            className="hidden items-center gap-1 font-mono text-[10.5px] text-fg-3 md:flex"
-          >
-            <Camera size={12} strokeWidth={1.75} />
-            real renders, real buzz
-          </span>
         </div>
       </div>
     </form>
@@ -773,7 +836,7 @@ function ReviewStep(props: ReviewStepProps) {
             back
           </Button>
           <span className="font-mono text-[11px] uppercase tracking-[0.1em] text-fg-3">
-            {brief.templateIds.length} template{brief.templateIds.length === 1 ? '' : 's'} ·{' '}
+            {brief.templateIds.length} style{brief.templateIds.length === 1 ? '' : 's'} ·{' '}
             {brief.variantsPerTemplate} variant{brief.variantsPerTemplate === 1 ? '' : 's'} each
           </span>
         </div>
@@ -897,7 +960,6 @@ function TemplateReviewCard({
   onOverrideChange: (value: string) => void;
 }) {
   const [brandOpen, setBrandOpen] = useState(false);
-  const [editing, setEditing] = useState(Boolean(override));
 
   const finalPrompt = enhanced?.finalPrompt ?? '';
 
@@ -908,16 +970,13 @@ function TemplateReviewCard({
       className="rounded-[14px] border border-line-subtle bg-bg-2 p-5"
     >
       <header className="flex flex-wrap items-center gap-2">
-        <h3 className="font-display text-[15px] font-semibold tracking-[-0.015em] text-fg-0">
-          {template.label}
-        </h3>
         <span className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-fg-3">
-          // {GROUP_LABEL[template.group]}
+          // {template.label}
         </span>
+        <span className="flex-1" />
         <Chip ghost active>
           {ratio}
         </Chip>
-        <span className="flex-1" />
         <BuzzPill amount={buzz} size="compact" data-testid="template-buzz" />
       </header>
 
@@ -931,9 +990,17 @@ function TemplateReviewCard({
       )}
 
       <div className="mt-4">
-        <FieldLabel>final prompt</FieldLabel>
-        <p className="rounded-[10px] border border-line-subtle bg-bg-3 px-3 py-2 text-[13px] leading-[1.5] text-fg-1">
-          {override.trim() ? override : finalPrompt || '—'}
+        <FieldLabel htmlFor={`prompt-${template.id}`}>final prompt</FieldLabel>
+        <Textarea
+          id={`prompt-${template.id}`}
+          value={override.trim() ? override : finalPrompt}
+          onChange={(e) => onOverrideChange(e.target.value)}
+          rows={4}
+          placeholder={finalPrompt}
+          data-testid={`override-textarea-${template.id}`}
+        />
+        <p className="mt-1 font-mono text-[10.5px] text-fg-3">
+          edits re-estimate buzz cost automatically.
         </p>
       </div>
 
@@ -947,18 +1014,6 @@ function TemplateReviewCard({
         >
           {brandOpen ? '− hide' : '+ show'} what we added from your brand
         </button>
-        <button
-          type="button"
-          onClick={() => setEditing((v) => !v)}
-          aria-pressed={editing}
-          className={cn(
-            'inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.08em]',
-            editing ? 'text-volt' : 'text-fg-2 hover:text-fg-0',
-          )}
-          data-testid="edit-toggle"
-        >
-          {editing ? '− editing raw prompt' : '+ edit raw prompt'}
-        </button>
       </div>
 
       {brandOpen && enhanced && (
@@ -967,23 +1022,6 @@ function TemplateReviewCard({
           <Layer label="style" value={enhanced.styleLayer} />
           <Layer label="base" value={enhanced.base} />
           {enhanced.negativePrompt && <Layer label="negative" value={enhanced.negativePrompt} />}
-        </div>
-      )}
-
-      {editing && (
-        <div className="mt-3">
-          <FieldLabel htmlFor={`override-${template.id}`}>raw prompt override</FieldLabel>
-          <Textarea
-            id={`override-${template.id}`}
-            value={override}
-            onChange={(e) => onOverrideChange(e.target.value)}
-            rows={4}
-            placeholder={finalPrompt}
-            data-testid={`override-textarea-${template.id}`}
-          />
-          <p className="mt-1 font-mono text-[10.5px] text-fg-3">
-            edits re-estimate buzz cost automatically.
-          </p>
         </div>
       )}
     </article>
@@ -999,263 +1037,6 @@ function Layer({ label, value }: { label: string; value: string }) {
       </span>
       <span className="text-fg-1">{value}</span>
     </div>
-  );
-}
-
-type SubjectPanelProps = {
-  subject: Subject | null;
-  setSubject: (s: Subject | null) => void;
-  libraryAssets: Asset[];
-  libraryProducts: Product[];
-};
-
-/**
- * Top-of-brief subject sub-step. Lets the user either pick a subject from
- * their library (a product → its hero asset, or an upload directly), or skip
- * and rely solely on the text brief. When a subject is set, the panel
- * collapses into a confirmation row with thumb · name · change / clear.
- */
-function SubjectPanel({ subject, setSubject, libraryAssets, libraryProducts }: SubjectPanelProps) {
-  const [picking, setPicking] = useState<boolean>(false);
-
-  // Resolve the thumb + display name for the confirmation row.
-  const resolved = useMemo(() => {
-    if (!subject) return null;
-    if (subject.kind === 'asset') {
-      const a = libraryAssets.find((x) => x.id === subject.id);
-      if (!a) return { thumbUrl: null as string | null, label: 'upload', sublabel: 'asset' };
-      const filename = a.storageKey.split('/').pop() ?? a.id;
-      return {
-        thumbUrl: a.publicUrl,
-        label: filename,
-        sublabel: `upload · ${a.kind}`,
-      };
-    }
-    const p = libraryProducts.find((x) => x.id === subject.id);
-    if (!p) return { thumbUrl: null as string | null, label: 'product', sublabel: 'product' };
-    const hero = p.heroAssetId
-      ? (libraryAssets.find((x) => x.id === p.heroAssetId)?.publicUrl ?? p.heroUrl ?? null)
-      : (p.heroUrl ?? null);
-    return {
-      thumbUrl: hero,
-      label: p.name,
-      sublabel: 'product',
-    };
-  }, [subject, libraryAssets, libraryProducts]);
-
-  const pickerValue = useMemo<string[]>(() => {
-    if (!subject) return [];
-    return [`${subject.kind}:${subject.id}`];
-  }, [subject]);
-
-  const onPickerChange = useCallback(
-    (ids: string[]) => {
-      const last = ids[ids.length - 1];
-      if (!last) {
-        setSubject(null);
-        return;
-      }
-      const colonIdx = last.indexOf(':');
-      if (colonIdx === -1) return;
-      const kind = last.slice(0, colonIdx);
-      const id = last.slice(colonIdx + 1);
-      if (kind === 'asset' || kind === 'product') {
-        setSubject({ kind, id });
-        setPicking(false);
-      }
-    },
-    [setSubject],
-  );
-
-  // Confirmation row (subject is set, picker is closed).
-  if (subject && !picking) {
-    return (
-      <section
-        data-testid="subject-panel"
-        data-subject-kind={subject.kind}
-        data-subject-id={subject.id}
-        className="flex flex-col gap-2"
-      >
-        <h2 className="t-eyebrow">// subject</h2>
-        <div className="flex items-center gap-3 rounded-[12px] border border-line-volt bg-volt-soft/30 p-3">
-          <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[8px] border border-line-subtle bg-bg-3">
-            {resolved?.thumbUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={resolved.thumbUrl}
-                alt={resolved.label}
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-            ) : subject.kind === 'product' ? (
-              <Box size={20} strokeWidth={1.5} className="text-fg-2" />
-            ) : (
-              <ImageIcon size={20} strokeWidth={1.5} className="text-fg-2" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[13.5px] font-medium text-fg-0">
-              {resolved?.label ?? subject.id}
-            </div>
-            <div className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-fg-3">
-              {resolved?.sublabel ?? subject.kind}
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setPicking(true)}
-            data-testid="subject-change"
-          >
-            change
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setSubject(null)}
-            data-testid="subject-clear"
-            leadingIcon={<X size={12} strokeWidth={2} />}
-          >
-            clear
-          </Button>
-        </div>
-      </section>
-    );
-  }
-
-  // Inline picker (user clicked "pick from library").
-  if (picking) {
-    return (
-      <section data-testid="subject-panel" className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="t-eyebrow">// subject · pick</h2>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setPicking(false)}
-            data-testid="subject-cancel-pick"
-          >
-            cancel
-          </Button>
-        </div>
-        <AssetCatalogPicker
-          value={pickerValue}
-          onChange={onPickerChange}
-          max={1}
-          includeGenerated
-        />
-      </section>
-    );
-  }
-
-  // Default: choose mode.
-  return (
-    <section data-testid="subject-panel" className="flex flex-col gap-2">
-      <h2 className="t-eyebrow">// subject · optional</h2>
-      <p className="text-[12px] text-fg-3">
-        attach a product or upload as your subject — or skip and describe it in the brief.
-      </p>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => setPicking(true)}
-          data-testid="subject-pick-library"
-          className="flex items-center gap-2 rounded-[10px] border border-line-subtle bg-bg-2 px-3 py-2.5 text-left transition-colors duration-fast hover:border-line-strong"
-        >
-          <Box size={16} strokeWidth={1.75} className="text-fg-2" />
-          <span className="font-mono text-[11.5px] uppercase tracking-[0.06em] text-fg-1">
-            pick from library
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setSubject(null)}
-          data-testid="subject-skip"
-          className="flex items-center gap-2 rounded-[10px] border border-dashed border-line-subtle bg-bg-2/60 px-3 py-2.5 text-left transition-colors duration-fast hover:border-line-strong"
-        >
-          <Sparkles size={14} strokeWidth={1.75} className="text-fg-2" />
-          <span className="font-mono text-[11.5px] uppercase tracking-[0.06em] text-fg-1">
-            skip · describe in text
-          </span>
-        </button>
-      </div>
-    </section>
-  );
-}
-
-type ProductRadioListProps = {
-  products: Product[];
-  subject: Subject | null;
-  setSubject: (s: Subject | null) => void;
-  setProductName: (v: string) => void;
-};
-
-/**
- * Compact radio-style product picker sourced from the user's catalog.
- * Selecting a product sets it as the shoot subject and pre-fills the name field.
- */
-function ProductRadioList({
-  products,
-  subject,
-  setSubject,
-  setProductName,
-}: ProductRadioListProps) {
-  const selectedId = subject?.kind === 'product' ? subject.id : null;
-
-  function select(p: Product) {
-    setSubject({ kind: 'product', id: p.id });
-    setProductName(p.name);
-  }
-
-  return (
-    <section aria-label="select product" className="flex flex-col gap-2">
-      <h2 className="t-eyebrow">// product · from catalog</h2>
-      <div
-        role="radiogroup"
-        aria-label="catalog products"
-        className="flex flex-col gap-1 rounded-[12px] border border-line-subtle bg-bg-2 p-2"
-      >
-        {products.map((p) => {
-          const on = selectedId === p.id;
-          return (
-            <button
-              key={p.id}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              onClick={() => select(p)}
-              className={cn(
-                'flex items-center gap-3 rounded-[10px] border px-3 py-2 text-left transition-colors duration-fast',
-                on
-                  ? 'border-line-volt bg-volt-soft/30'
-                  : 'border-transparent hover:border-line-subtle hover:bg-bg-3',
-              )}
-            >
-              {/* Thumb placeholder */}
-              <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-[7px] border border-line-subtle bg-bg-3">
-                <Box size={14} strokeWidth={1.5} className="text-fg-3" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium text-fg-0">{p.name}</div>
-                {p.notes && (
-                  <div className="truncate font-mono text-[10px] uppercase tracking-[0.05em] text-fg-3">
-                    {p.notes.split(' ').slice(0, 4).join(' ')}
-                  </div>
-                )}
-              </div>
-              {on && (
-                <span className="grid h-[18px] w-[18px] shrink-0 place-items-center rounded-pill bg-volt text-fg-on-volt">
-                  <Check size={10} strokeWidth={3} />
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </section>
   );
 }
 

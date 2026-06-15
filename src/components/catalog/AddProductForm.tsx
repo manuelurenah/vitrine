@@ -44,6 +44,16 @@ function putWithProgress(
   });
 }
 
+/**
+ * Whether a staged thumbnail should show the in-flight spinner overlay. Uploads
+ * are deferred to form submit, so a 'queued' image is staged-and-waiting, not
+ * loading — it must NOT spin (otherwise it looks stuck indefinitely). Only the
+ * active upload phases count. Exported for unit testing.
+ */
+export function isStagedInFlight(status: StagedStatus): boolean {
+  return status === 'signing' || status === 'uploading' || status === 'saving';
+}
+
 export type AddProductFormProps = {
   redirectTo?: string;
   libraryAssets?: Asset[];
@@ -589,7 +599,7 @@ function ThumbCard({
   onRemove: () => void;
 }) {
   const showProgress = item.status === 'uploading' || item.status === 'saving';
-  const isInFlight = item.status === 'queued' || item.status === 'signing' || showProgress;
+  const isInFlight = isStagedInFlight(item.status);
   return (
     <div
       className={cn(

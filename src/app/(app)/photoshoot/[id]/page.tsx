@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { PhotoshootResults } from '@/components/photoshoot';
-import { getProduct, listProducts } from '@/lib/catalog';
+import { listProducts } from '@/lib/catalog';
 import { getPhotoshoot } from '@/lib/photoshoots';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
@@ -16,6 +16,5 @@ export default async function PhotoshootDetailPage({ params }: { params: Params 
   const { id } = await params;
   const [shoot, products] = await Promise.all([getPhotoshoot(userKey, id), listProducts(userKey)]);
   if (!shoot) notFound();
-  const sourceProduct = shoot.productId ? await getProduct(userKey, shoot.productId) : null;
-  return <PhotoshootResults shoot={shoot} products={products} sourceProduct={sourceProduct} />;
+  return <PhotoshootResults shoot={shoot} products={products} />;
 }

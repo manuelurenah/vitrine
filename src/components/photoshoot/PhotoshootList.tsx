@@ -1,12 +1,11 @@
 'use client';
 
-import { Camera, Plus, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { GradientThumb } from '@/components/campaigns';
+import { GradientThumb, PromptComposer } from '@/components/campaigns';
 import { FAB } from '@/components/shell';
-import { Button } from '@/components/ui';
 import { useMediaQuery } from '@/components/ui/useMediaQuery';
 import type { Photoshoot } from '@/lib/photoshoots';
 
@@ -47,58 +46,19 @@ export function PhotoshootList({ shoots }: Props) {
 
       <div className="relative z-card">
         <header className="mx-auto max-w-[720px] text-center">
-          <span className="t-eyebrow">// step 2 · shoot</span>
+          <span className="t-eyebrow">// step 1 · shoot</span>
           <h1 className="mt-[6px] t-h1 text-fg-0">photoshoot.</h1>
           <p className="mx-auto mt-[6px] max-w-[540px] text-[15px] text-fg-2">
             turn a phone photo into a studio set. pick templates, hit cook, ship.
           </p>
         </header>
 
-        {/* hero CTA card */}
-        <div className="relative mx-auto mt-8 max-w-[720px] overflow-hidden rounded-[18px] border border-line bg-bg-2 p-[18px]">
-          {/* gradient backdrop */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                'radial-gradient(ellipse at 90% 50%, rgba(0,255,157,0.10), transparent 60%)',
-            }}
+        <div className="mx-auto mt-8 max-w-[720px]">
+          <PromptComposer
+            destination="/photoshoot/new"
+            buttonLabel="design shoot"
+            placeholder="describe the photoshoot you want — product, vibe, setting"
           />
-
-          <div className="relative flex flex-wrap items-center gap-4">
-            {/* icon bloom */}
-            <div
-              aria-hidden
-              className="grid h-14 w-14 flex-shrink-0 place-items-center rounded-[14px] border border-line-volt bg-volt-soft text-volt shadow-bloom-volt-sm"
-            >
-              <Camera size={22} strokeWidth={1.75} />
-            </div>
-
-            {/* copy */}
-            <div className="min-w-0 flex-1">
-              <div className="font-display text-[19px] font-bold leading-[1.2] tracking-tight text-fg-0">
-                new photoshoot
-              </div>
-              <div className="mt-1 text-[13.5px] leading-[1.45] text-fg-2">
-                pick a product · choose up to 4 templates · we cook a full set of on-brand variants.
-              </div>
-            </div>
-
-            {/* CTA — hidden on mobile (FAB handles new shoot) */}
-            <Link
-              href="/photoshoot/new"
-              aria-label="start a new photoshoot"
-              className="hidden sm:block"
-            >
-              <Button
-                variant="primary"
-                leadingIcon={<Plus size={14} strokeWidth={2} aria-hidden />}
-              >
-                start
-              </Button>
-            </Link>
-          </div>
         </div>
 
         <div className="mt-3 flex flex-wrap justify-center gap-2 font-mono text-[12.5px] text-fg-3">
@@ -122,7 +82,7 @@ export function PhotoshootList({ shoots }: Props) {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {shoots.map((s, i) => {
                 const live = s.tiles.filter((t) => t.status === 'done').length;
                 const slots = Array.from({ length: 4 });
