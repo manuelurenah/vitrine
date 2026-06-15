@@ -102,11 +102,27 @@ export function PhotoshootResults({ shoot, products }: Props) {
         <span className="truncate px-1.5 py-0.5 text-fg-1">{shoot.title}</span>
       </nav>
 
-      {/* Header — compact, single-row meta + actions, matching campaign detail */}
+      {/* Header — title + total buzz / cooking on one row, matching campaign detail */}
       <header className="mt-4 flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          {/* Actions */}
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="min-w-0 flex-1">
+            <InlineEditText
+              value={shoot.title}
+              ariaLabel="edit photoshoot title"
+              className="t-h2 block w-full text-fg-0"
+              onSave={async (title) => {
+                const res = await fetch(`/api/photoshoot/${shoot.id}`, {
+                  method: 'PATCH',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ title }),
+                });
+                if (!res.ok) throw new Error(`photoshoot patch failed: ${res.status}`);
+                router.refresh();
+              }}
+            />
+          </h1>
+          {/* Total buzz + cooking indicator, aligned with the title */}
+          <div className="flex flex-shrink-0 flex-wrap items-center gap-2 pt-1">
             <BuzzPill amount={shoot.estimatedBuzz} />
             {isCooking && (
               <span className="inline-flex items-center gap-[5px] font-mono text-[11px] uppercase tracking-[0.1em] text-volt">
@@ -115,23 +131,6 @@ export function PhotoshootResults({ shoot, products }: Props) {
             )}
           </div>
         </div>
-
-        <h1>
-          <InlineEditText
-            value={shoot.title}
-            ariaLabel="edit photoshoot title"
-            className="t-h2 block w-full text-fg-0"
-            onSave={async (title) => {
-              const res = await fetch(`/api/photoshoot/${shoot.id}`, {
-                method: 'PATCH',
-                headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ title }),
-              });
-              if (!res.ok) throw new Error(`photoshoot patch failed: ${res.status}`);
-              router.refresh();
-            }}
-          />
-        </h1>
         <p className="font-mono text-[12px] text-fg-3">{statusLine}</p>
       </header>
 
