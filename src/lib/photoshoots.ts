@@ -205,20 +205,22 @@ export async function listPhotoshoots(userId: string): Promise<Photoshoot[]> {
     .orderBy(photoshootTilesTable.createdAt);
 
   const tilesByShoot = new Map<string, PhotoshootTileRow[]>();
-  const thumbsByShoot = new Map<string, string[]>();
+  const imagesByShoot = new Map<string, string[][]>();
   for (const { tile, assetPublicUrl, snapshot } of tileRows) {
     const tileBucket = tilesByShoot.get(tile.photoshootId) ?? [];
     tileBucket.push(tile);
     tilesByShoot.set(tile.photoshootId, tileBucket);
-    const thumb = assetPublicUrl ?? firstSnapshotImage(snapshot);
-    if (thumb) {
-      const thumbBucket = thumbsByShoot.get(tile.photoshootId) ?? [];
-      if (thumbBucket.length < 4) thumbBucket.push(thumb);
-      thumbsByShoot.set(tile.photoshootId, thumbBucket);
+
+    const snapImages = allSnapshotImages(snapshot);
+    const tileImages = snapImages.length > 0 ? snapImages : assetPublicUrl ? [assetPublicUrl] : [];
+    if (tileImages.length > 0) {
+      const shotBucket = imagesByShoot.get(tile.photoshootId) ?? [];
+      shotBucket.push(tileImages);
+      imagesByShoot.set(tile.photoshootId, shotBucket);
     }
   }
   return rows.map((r) =>
-    toPhotoshoot(r, tilesByShoot.get(r.id) ?? [], thumbsByShoot.get(r.id) ?? []),
+    toPhotoshoot(r, tilesByShoot.get(r.id) ?? [], pickCoverThumbs(imagesByShoot.get(r.id) ?? [])),
   );
 }
 
@@ -264,12 +266,35 @@ export async function updatePhotoshoot(
   return getPhotoshoot(userId, id);
 }
 
-function firstSnapshotImage(snapshot: unknown): string | null {
-  if (!snapshot || typeof snapshot !== 'object') return null;
+/**
+ * Round-robin across shots (each inner array is one shot's ordered images),
+ * taking one image per shot per pass until `max` is filled or all exhausted.
+ * 1 shot × N variants → up to `max` from that shot; M shots → one per shot first.
+ */
+export function pickCoverThumbs(imagesByShot: string[][], max = 4): string[] {
+  const out: string[] = [];
+  let pass = 0;
+  let tookSomething = true;
+  while (out.length < max && tookSomething) {
+    tookSomething = false;
+    for (const shot of imagesByShot) {
+      if (out.length >= max) break;
+      const url = shot[pass];
+      if (url) {
+        out.push(url);
+        tookSomething = true;
+      }
+    }
+    pass++;
+  }
+  return out;
+}
+
+function allSnapshotImages(snapshot: unknown): string[] {
+  if (!snapshot || typeof snapshot !== 'object') return [];
   try {
-    const urls = extractImageUrls(snapshot as WorkflowSnapshot);
-    return urls[0] ?? null;
+    return extractImageUrls(snapshot as WorkflowSnapshot);
   } catch {
-    return null;
+    return [];
   }
 }
