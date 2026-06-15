@@ -8,6 +8,8 @@ import { Button, Chip, IconButton, Modal } from '@/components/ui';
 
 type Props = {
   placeholder?: string;
+  destination?: string; // route to push to with ?prompt&refs
+  buttonLabel?: string;
 };
 
 type PickerTab = 'products' | 'assets';
@@ -72,7 +74,11 @@ function getSpeechRecognition(): SpeechRecognitionConstructor | null {
   );
 }
 
-export function PromptComposer({ placeholder = 'describe the campaign you want to cook' }: Props) {
+export function PromptComposer({
+  placeholder = 'describe the campaign you want to cook',
+  destination = '/campaigns/new',
+  buttonLabel = 'generate brief',
+}: Props) {
   const router = useRouter();
   const [value, setValue] = useState('');
   const [refs, setRefs] = useState<string[]>([]);
@@ -96,7 +102,7 @@ export function PromptComposer({ placeholder = 'describe the campaign you want t
     if (!prompt) return;
     const params = new URLSearchParams({ prompt });
     if (refs.length > 0) params.set('refs', refs.join(','));
-    router.push(`/campaigns/new?${params.toString()}`);
+    router.push(`${destination}?${params.toString()}`);
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -242,7 +248,7 @@ export function PromptComposer({ placeholder = 'describe the campaign you want t
             onClick={handleSubmit}
             leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
           >
-            generate brief
+            {buttonLabel}
           </Button>
         </div>
         {micError && (
