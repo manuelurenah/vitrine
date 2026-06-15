@@ -11,13 +11,26 @@ import { getUserKey } from '@/lib/userKey';
 export const dynamic = 'force-dynamic';
 
 type Params = Promise<{ id: string; creativeId: string }>;
+type SearchParams = Promise<{ v?: string }>;
 
-export default async function CreativeEditorPage({ params }: { params: Params }) {
+export default async function CreativeEditorPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: SearchParams;
+}) {
   const session = await getSession();
   if (!session) redirect('/');
 
   const userKey = await getUserKey(session);
   const { id, creativeId } = await params;
+  const { v } = await searchParams;
+  // `?v=<n>` selects which variant (image index) the editor opens on. Clamp to
+  // a non-negative integer; the editor falls back to the first image if the
+  // index is out of range.
+  const parsedVariant = Number.parseInt(v ?? '', 10);
+  const initialVariant = Number.isFinite(parsedVariant) && parsedVariant > 0 ? parsedVariant : 0;
 
   const [campaign, brand] = await Promise.all([getCampaign(userKey, id), getDefaultBrand(userKey)]);
   if (!campaign) notFound();
@@ -63,6 +76,7 @@ export default async function CreativeEditorPage({ params }: { params: Params })
         brandLogoUrl={brand?.logoUrl ?? null}
         tile={tile}
         versions={versions}
+        initialVariant={initialVariant}
       />
     </div>
   );

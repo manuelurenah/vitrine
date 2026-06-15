@@ -32,7 +32,38 @@ type Props = {
   brandLogoUrl: string | null;
   tile: CampaignTile;
   versions: TileVersionEntry[];
+  /**
+   * Which variant (image index within the tile's live workflow) the user
+   * clicked to edit. Variants only exist in the live poll urls — older
+   * stored versions render a single asset, so this is ignored off-latest.
+   * Defaults to 0 (first variant) for back-compat.
+   */
+  initialVariant?: number;
 };
+
+/**
+ * Pure selector for the image rendered on the canvas.
+ *
+ * Exported so unit tests can verify the variant/version fallback logic without
+ * standing up a full React render (the component depends on `useRouter`, which
+ * is not mocked in the SSR test harness). Mirrors the `shouldShowTileMenu`
+ * pattern in `CreativeCard`.
+ */
+export function pickCanvasImageUrl(args: {
+  isLatestVersion: boolean;
+  liveUrls: string[];
+  variantIndex: number;
+  versionAssetUrl: string | null | undefined;
+}): string | null {
+  const { isLatestVersion, liveUrls, variantIndex, versionAssetUrl } = args;
+  if (isLatestVersion) {
+    // Honor the selected variant, falling back to the first image, then the
+    // stored asset. Variants only populate from the live workflow snapshot.
+    return liveUrls[variantIndex] ?? liveUrls[0] ?? versionAssetUrl ?? null;
+  }
+  // Older versions store a single rendered asset; variant index is moot.
+  return versionAssetUrl ?? null;
+}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -46,6 +77,7 @@ export function CreativeEditor({
   brandLogoUrl,
   tile,
   versions,
+  initialVariant = 0,
 }: Props) {
   const router = useRouter();
   const preset = PRESETS[tile.presetId];
@@ -71,10 +103,14 @@ export function CreativeEditor({
   // The image shown on the canvas is driven by the version being viewed. The
   // latest version falls back to the live poll urls so a fresh regenerate is
   // reflected before the page re-fetches; older versions use their stored asset.
+  const variantIndex = Math.max(0, Math.trunc(initialVariant));
   const isLatestVersion = versionIdx >= versions.length - 1;
-  const canvasImageUrl = isLatestVersion
-    ? (liveUrls[0] ?? currentVersion?.assetUrl ?? null)
-    : (currentVersion?.assetUrl ?? null);
+  const canvasImageUrl = pickCanvasImageUrl({
+    isLatestVersion,
+    liveUrls,
+    variantIndex,
+    versionAssetUrl: currentVersion?.assetUrl ?? null,
+  });
 
   // ---- adCopy / prompt editing state ---------------------------------------
   const [headline, setHeadline] = useState(tile.adCopy?.headline ?? '');
