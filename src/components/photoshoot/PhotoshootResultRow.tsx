@@ -2,9 +2,16 @@
 
 import { Download, Loader2, MoreVertical, RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTileWorkflow } from '@/components/campaigns/useTileWorkflow';
 import type { PhotoshootTile } from '@/lib/photoshoots';
 import { PHOTOSHOOT_TEMPLATES } from '@/lib/photoshootTemplates';
+
+// Portaled menu geometry. The dropdown is rendered into `document.body` so it
+// escapes the row's `overflow-x-auto` and the image slot's `overflow-hidden`;
+// these drive its fixed-position placement under the trigger.
+const MENU_WIDTH = 176;
+const MENU_GAP = 8;
 
 type Props = {
   shootId: string;
@@ -118,15 +125,52 @@ function RowImage({
   regenerating: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerWrapRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuContentRef = useRef<HTMLDivElement | null>(null);
 
-  // Click-outside + Escape to dismiss the menu. Mirrors the `RowImage` pattern
-  // in `CampaignCreativeRow` so the photoshoot overlays behave consistently.
+  // Two-pass mount gate so we never call createPortal during SSR.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  // Anchor the portaled menu under the trigger, right-aligned, clamped to the
+  // viewport so it is never clipped by the row's `overflow-x-auto`.
+  function positionMenu() {
+    const btn = triggerRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const maxLeft = Math.max(MENU_GAP, window.innerWidth - MENU_WIDTH - MENU_GAP);
+    const left = Math.min(Math.max(MENU_GAP, r.right - MENU_WIDTH), maxLeft);
+    setMenuPos({ top: r.bottom + 4, left });
+  }
+
+  // Keep the portaled menu anchored on scroll/resize while it is open.
+  useEffect(() => {
+    if (!mounted || !menuOpen) return;
+    positionMenu();
+    const onReflow = () => positionMenu();
+    window.addEventListener('scroll', onReflow, true);
+    window.addEventListener('resize', onReflow);
+    return () => {
+      window.removeEventListener('scroll', onReflow, true);
+      window.removeEventListener('resize', onReflow);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, menuOpen]);
+
+  // Click-outside + Escape to dismiss. The menu is portaled out of the trigger
+  // wrapper, so treat clicks inside the portaled content as "inside" too.
   useEffect(() => {
     if (!menuOpen) return;
     function onDocClick(e: MouseEvent) {
-      if (!menuRef.current) return;
-      if (e.target instanceof Node && menuRef.current.contains(e.target)) return;
+      const t = e.target;
+      if (!(t instanceof Node)) return;
+      if (triggerWrapRef.current?.contains(t)) return;
+      if (menuContentRef.current?.contains(t)) return;
       setMenuOpen(false);
     }
     function onKeyDown(e: KeyboardEvent) {
@@ -176,84 +220,100 @@ function RowImage({
         </div>
       )}
       {url && (
-        <div ref={menuRef} className="absolute right-1.5 top-1.5">
+        <div ref={triggerWrapRef} className="absolute right-1.5 top-1.5">
           <button
+            ref={triggerRef}
             type="button"
             data-testid="row-image-menu"
             aria-label="image options"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((v) => !v)}
+            onClick={() => {
+              if (!menuOpen) positionMenu();
+              setMenuOpen((v) => !v);
+            }}
             className="grid size-6 place-items-center rounded-[6px] bg-black/55 text-white backdrop-blur-md"
           >
             <MoreVertical size={13} strokeWidth={1.75} />
           </button>
-          {menuOpen && (
-            <div
-              role="menu"
-              className="absolute right-0 top-7 z-10 w-44 overflow-hidden rounded-[8px] border border-line-subtle bg-bg-1 py-1 shadow-lg"
-            >
-              <button
-                role="menuitem"
-                type="button"
-                onClick={() => {
-                  downloadOne();
-                  setMenuOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-fg-1 hover:bg-bg-2"
-              >
-                <Download size={12} strokeWidth={1.75} /> download
-              </button>
-              <button
-                role="menuitem"
-                type="button"
-                disabled={!assetId}
-                onClick={() => {
-                  if (assetId) onUseAsProduct(assetId);
-                  setMenuOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-fg-1 hover:bg-bg-2 disabled:opacity-40 disabled:hover:bg-transparent"
-              >
-                use as product image
-              </button>
-              <button
-                role="menuitem"
-                type="button"
-                disabled={!assetId}
-                onClick={() => {
-                  if (assetId) onUseInCampaign(assetId);
-                  setMenuOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-fg-1 hover:bg-bg-2 disabled:opacity-40 disabled:hover:bg-transparent"
-              >
-                use in campaign
-              </button>
-              {/*
-                No "edit" item: photoshoot has no per-image editor route (unlike
-                campaigns, which link to `/campaigns/[id]/c/[creativeId]`). Omit
-                rather than link to a route that doesn't exist.
-              */}
-              <button
-                role="menuitem"
-                type="button"
-                disabled={regenerating}
-                onClick={() => {
-                  onRegenerate();
-                  setMenuOpen(false);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-fg-1 hover:bg-bg-2 disabled:opacity-40"
-              >
-                <RefreshCw
-                  size={12}
-                  strokeWidth={1.75}
-                  className={regenerating ? 'animate-spin' : ''}
-                />{' '}
-                regenerate
-              </button>
-            </div>
-          )}
         </div>
       )}
+      {/*
+        Portal the open menu into document.body with fixed positioning so it is
+        never clipped by the row's `overflow-x-auto` or the image slot's
+        `overflow-hidden`. Mirrors the PostGenActions menu pattern.
+      */}
+      {mounted &&
+        menuOpen &&
+        menuPos &&
+        url &&
+        createPortal(
+          <div
+            ref={menuContentRef}
+            role="menu"
+            style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: MENU_WIDTH }}
+            className="z-overlay overflow-hidden rounded-[8px] border border-line-subtle bg-bg-1 py-1 shadow-lg"
+          >
+            <button
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                downloadOne();
+                setMenuOpen(false);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-fg-1 hover:bg-bg-2"
+            >
+              <Download size={12} strokeWidth={1.75} /> download
+            </button>
+            <button
+              role="menuitem"
+              type="button"
+              disabled={!assetId}
+              onClick={() => {
+                if (assetId) onUseAsProduct(assetId);
+                setMenuOpen(false);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-fg-1 hover:bg-bg-2 disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              use as product image
+            </button>
+            <button
+              role="menuitem"
+              type="button"
+              disabled={!assetId}
+              onClick={() => {
+                if (assetId) onUseInCampaign(assetId);
+                setMenuOpen(false);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-fg-1 hover:bg-bg-2 disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              use in campaign
+            </button>
+            {/*
+              No "edit" item: photoshoot has no per-image editor route (unlike
+              campaigns, which link to `/campaigns/[id]/c/[creativeId]`). Omit
+              rather than link to a route that doesn't exist.
+            */}
+            <button
+              role="menuitem"
+              type="button"
+              disabled={regenerating}
+              onClick={() => {
+                onRegenerate();
+                setMenuOpen(false);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-fg-1 hover:bg-bg-2 disabled:opacity-40"
+            >
+              <RefreshCw
+                size={12}
+                strokeWidth={1.75}
+                className={regenerating ? 'animate-spin' : ''}
+              />{' '}
+              regenerate
+            </button>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
