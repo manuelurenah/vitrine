@@ -47,7 +47,7 @@ export function PhotoshootList({ shoots }: Props) {
 
       <div className="relative z-card">
         <header className="mx-auto max-w-[720px] text-center">
-          <span className="t-eyebrow">// step 2 · shoot</span>
+          <span className="t-eyebrow">// step 1 · shoot</span>
           <h1 className="mt-[6px] t-h1 text-fg-0">photoshoot.</h1>
           <p className="mx-auto mt-[6px] max-w-[540px] text-[15px] text-fg-2">
             turn a phone photo into a studio set. pick templates, hit cook, ship.
