@@ -8,6 +8,7 @@ import {
   PHOTOSHOOT_TEMPLATES,
   type PhotoshootTemplateId,
 } from '@/lib/photoshootTemplates';
+import { photoshootBriefSchema } from '@/lib/photoshootSchema';
 import {
   buildPhotoshootPrompt,
   type EnhancedPrompt,
@@ -15,19 +16,6 @@ import {
 } from '@/lib/promptBuilder';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
-
-const photoshootBriefSchema = z.object({
-  productName: z.string().min(1).max(120),
-  productNotes: z.string().min(1).max(2000),
-  ratio: z.enum(['1:1', '4:5', '9:16', '16:9']),
-  variantsPerTemplate: z.number().int().min(1).max(8),
-  templateIds: z
-    .array(z.string())
-    .min(1)
-    .max(8)
-    .transform((ids) => ids.filter(isPhotoshootTemplateId) as PhotoshootTemplateId[])
-    .refine((ids) => ids.length >= 1, 'at least one valid template required'),
-});
 
 const previewBodySchema = z.object({
   brief: photoshootBriefSchema,

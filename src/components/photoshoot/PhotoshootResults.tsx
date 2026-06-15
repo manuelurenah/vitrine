@@ -16,7 +16,6 @@ import { PhotoshootResultRow } from './PhotoshootResultRow';
 type Props = {
   shoot: Photoshoot;
   products: Product[];
-  sourceProduct?: Product | null;
 };
 
 // ---------------------------------------------------------------------------
