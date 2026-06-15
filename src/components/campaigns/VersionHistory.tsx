@@ -105,7 +105,6 @@ export function VersionHistory({ campaignId, creativeId, presetId, brandName, ve
     return diffTileVersions(toSnapshot(baseline), toSnapshot(selected));
   }, [selected, baseline]);
 
-  const canvasAdCopy = selected?.adCopy ?? null;
   const isCurrent = selected?.version === latestVersion;
   const busy = restoringVersion !== null || deletingVersion !== null;
 
@@ -217,8 +216,15 @@ export function VersionHistory({ campaignId, creativeId, presetId, brandName, ve
           className="relative w-full max-w-[480px] overflow-hidden rounded-[14px] border border-line bg-bg-3"
           style={{ aspectRatio: aspect }}
         >
-          {/* historical asset rendering is not wired yet; show a tonal field. */}
-          <CanvasField />
+          {selected?.assetUrl ? (
+            <img
+              src={selected.assetUrl}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : (
+            <CanvasField />
+          )}
 
           {/* version badge — volt + bloom for current */}
           <div className="absolute left-3 top-3">
@@ -234,37 +240,6 @@ export function VersionHistory({ campaignId, creativeId, presetId, brandName, ve
               {isCurrent && <span className="opacity-80">· current</span>}
             </span>
           </div>
-
-          {/* ad copy overlay */}
-          {canvasAdCopy && (
-            <div className="absolute inset-0 flex flex-col justify-end p-4">
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  {canvasAdCopy.headline && (
-                    <p
-                      className="font-display text-[clamp(22px,4vw,36px)] font-extrabold leading-[1.0] tracking-[-0.04em] text-white"
-                      style={{ textShadow: '0 2px 12px rgba(0,0,0,0.5)', maxWidth: 260 }}
-                    >
-                      {canvasAdCopy.headline}
-                    </p>
-                  )}
-                  {brandName && (
-                    <p className="mt-3.5 font-display text-[16px] font-bold text-white/90">
-                      {brandName}
-                    </p>
-                  )}
-                </div>
-                {canvasAdCopy.cta && (
-                  <div
-                    className="shrink-0 rounded-pill bg-volt px-[14px] py-[7px] font-display text-[12px] font-bold text-fg-on-volt"
-                    style={{ boxShadow: '0 0 18px var(--volt-glow)' }}
-                  >
-                    {canvasAdCopy.cta}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* thumb strip */}
