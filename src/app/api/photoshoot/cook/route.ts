@@ -28,6 +28,7 @@ const enhancedPromptSchema = z.object({
 });
 
 const cookSchema = photoshootBriefSchema.extend({
+  title: z.string().min(1).max(120).optional(),
   referenceAssetIds: z.array(z.string()).max(8).default([]),
   enhancedPrompts: z.record(z.string(), enhancedPromptSchema).optional(),
 });
@@ -53,11 +54,14 @@ export async function POST(req: NextRequest) {
     );
   }
   const body = parsed.data;
-  const { referenceAssetIds, enhancedPrompts: clientEnhanced, ...brief } = body;
+  const { title, referenceAssetIds, enhancedPrompts: clientEnhanced, ...brief } = body;
 
   const userKey = await getUserKey(session);
   const brand = await getDefaultBrand(userKey);
 
+  // `referenceAssetIds` carries both the chosen product (`product:<id>`) and any
+  // upload references (`asset:<id>`). `getPublicUrls` resolves both prefixes, so
+  // the product image is delivered to the orchestrator as part of `images` below.
   let refUrls: string[];
   try {
     refUrls = referenceAssetIds.length > 0 ? await getPublicUrls(userKey, referenceAssetIds) : [];
@@ -141,7 +145,7 @@ export async function POST(req: NextRequest) {
 
   const shoot = await createPhotoshoot({
     userId: userKey,
-    title: brief.productName,
+    title: title?.trim() || brief.productName,
     brief: { ...brief, templateIds: successes.map((r) => r.templateId) },
     referenceAssetIds,
     enhancedPrompts: enhancedRecord as Record<string, unknown>,
