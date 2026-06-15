@@ -208,7 +208,25 @@ export async function seedDonePhotoshoot(
        RETURNING id`,
       [photoshootId, templateId, i, workflowId, `e2e tile prompt ${i}`, assetId],
     );
-    tileIds.push(tileRes.rows[0]!.id);
+    const tileId = tileRes.rows[0]!.id;
+    tileIds.push(tileId);
+
+    // Seed the matching `generations` row. Without it, the workflow long-poll
+    // route (`GET /api/workflow/:id`) fails its ownership check (`getGeneration`
+    // returns null → 404) and the row never renders an image — the seeded tile
+    // would stay a skeleton. The row is owned by the test user and keyed by the
+    // tile's `workflow_id`, mirroring what `recordGeneration` writes at cook
+    // time. The regenerate flow then records a fresh generation for the new
+    // workflow id, so the swapped poll is owned too.
+    await pool.query(
+      `INSERT INTO generations
+         (workflow_id, user_id, source, source_id, tile_id, media_type, status,
+          prompt, input, estimated_buzz, charged_buzz)
+       VALUES ($1, $2, 'photoshoot'::generation_source, $3, $4, 'image'::generation_media_type,
+               'done'::workflow_status, $5, '{}'::jsonb, 0, 0)
+       ON CONFLICT (workflow_id) DO NOTHING`,
+      [workflowId, userId, photoshootId, tileId, `e2e tile prompt ${i}`],
+    );
   }
 
   return { id: photoshootId, tileIds, assetIds };

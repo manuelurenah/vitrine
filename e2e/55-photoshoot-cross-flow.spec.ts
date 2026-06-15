@@ -9,13 +9,19 @@ import {
   seedProduct,
 } from './helpers/db';
 
+/**
+ * Photoshoot detail → cross-flow actions. The select-mode + bulk action bar are
+ * gone; "use as product image" and "use in campaign" now live as menu items
+ * inside each image's `row-image-menu` (the ⋮ button per image). Only the first
+ * image of a tile has a linked asset id, so those items are enabled there.
+ */
 test.describe('Photoshoot cross-flow', () => {
   test.beforeEach(async () => {
     await resetUserData();
     await markOnboardingComplete();
   });
 
-  test('per-tile menu → use in campaign deep-links the wizard with refs', async ({
+  test('row image menu → use in campaign deep-links the wizard with refs', async ({
     page,
     baseURL,
   }) => {
@@ -24,10 +30,10 @@ test.describe('Photoshoot cross-flow', () => {
     await signInToApp(page, baseURL!);
     await page.goto(`${baseURL}/photoshoot/${shoot.id}`);
 
-    // Per-tile kebab → menu → "use in campaign"
-    const tileMenu = page.getByRole('button', { name: 'tile actions' }).first();
-    await expect(tileMenu).toBeVisible();
-    await tileMenu.click();
+    // Open the first row image's kebab menu, then "use in campaign".
+    const menu = page.getByTestId('row-image-menu').first();
+    await expect(menu).toBeVisible({ timeout: 15_000 });
+    await menu.click();
 
     await page.getByRole('menuitem', { name: /use in campaign/i }).click();
 
@@ -37,35 +43,25 @@ test.describe('Photoshoot cross-flow', () => {
     const refs = url.searchParams.get('refs') ?? '';
     expect(refs).toContain(`asset:${shoot.assetIds[0]}`);
 
-    // The campaign wizard surfaces the picker on the brief step — the
-    // pre-staged reference shows up as a selection.
+    // The campaign wizard surfaces the picker on the brief step — the pre-staged
+    // reference shows up as a selection.
     await expect(page.getByTestId('asset-catalog-picker')).toBeVisible();
   });
 
-  test('multi-select bulk → attach to existing product', async ({ page, baseURL }) => {
-    const shoot = await seedDonePhotoshoot({ tileCount: 2 });
+  test('row image menu → use as product image → attach to existing product', async ({
+    page,
+    baseURL,
+  }) => {
+    const shoot = await seedDonePhotoshoot({ tileCount: 1 });
     const productId = await seedProduct({ name: 'lumen primary' });
 
     await signInToApp(page, baseURL!);
     await page.goto(`${baseURL}/photoshoot/${shoot.id}`);
 
-    // Enter select mode + tick both done tiles. Each tile renders an overlay
-    // button with aria-label "select tile" (or "deselect tile" when ticked).
-    await page.getByRole('button', { name: /^select$/i }).click();
-    const tileOverlays = page.getByRole('button', { name: /^select tile$/i });
-    await expect(tileOverlays).toHaveCount(2);
-    await tileOverlays.nth(0).click();
-    // After the first click the first overlay flips to "deselect tile",
-    // leaving exactly one "select tile" button — click it.
-    await page
-      .getByRole('button', { name: /^select tile$/i })
-      .first()
-      .click();
-
-    // Bulk bar → "add to product (2)"
-    const bulkAdd = page.getByRole('button', { name: /add to product \(2\)/i });
-    await expect(bulkAdd).toBeEnabled();
-    await bulkAdd.click();
+    const menu = page.getByTestId('row-image-menu').first();
+    await expect(menu).toBeVisible({ timeout: 15_000 });
+    await menu.click();
+    await page.getByRole('menuitem', { name: /use as product image/i }).click();
 
     // Picker dialog → pick the seeded product by name.
     await expect(page.getByTestId('product-picker-dialog')).toBeVisible();
@@ -74,48 +70,40 @@ test.describe('Photoshoot cross-flow', () => {
     // Navigates to the product detail page.
     await page.waitForURL(new RegExp(`/catalog/${productId}$`), { timeout: 15_000 });
 
-    // DB: 2 product_assets rows attached to this product.
+    // DB: the photoshoot asset is now attached to this product.
     const attached = await getProductAssetIds(productId);
-    expect(attached.length).toBe(2);
-    expect(new Set(attached)).toEqual(new Set(shoot.assetIds));
+    expect(attached).toContain(shoot.assetIds[0]);
   });
 
-  test('multi-select bulk → + new product carries images via querystring', async ({
+  test('row image menu → use as product image → + new product carries the image', async ({
     page,
     baseURL,
   }) => {
-    const shoot = await seedDonePhotoshoot({ tileCount: 2 });
+    const shoot = await seedDonePhotoshoot({ tileCount: 1 });
 
     await signInToApp(page, baseURL!);
     await page.goto(`${baseURL}/photoshoot/${shoot.id}`);
 
-    await page.getByRole('button', { name: /^select$/i }).click();
-    const tileOverlays = page.getByRole('button', { name: /^select tile$/i });
-    await expect(tileOverlays).toHaveCount(2);
-    await tileOverlays.nth(0).click();
-    await page
-      .getByRole('button', { name: /^select tile$/i })
-      .first()
-      .click();
+    const menu = page.getByTestId('row-image-menu').first();
+    await expect(menu).toBeVisible({ timeout: 15_000 });
+    await menu.click();
+    await page.getByRole('menuitem', { name: /use as product image/i }).click();
 
-    await page.getByRole('button', { name: /add to product \(2\)/i }).click();
     await expect(page.getByTestId('product-picker-dialog')).toBeVisible();
 
-    // No products exist → only the empty-state "+ new product" CTA renders.
+    // No products exist → only the "+ new product" CTA renders.
     await page.getByTestId('product-picker-new').first().click();
 
     // URL contains the encoded `images=` list of asset tokens.
     await page.waitForURL(/\/catalog\/new\?images=/, { timeout: 10_000 });
     const url = new URL(page.url());
     const images = url.searchParams.get('images') ?? '';
-    for (const aid of shoot.assetIds) {
-      expect(images).toContain(`asset:${aid}`);
-    }
+    expect(images).toContain(`asset:${shoot.assetIds[0]}`);
 
     // No products were created by the picker shortcut.
     expect(await countRows('products')).toBe(0);
 
-    // The product form lands on the library tab with 2 pre-staged thumbs.
-    await expect(page.getByText(/2 of 8 staged/i)).toBeVisible();
+    // The product form lands on the library tab with the pre-staged thumb.
+    await expect(page.getByText(/1 of 8 staged/i)).toBeVisible();
   });
 });
