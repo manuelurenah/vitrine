@@ -103,7 +103,7 @@ export function PhotoshootList({ shoots }: Props) {
                         e.stopPropagation();
                         handleDelete(s.id, s.title);
                       }}
-                      className="absolute right-[14px] top-[14px] z-card flex h-7 w-7 items-center justify-center rounded-[7px] border border-line-subtle bg-bg-0/70 text-fg-2 opacity-0 backdrop-blur transition-all duration-fast ease-out hover:text-danger focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50 max-sm:opacity-100"
+                      className="absolute right-[14px] top-[14px] z-card flex h-7 w-7 items-center justify-center rounded-[7px] border border-line-subtle bg-bg-0/70 text-fg-2 opacity-0 backdrop-blur transition-all duration-fast ease-out hover:border-danger hover:bg-danger-soft hover:text-danger focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50 max-sm:opacity-100"
                     >
                       <Trash2 size={14} strokeWidth={1.75} />
                     </button>
