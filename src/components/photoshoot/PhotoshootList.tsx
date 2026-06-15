@@ -122,7 +122,7 @@ export function PhotoshootList({ shoots }: Props) {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {shoots.map((s, i) => {
                 const live = s.tiles.filter((t) => t.status === 'done').length;
                 const slots = Array.from({ length: 4 });
