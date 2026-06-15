@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { type AdCopy, generateAdCopyForPresets } from '@/lib/adCopy';
@@ -46,6 +47,8 @@ type SubmittedTile = {
   input: VitrineImageGenInput;
   enhanced: EnhancedPrompt;
   adCopy: AdCopy | null;
+  variantGroupId: string;
+  variantIndex: number;
 };
 
 export async function POST(req: NextRequest) {
@@ -96,55 +99,73 @@ export async function POST(req: NextRequest) {
     throw err;
   }
 
-  // Submit each preset's workflow independently — a single preset failure
-  // shouldn't poison the rest. Successful submissions get persisted; failures
-  // are reported back so the UI can surface them. We do NOT pre-estimate
-  // separately: submitImageGen returns the same cost.total whatif would.
-  const settled = await Promise.allSettled(
-    brief.presetIds.map(async (id): Promise<SubmittedTile> => {
-      const preset = PRESETS[id];
-      const adCopy = adCopyMap[id] ?? null;
-      const provided = clientEnhanced?.[id];
-      // Always rebuild the prompt with adCopy so the headline/subhead/CTA render
-      // directives reach the model. The client enhancedPrompts come from
-      // /preview, which builds WITHOUT adCopy (so its finalPrompt actively says
-      // "no text overlay"); submitting it verbatim is why cooked images had no
-      // baked-in text until "fix layout". We only carry over the user's manual
-      // prompt override from the wizard. Mirrors the regenerate route.
-      const enhanced: EnhancedPrompt = buildCampaignPrompt({
-        brief,
-        brand,
-        preset,
-        referenceCount: refUrls.length,
-        adCopy,
-        ...(provided?.userOverride ? { userOverride: provided.userOverride } : {}),
-      });
-      const finalPrompt = resolveFinalPrompt(enhanced);
-      const input: VitrineImageGenInput = {
-        prompt: finalPrompt,
-        aspectRatio: enhanced.aspectRatio,
-        numImages: variantsPerPreset,
-        ...(enhanced.negativePrompt ? { negativePrompt: enhanced.negativePrompt } : {}),
-        ...(refUrls.length > 0 ? { images: refUrls } : {}),
-      };
-      const submit = await submitImageGen(session, input);
-      return {
-        presetId: id,
-        workflowId: submit.id,
-        prompt: finalPrompt,
-        estimatedCost: submit.cost?.total ?? 0,
-        input,
-        enhanced,
-        adCopy,
-      };
-    }),
-  );
+  // Build each preset's prompt + ad copy ONCE, then fan out N single-image
+  // submits per preset. Each variant becomes its own quantity-1 tile sharing a
+  // variant_group_id, so it can be edited / regenerated independently.
+  //
+  // We always rebuild the prompt with adCopy so the headline/subhead/CTA render
+  // directives reach the model. The client enhancedPrompts come from /preview,
+  // which builds WITHOUT adCopy (so its finalPrompt actively says "no text
+  // overlay"); submitting it verbatim is why cooked images had no baked-in text
+  // until "fix layout". We only carry over the user's manual prompt override
+  // from the wizard. Mirrors the regenerate route.
+  const perPreset = brief.presetIds.map((id) => {
+    const preset = PRESETS[id];
+    const adCopy = adCopyMap[id] ?? null;
+    const provided = clientEnhanced?.[id];
+    const enhanced: EnhancedPrompt = buildCampaignPrompt({
+      brief,
+      brand,
+      preset,
+      referenceCount: refUrls.length,
+      adCopy,
+      ...(provided?.userOverride ? { userOverride: provided.userOverride } : {}),
+    });
+    const finalPrompt = resolveFinalPrompt(enhanced);
+    const input: VitrineImageGenInput = {
+      prompt: finalPrompt,
+      aspectRatio: enhanced.aspectRatio,
+      numImages: 1,
+      ...(enhanced.negativePrompt ? { negativePrompt: enhanced.negativePrompt } : {}),
+      ...(refUrls.length > 0 ? { images: refUrls } : {}),
+    };
+    return { id, adCopy, enhanced, finalPrompt, input, variantGroupId: randomUUID() };
+  });
+
+  // Flat list of (preset, variantIndex) submit jobs, preserving order so the
+  // settled results line up with `submitMeta`. A single submit failure
+  // shouldn't poison the rest. We do NOT pre-estimate separately:
+  // submitImageGen returns the same cost.total whatif would.
+  const submitMeta: Array<{ presetId: PresetId; variantIndex: number }> = [];
+  const submitPromises: Array<Promise<SubmittedTile>> = [];
+  for (const p of perPreset) {
+    for (let v = 0; v < variantsPerPreset; v++) {
+      submitMeta.push({ presetId: p.id, variantIndex: v });
+      submitPromises.push(
+        (async (): Promise<SubmittedTile> => {
+          const submit = await submitImageGen(session, p.input);
+          return {
+            presetId: p.id,
+            workflowId: submit.id,
+            prompt: p.finalPrompt,
+            estimatedCost: submit.cost?.total ?? 0,
+            input: p.input,
+            enhanced: p.enhanced,
+            adCopy: p.adCopy,
+            variantGroupId: p.variantGroupId,
+            variantIndex: v,
+          };
+        })(),
+      );
+    }
+  }
+  const settled = await Promise.allSettled(submitPromises);
 
   const successes: SubmittedTile[] = [];
   const failures: Array<{ presetId: PresetId; error: string; status?: number }> = [];
   for (let i = 0; i < settled.length; i++) {
     const r = settled[i]!;
-    const presetId = brief.presetIds[i]!;
+    const presetId = submitMeta[i]!.presetId;
     if (r.status === 'fulfilled') {
       successes.push(r.value);
     } else {
@@ -172,7 +193,7 @@ export async function POST(req: NextRequest) {
     userId: userKey,
     title: brief.title,
     brief,
-    presetIds: successes.map((r) => r.presetId),
+    presetIds: [...new Set(successes.map((r) => r.presetId))],
     referenceAssetIds,
     variantsPerPreset,
     enhancedPrompts: enhancedRecord as Record<string, unknown>,
@@ -180,7 +201,9 @@ export async function POST(req: NextRequest) {
       presetId: r.presetId,
       workflowId: r.workflowId,
       prompt: r.prompt,
-      quantity: variantsPerPreset,
+      quantity: 1,
+      variantGroupId: r.variantGroupId,
+      variantIndex: r.variantIndex,
       adCopy: r.adCopy,
     })),
     estimatedBuzz,

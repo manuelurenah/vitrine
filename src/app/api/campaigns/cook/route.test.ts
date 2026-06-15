@@ -140,12 +140,13 @@ describe('POST /api/campaigns/cook', () => {
     expect(res.status).toBe(400);
   });
 
-  it('submits one workflow per preset with quantity = variantsPerPreset', async () => {
+  it('submits one workflow per variant (P × N) with numImages = 1', async () => {
+    // validBody: 2 presets, variantsPerPreset: 2 → 4 submits.
     const res = await POST(makeRequest(validBody()) as never);
     expect(res.status).toBe(200);
-    expect(submitImageGenMock).toHaveBeenCalledTimes(2);
+    expect(submitImageGenMock).toHaveBeenCalledTimes(4);
     for (const call of submitImageGenMock.mock.calls) {
-      expect(call[1].numImages).toBe(2);
+      expect(call[1].numImages).toBe(1);
     }
   });
 
@@ -160,12 +161,34 @@ describe('POST /api/campaigns/cook', () => {
     expect(input.enhancedPrompts).toBeDefined();
     expect(input.enhancedPrompts['ig-feed']).toBeDefined();
     expect(input.enhancedPrompts['ig-story']).toBeDefined();
-    expect(input.tiles).toHaveLength(2);
+
+    // 2 presets × 3 variants = 6 tile entries, each quantity 1.
+    expect(input.tiles).toHaveLength(6);
     for (const t of input.tiles) {
-      expect(t.quantity).toBe(3);
+      expect(t.quantity).toBe(1);
       expect(typeof t.workflowId).toBe('string');
       expect(typeof t.prompt).toBe('string');
+      expect(typeof t.variantGroupId).toBe('string');
+      expect(t.variantGroupId).toBeTruthy();
+      expect(typeof t.variantIndex).toBe('number');
     }
+
+    // Tiles of the same preset share one variant_group_id; variant_index covers 0..N-1.
+    const byPreset = new Map<string, Array<{ variantGroupId: string; variantIndex: number }>>();
+    for (const t of input.tiles) {
+      const arr = byPreset.get(t.presetId) ?? [];
+      arr.push({ variantGroupId: t.variantGroupId, variantIndex: t.variantIndex });
+      byPreset.set(t.presetId, arr);
+    }
+    expect([...byPreset.keys()].sort()).toEqual(['ig-feed', 'ig-story']);
+    for (const arr of byPreset.values()) {
+      expect(arr).toHaveLength(3);
+      expect(new Set(arr.map((x) => x.variantGroupId)).size).toBe(1);
+      expect(arr.map((x) => x.variantIndex).sort()).toEqual([0, 1, 2]);
+    }
+    // Different presets get different group ids.
+    const groupIds = [...byPreset.values()].map((arr) => arr[0]!.variantGroupId);
+    expect(new Set(groupIds).size).toBe(2);
   });
 
   it('reference URLs land in images[] on the orchestrator body', async () => {
@@ -271,18 +294,20 @@ describe('POST /api/campaigns/cook', () => {
   it('records one estimate buzz event + one generation per submitted tile', async () => {
     // Cook only emits `kind: estimate` — the real `submit` event is recorded
     // by the workflow polling endpoint when the workflow charges complete.
+    // validBody: 2 presets × 2 variants = 4 submitted variant tiles.
     await POST(makeRequest(validBody()) as never);
-    expect(recordGenerationMock).toHaveBeenCalledTimes(2);
-    expect(recordBuzzEventMock).toHaveBeenCalledTimes(2);
+    expect(recordGenerationMock).toHaveBeenCalledTimes(4);
+    expect(recordBuzzEventMock).toHaveBeenCalledTimes(4);
     const kinds = recordBuzzEventMock.mock.calls.map((c) => c[0].kind);
-    expect(kinds).toEqual(['estimate', 'estimate']);
+    expect(kinds).toEqual(['estimate', 'estimate', 'estimate', 'estimate']);
   });
 
-  it('partial failure: one preset throws, others persist + response notes partial', async () => {
+  it('partial failure: one variant submit throws, others persist + response notes partial', async () => {
+    // Only the FIRST of the 4 (2 presets × 2 variants) submits rejects; the
+    // other 3 succeed and get persisted as variant tiles.
     submitImageGenMock.mockRejectedValueOnce(
       new FakeOrchestratorError('insufficient buzz', 402, { code: 'NO_BUZZ' }),
     );
-    // Second call succeeds (mock default)
     const res = await POST(makeRequest(validBody()) as never);
     expect(res.status).toBe(200);
     const json = await res.json();
@@ -291,7 +316,7 @@ describe('POST /api/campaigns/cook', () => {
     expect(json.partial).toHaveLength(1);
     expect(json.partial[0].error).toBe('orchestrator_error');
     expect(createCampaignMock).toHaveBeenCalledTimes(1);
-    expect(createCampaignMock.mock.calls[0]![0].tiles).toHaveLength(1);
+    expect(createCampaignMock.mock.calls[0]![0].tiles).toHaveLength(3);
   });
 
   it('total failure: all submits fail → 402 with all_submits_failed body, no DB writes', async () => {
@@ -302,7 +327,7 @@ describe('POST /api/campaigns/cook', () => {
     expect(res.status).toBe(402);
     const json = await res.json();
     expect(json.error).toBe('all_submits_failed');
-    expect(json.failures).toHaveLength(2);
+    expect(json.failures).toHaveLength(4);
     expect(createCampaignMock).not.toHaveBeenCalled();
     expect(recordBuzzEventMock).not.toHaveBeenCalled();
   });
