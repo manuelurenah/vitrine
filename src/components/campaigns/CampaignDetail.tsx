@@ -4,6 +4,7 @@ import { BuzzPill } from '@/components/ui';
 import type { Campaign } from '@/lib/campaigns';
 import { CampaignCreativeGrid } from './CampaignCreativeGrid';
 import { CampaignHeaderEditable } from './CampaignHeaderEditable';
+import { groupTilesByCreative } from './creativeGroups';
 import { ExportCampaignButton } from './ExportCampaignButton';
 import { SectionHead } from './SectionHead';
 
@@ -12,6 +13,7 @@ type Props = { campaign: Campaign };
 export function CampaignDetail({ campaign }: Props) {
   const doneCount = campaign.tiles.filter((t) => t.status === 'done').length;
   const isCooking = campaign.tiles.some((t) => t.status === 'queued' || t.status === 'cooking');
+  const creativeCount = groupTilesByCreative(campaign.tiles).length;
   return (
     <div className="relative">
       <nav aria-label="breadcrumb" className="flex items-center gap-1.5 text-[12px] text-fg-3">
@@ -28,7 +30,7 @@ export function CampaignDetail({ campaign }: Props) {
       <header className="mt-4 flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="t-eyebrow">
-            // {campaign.brief.goal || 'campaign'} · {campaign.tiles.length} creatives
+            // {campaign.brief.goal || 'campaign'} · {creativeCount} creatives
           </span>
           <div className="flex flex-wrap items-center gap-2">
             <BuzzPill amount={campaign.estimatedBuzz} />
@@ -50,7 +52,7 @@ export function CampaignDetail({ campaign }: Props) {
       <section className="mt-10">
         <SectionHead
           title="creatives"
-          count={`${campaign.tiles.length}`}
+          count={`${creativeCount}`}
           action={
             isCooking ? (
               <span className="font-mono text-[10.5px] uppercase tracking-[0.1em]">
