@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, MoreVertical, RefreshCw } from 'lucide-react';
+import { Download, Loader2, MoreVertical, RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTileWorkflow } from '@/components/campaigns/useTileWorkflow';
 import type { PhotoshootTile } from '@/lib/photoshoots';
@@ -159,7 +159,21 @@ function RowImage({
           <img src={url} alt="" className="h-full w-full object-cover" />
         </a>
       ) : (
-        <div className="absolute inset-0 animate-pulse bg-bg-3" data-testid="row-image-skeleton" />
+        // Cooking placeholder: a shimmer between two surface tones (visible
+        // against the bg-3 container) plus a spinning loader in the cooking
+        // accent, so each in-flight variant reads as actively rendering.
+        <div
+          className="absolute inset-0 grid place-items-center bg-bg-2"
+          data-testid="row-image-skeleton"
+        >
+          <div aria-hidden className="absolute inset-0 animate-pulse bg-bg-3" />
+          <Loader2
+            size={16}
+            strokeWidth={2}
+            aria-label="cooking"
+            className="relative animate-spin text-volt"
+          />
+        </div>
       )}
       {url && (
         <div ref={menuRef} className="absolute right-1.5 top-1.5">
