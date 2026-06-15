@@ -222,6 +222,8 @@ export const campaignTiles = pgTable(
     prompt: text('prompt').notNull(),
     seed: text('seed'),
     quantity: integer('quantity').default(1).notNull(),
+    variantGroupId: uuid('variant_group_id'),
+    variantIndex: integer('variant_index').default(0).notNull(),
     status: tileStatus('status').default('cooking').notNull(),
     estimatedBuzz: integer('estimated_buzz').default(0).notNull(),
     actualBuzz: integer('actual_buzz').default(0).notNull(),
@@ -234,6 +236,11 @@ export const campaignTiles = pgTable(
   (t) => ({
     campaignIdx: index('campaign_tiles_campaign_idx').on(t.campaignId),
     workflowIdx: uniqueIndex('campaign_tiles_workflow_uidx').on(t.workflowId),
+    variantGroupIdx: index('campaign_tiles_variant_group_idx').on(
+      t.campaignId,
+      t.variantGroupId,
+      t.variantIndex,
+    ),
   }),
 );
 
