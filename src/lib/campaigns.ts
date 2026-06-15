@@ -28,6 +28,8 @@ export type CampaignTile = {
   status: TileStatus;
   prompt: string;
   quantity: number;
+  variantGroupId: string | null;
+  variantIndex: number;
   adCopy: AdCopy | null;
   assetUrl: string | null;
 };
@@ -59,6 +61,8 @@ function toTile(row: CampaignTileRow, assetUrl?: string | null): CampaignTile {
     status: row.status,
     prompt: row.prompt,
     quantity: row.quantity,
+    variantGroupId: row.variantGroupId ?? null,
+    variantIndex: row.variantIndex,
     adCopy: (row.adCopy as AdCopy | null) ?? null,
     assetUrl: assetUrl ?? null,
   };
@@ -98,6 +102,8 @@ export type CreateCampaignInput = {
     workflowId: string;
     prompt: string;
     quantity?: number;
+    variantGroupId?: string | null;
+    variantIndex?: number;
     adCopy?: AdCopy | null;
   }>;
   estimatedBuzz: number;
@@ -137,6 +143,8 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Campai
               workflowId: t.workflowId,
               prompt: t.prompt,
               quantity: t.quantity ?? 1,
+              variantGroupId: t.variantGroupId ?? null,
+              variantIndex: t.variantIndex ?? 0,
               status: 'cooking' as TileStatus,
               adCopy: t.adCopy ?? null,
             })),
