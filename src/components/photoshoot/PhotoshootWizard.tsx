@@ -999,9 +999,6 @@ function TemplateReviewCard({
           placeholder={finalPrompt}
           data-testid={`override-textarea-${template.id}`}
         />
-        <p className="mt-1 font-mono text-[10.5px] text-fg-3">
-          edits re-estimate buzz cost automatically.
-        </p>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-3">
