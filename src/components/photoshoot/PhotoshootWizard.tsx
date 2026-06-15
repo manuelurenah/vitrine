@@ -267,7 +267,6 @@ export function PhotoshootWizard({
   useEffect(() => {
     if (didDraftRef.current) return;
     if (!hasPrompt) return;
-    didDraftRef.current = true;
     const controller = new AbortController();
     (async () => {
       try {
@@ -277,9 +276,12 @@ export function PhotoshootWizard({
           body: JSON.stringify({ prompt, referenceAssetIds, productName }),
           signal: controller.signal,
         });
+        // An aborted run (StrictMode remount / navigation) must not commit the
+        // dedupe guard or apply state — let the next effect run redo the draft.
+        if (controller.signal.aborted) return;
         const json = (await res.json().catch(() => ({}))) as DraftResponse;
+        didDraftRef.current = true;
         if (!res.ok || !json.draft) {
-          // Graceful fallback: seed from the raw prompt + recommended styles.
           setTitle(productName !== 'product' ? productName : 'Photoshoot');
           setMasterPrompt(prompt?.trim() ?? '');
           setTemplateIds(new Set(recommendedTemplateIds()));
@@ -293,12 +295,18 @@ export function PhotoshootWizard({
           ),
         );
       } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return;
+        if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) {
+          // Aborted: do NOT set the guard — the remount will retry.
+          return;
+        }
+        didDraftRef.current = true;
         setTitle(productName !== 'product' ? productName : 'Photoshoot');
         setMasterPrompt(prompt?.trim() ?? '');
         setTemplateIds(new Set(recommendedTemplateIds()));
       } finally {
-        setDrafting(false);
+        // Keep the "improving…" state across an aborted run so it doesn't flicker
+        // to an enabled-but-empty Continue; the retrying run clears it.
+        if (!controller.signal.aborted) setDrafting(false);
       }
     })();
     return () => controller.abort();
