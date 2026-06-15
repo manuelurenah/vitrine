@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeImageAssetIds } from './AddProductForm';
+import { isStagedInFlight, mergeImageAssetIds } from './AddProductForm';
 
 /* -------------------------------------------------------------------------- */
 /* mergeImageAssetIds                                                          */
@@ -52,5 +52,32 @@ describe('mergeImageAssetIds', () => {
   it('honors a custom cap', () => {
     const result = mergeImageAssetIds(['u1', 'u2', 'u3'], ['l1', 'l2'], 3);
     expect(result).toEqual(['u1', 'u2', 'u3']);
+  });
+});
+
+/* -------------------------------------------------------------------------- */
+/* isStagedInFlight                                                           */
+/* -------------------------------------------------------------------------- */
+//
+// Drives the spinner overlay on a staged thumbnail. Uploads are deferred to
+// form submit, so a freshly-staged image sits at 'queued' until the user hits
+// "add to catalog". A queued image is NOT loading — it's waiting — so it must
+// not spin (regression: queued images spun indefinitely, looking stuck). Only
+// the active upload phases (signing/uploading/saving) are in flight.
+
+describe('isStagedInFlight', () => {
+  it('does not treat a queued (staged, not yet uploading) image as in flight', () => {
+    expect(isStagedInFlight('queued')).toBe(false);
+  });
+
+  it('treats active upload phases as in flight', () => {
+    expect(isStagedInFlight('signing')).toBe(true);
+    expect(isStagedInFlight('uploading')).toBe(true);
+    expect(isStagedInFlight('saving')).toBe(true);
+  });
+
+  it('does not treat terminal states as in flight', () => {
+    expect(isStagedInFlight('done')).toBe(false);
+    expect(isStagedInFlight('failed')).toBe(false);
   });
 });
