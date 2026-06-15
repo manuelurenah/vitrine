@@ -315,6 +315,65 @@ export async function seedDoneCampaign(
 }
 
 /**
+ * Seed a campaign with ONE creative made of `variantCount` sibling tiles
+ * sharing a variant_group_id (each quantity 1, its own asset + workflow + a
+ * single tile_versions row). Mirrors the post-cook state of the new
+ * per-variant model. Returns the campaign id, the shared group id, and the
+ * tile ids ordered by variant_index.
+ */
+export async function seedDoneVariantGroup(
+  variantCount = 3,
+  userId: string = TEST_USER_ID,
+): Promise<{ id: string; groupId: string; tileIds: string[] }> {
+  const pool = getPool();
+  const presetId = 'ig-story';
+
+  await pool.query(
+    `INSERT INTO users (id, civitai_id, username, last_seen_at)
+     VALUES ($1, $2, $3, now())
+     ON CONFLICT (id) DO UPDATE SET last_seen_at = now()`,
+    [userId, Number.isFinite(Number(userId)) ? Number(userId) : null, null],
+  );
+
+  const campaignRes = await pool.query<{ id: string }>(
+    `INSERT INTO campaigns (user_id, title, brief, preset_ids, estimated_buzz)
+     VALUES ($1, 'e2e variant campaign', '{}'::jsonb, ARRAY[$2]::text[], 60)
+     RETURNING id`,
+    [userId, presetId],
+  );
+  const id = campaignRes.rows[0]!.id;
+
+  const groupRes = await pool.query<{ g: string }>(`SELECT gen_random_uuid() AS g`);
+  const groupId = groupRes.rows[0]!.g;
+
+  const tileIds: string[] = [];
+  for (let v = 0; v < variantCount; v++) {
+    const assetId = await seedAsset({ kind: 'generated' }, userId);
+    const workflowId = `e2e-variant-wf-${id}-${v}`;
+    const prompt = `e2e variant prompt ${v}`;
+    const adCopy = { headline: `variant ${v}`, subhead: 'sub', cta: 'shop now' };
+    const tileRes = await pool.query<{ id: string }>(
+      `INSERT INTO campaign_tiles
+         (campaign_id, preset_id, workflow_id, prompt, status, ad_copy, asset_id,
+          quantity, variant_group_id, variant_index, estimated_buzz)
+       VALUES ($1, $2, $3, $4, 'done'::tile_status, $5::jsonb, $6, 1, $7, $8, 20)
+       RETURNING id`,
+      [id, presetId, workflowId, prompt, JSON.stringify(adCopy), assetId, groupId, v],
+    );
+    const tileId = tileRes.rows[0]!.id;
+    tileIds.push(tileId);
+    await pool.query(
+      `INSERT INTO tile_versions
+         (tile_id, version, workflow_id, prompt, ad_copy, asset_id, change_note)
+       VALUES ($1, 1, $2, $3, $4::jsonb, $5, 'cooked')`,
+      [tileId, workflowId, prompt, JSON.stringify(adCopy), assetId],
+    );
+  }
+
+  return { id, groupId, tileIds };
+}
+
+/**
  * Count the number of tile_versions rows for a given tile.
  */
 export async function countTileVersions(tileId: string): Promise<number> {
