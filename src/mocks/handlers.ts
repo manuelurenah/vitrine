@@ -9,6 +9,7 @@ import { HttpResponse, http } from 'msw';
  *   - /v2/consumer/workflows?whatif=true  — estimate
  *   - /v2/consumer/workflows              — submit
  *   - /v2/consumer/workflows/:id          — getWorkflow / pollWorkflow
+ *   - /chat/completions                   — OpenRouter LLM draft (campaign + photoshoot)
  *   - https://example.com/                — scrape fixture (HTML + favicon)
  *
  * Hostnames are matched on path only (`*`), so the same handlers work
@@ -284,6 +285,30 @@ export const handlers = [
       meta.status = statusAfterPoll(meta);
     }
     return HttpResponse.json(snapshotFor(id, meta?.status));
+  }),
+
+  // OpenRouter chat completions — the LLM "draft" step (campaigns + photoshoot)
+  // calls this. Return a single JSON `content` blob carrying BOTH shapes:
+  //   - photoshoot draft: { title, prompt, templateIds }
+  //   - campaign draft:   { brief, tiles }
+  // Each parser ignores the keys it doesn't recognise, so one deterministic
+  // response serves both flows under MOCK_CIVITAI=1.
+  http.post('*/chat/completions', () => {
+    const content = JSON.stringify({
+      title: 'Mock Shoot',
+      prompt: 'studio shot of the product, clean lighting',
+      templateIds: ['studio-clean', 'lifestyle-handheld'],
+      brief: {
+        title: 'Mock Campaign',
+        description: 'A deterministic mock campaign brief for e2e.',
+        goal: 'drive online sales',
+        offer: '2-for-1, online only',
+        audience: 'deal-hunting online shoppers, 25–45',
+        aesthetics: 'clean studio look, high contrast',
+      },
+      tiles: {},
+    });
+    return HttpResponse.json({ choices: [{ message: { content } }] });
   }),
 
   // Scrape target — covers `example.com` so the onboarding scrape spec
