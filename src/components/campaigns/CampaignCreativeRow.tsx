@@ -3,23 +3,50 @@
 import { Download, MoreVertical, Pencil, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { Badge } from '@/components/ui';
 import type { CampaignTile } from '@/lib/campaigns';
-import { downloadImagesAsZip } from '@/lib/downloadZip';
 import { PRESETS } from '@/lib/presets';
+import type { CreativeGroup } from './creativeGroups';
+import { slotsForTile } from './creativeGroups';
 import { useTileWorkflow } from './useTileWorkflow';
 
-type Props = { campaignId: string; tile: CampaignTile };
+type Props = { campaignId: string; group: CreativeGroup };
 
-export function CampaignCreativeRow({ campaignId, tile }: Props) {
+export function CampaignCreativeRow({ campaignId, group }: Props) {
+  const preset = PRESETS[group.presetId];
+
+  return (
+    <section data-testid="campaign-creative-row" className="border-b border-line-subtle py-5">
+      <div className="mb-3 flex items-center gap-3">
+        <span className="font-display text-[15px] font-semibold text-fg-0">{preset.label}</span>
+        <span className="font-mono text-[11px] text-fg-3">{preset.ratio}</span>
+        <span className="font-mono text-[11px] text-fg-3">
+          {group.tiles.length} {group.tiles.length === 1 ? 'variant' : 'variants'}
+        </span>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-1">
+        {group.tiles.map((tile) => (
+          <VariantThumb key={tile.id} campaignId={campaignId} tile={tile} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Renders one tile's image(s) and owns its live workflow poll. A grouped (new)
+ * variant tile renders a single image linking to its own editor. A legacy tile
+ * renders its `quantity` images, each linking to the same editor with `?v=<i>`
+ * (handled by the editor's `initialVariant`).
+ */
+function VariantThumb({ campaignId, tile }: { campaignId: string; tile: CampaignTile }) {
   const preset = PRESETS[tile.presetId];
-  const { status, imageUrls, setWorkflowId } = useTileWorkflow(tile.workflowId, {
+  const { imageUrls, setWorkflowId } = useTileWorkflow(tile.workflowId, {
     status: tile.status,
     imageUrls: tile.assetUrl ? [tile.assetUrl] : [],
   });
   const [regenerating, setRegenerating] = useState(false);
-  const editHref = `/campaigns/${campaignId}/c/${tile.id}`;
-  const slots = Math.max(tile.quantity ?? 1, imageUrls.length || 1);
+  const base = `/campaigns/${campaignId}/c/${tile.id}`;
+  const slots = slotsForTile(tile, imageUrls.length);
 
   async function redo() {
     setRegenerating(true);
@@ -34,58 +61,20 @@ export function CampaignCreativeRow({ campaignId, tile }: Props) {
     }
   }
 
-  async function downloadAll() {
-    if (imageUrls.length === 0) return;
-    await downloadImagesAsZip(imageUrls, `${preset.id}-variants`);
-  }
-
-  const badgeKind = status === 'done' ? 'live' : status === 'failed' ? 'archived' : 'cooking';
-  const badgeText = status === 'done' ? 'ready' : status === 'failed' ? 'failed' : status;
-
   return (
-    <section data-testid="campaign-creative-row" className="border-b border-line-subtle py-5">
-      <div className="mb-3 flex items-center gap-3">
-        <span className="font-display text-[15px] font-semibold text-fg-0">{preset.label}</span>
-        <span data-testid="row-status-badge">
-          <Badge kind={badgeKind}>{badgeText}</Badge>
-        </span>
-        <span className="font-mono text-[11px] text-fg-3">{preset.ratio}</span>
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            data-testid="row-download"
-            aria-label="download all"
-            disabled={imageUrls.length === 0}
-            onClick={downloadAll}
-            className="grid size-8 place-items-center rounded-[8px] border border-line-subtle bg-bg-2 text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0 disabled:opacity-40"
-          >
-            <Download size={14} strokeWidth={1.75} />
-          </button>
-          <button
-            type="button"
-            data-testid="row-redo"
-            aria-label="redo"
-            disabled={regenerating || status === 'cooking' || status === 'queued'}
-            onClick={redo}
-            className="grid size-8 place-items-center rounded-[8px] border border-line-subtle bg-bg-2 text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0 disabled:opacity-40"
-          >
-            <RefreshCw size={14} strokeWidth={1.75} className={regenerating ? 'animate-spin' : ''} />
-          </button>
-        </div>
-      </div>
-      <div className="flex gap-3 overflow-x-auto pb-1">
-        {Array.from({ length: slots }).map((_, i) => (
-          <RowImage
-            key={i}
-            url={imageUrls[i] ?? null}
-            editHref={editHref}
-            ratio={preset.width / preset.height}
-            filename={`${preset.id}-${tile.id}-${i}`}
-            onRegenerate={redo}
-          />
-        ))}
-      </div>
-    </section>
+    <>
+      {Array.from({ length: slots }).map((_, i) => (
+        <RowImage
+          key={i}
+          url={imageUrls[i] ?? null}
+          editHref={i === 0 ? base : `${base}?v=${i}`}
+          ratio={preset.width / preset.height}
+          filename={`${preset.id}-${tile.id}-${i}`}
+          onRegenerate={redo}
+          regenerating={regenerating}
+        />
+      ))}
+    </>
   );
 }
 
@@ -95,12 +84,14 @@ function RowImage({
   ratio,
   filename,
   onRegenerate,
+  regenerating,
 }: {
   url: string | null;
   editHref: string;
   ratio: number;
   filename: string;
   onRegenerate: () => void;
+  regenerating: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -185,13 +176,19 @@ function RowImage({
               <button
                 role="menuitem"
                 type="button"
+                disabled={regenerating}
                 onClick={() => {
                   onRegenerate();
                   setMenuOpen(false);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-fg-1 hover:bg-bg-2"
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-fg-1 hover:bg-bg-2 disabled:opacity-40"
               >
-                <RefreshCw size={12} strokeWidth={1.75} /> regenerate
+                <RefreshCw
+                  size={12}
+                  strokeWidth={1.75}
+                  className={regenerating ? 'animate-spin' : ''}
+                />{' '}
+                regenerate
               </button>
             </div>
           )}
