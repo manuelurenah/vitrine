@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, FieldLabel, Input, Textarea } from '@/components/ui';
 import { PRESETS } from '@/lib/presets';
 import type { CampaignTile } from '@/lib/campaigns';
@@ -86,6 +86,22 @@ export function CreativeEditor({
   // ---- version navigation ---------------------------------------------------
   // versions are sorted asc; default to latest
   const [versionIdx, setVersionIdx] = useState(versions.length > 0 ? versions.length - 1 : 0);
+
+  // When a new version is appended — a regenerate or save records one server-
+  // side, then `router.refresh()` re-fetches `versions` — follow it to the
+  // latest. Without this the index stays pinned to the old version, so
+  // `isLatestVersion` goes false and the canvas keeps showing the stale
+  // version's stored image instead of the freshly-generated `liveUrls`.
+  // Guard on growth only so manual prev/next navigation (which doesn't change
+  // the count) is preserved.
+  const prevVersionCountRef = useRef(versions.length);
+  useEffect(() => {
+    if (versions.length > prevVersionCountRef.current) {
+      setVersionIdx(versions.length - 1);
+    }
+    prevVersionCountRef.current = versions.length;
+  }, [versions.length]);
+
   const currentVersion = versions[versionIdx];
 
   // ---- workflow polling -----------------------------------------------------
