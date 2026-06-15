@@ -134,8 +134,18 @@ export async function presignGet(
 export function isLocalObjectStorage(): boolean {
   const base = env.S3_PUBLIC_URL ?? env.S3_ENDPOINT ?? '';
   if (!base) return false;
+  return isLocalUrl(base);
+}
+
+/**
+ * True when `url` points at the local machine. The off-box orchestrator cannot
+ * fetch `http://localhost`, so callers handing it a reference URL must inline
+ * the bytes instead (see {@link getObjectAsDataUrl}). A remote URL (orchestrator
+ * blob, R2/CDN) returns false — hand it over as-is.
+ */
+export function isLocalUrl(url: string): boolean {
   try {
-    const host = new URL(base).hostname.toLowerCase();
+    const host = new URL(url).hostname.toLowerCase();
     return host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1';
   } catch {
     return false;

@@ -86,21 +86,31 @@ vi.mock('@/lib/env', () => ({
   },
 }));
 
-const { presignGetMock, getObjectAsDataUrlMock, isLocalObjectStorageMock } = vi.hoisted(() => ({
-  presignGetMock: vi.fn(async (key: string, ttl: number, bucketKind: string) => {
-    return `https://presigned.test/${bucketKind}/${key}?ttl=${ttl}`;
-  }),
-  getObjectAsDataUrlMock: vi.fn(
-    async ({ key, bucketKind }: { key: string; bucketKind: string }) => {
-      return `data:image/png;base64,DATA_${bucketKind}_${key}`;
-    },
-  ),
-  isLocalObjectStorageMock: vi.fn(() => false),
-}));
+const { presignGetMock, getObjectAsDataUrlMock, isLocalObjectStorageMock, isLocalUrlMock } =
+  vi.hoisted(() => ({
+    presignGetMock: vi.fn(async (key: string, ttl: number, bucketKind: string) => {
+      return `https://presigned.test/${bucketKind}/${key}?ttl=${ttl}`;
+    }),
+    getObjectAsDataUrlMock: vi.fn(
+      async ({ key, bucketKind }: { key: string; bucketKind: string }) => {
+        return `data:image/png;base64,DATA_${bucketKind}_${key}`;
+      },
+    ),
+    isLocalObjectStorageMock: vi.fn(() => false),
+    isLocalUrlMock: vi.fn((url: string) => {
+      try {
+        const host = new URL(url).hostname.toLowerCase();
+        return host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1';
+      } catch {
+        return false;
+      }
+    }),
+  }));
 vi.mock('@/lib/s3', () => ({
   presignGet: presignGetMock,
   getObjectAsDataUrl: getObjectAsDataUrlMock,
   isLocalObjectStorage: isLocalObjectStorageMock,
+  isLocalUrl: isLocalUrlMock,
 }));
 
 vi.mock('@/lib/civitai', () => ({
@@ -258,6 +268,27 @@ describe('getPublicUrls', () => {
     expect(urls[0]).toBe('data:image/png;base64,DATA_asset_a/1.png');
     expect(urls[1]).toBe('data:image/png;base64,DATA_upload_u/2.png');
     expect(getObjectAsDataUrlMock).toHaveBeenCalledTimes(2);
+    expect(presignGetMock).not.toHaveBeenCalled();
+  });
+
+  it('returns the remote publicUrl as-is for generated assets even when storage is local', async () => {
+    // Generated assets (campaign/photoshoot outputs) store the orchestrator's
+    // own remote blob URL in publicUrl and never mirror bytes into our bucket —
+    // their storageKey has no backing S3 object. The remote URL is already
+    // orchestrator-reachable, so we must NOT try to inline it from local MinIO
+    // (which would throw NoSuchKey).
+    isLocalObjectStorageMock.mockReturnValue(true);
+    const remote =
+      'https://orchestration-new.civitai.com/v2/consumer/blobs/93e8018b-0.jpg?sig=abc&exp=2027';
+    fakeRows.push({
+      id: 'g1',
+      bucket: 'assets',
+      storageKey: '4-20260614171327377/0',
+      publicUrl: remote,
+    });
+    const urls = await getPublicUrls(USER, ['g1']);
+    expect(urls[0]).toBe(remote);
+    expect(getObjectAsDataUrlMock).not.toHaveBeenCalled();
     expect(presignGetMock).not.toHaveBeenCalled();
   });
 });

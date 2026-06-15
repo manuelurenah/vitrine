@@ -12,7 +12,7 @@ import {
   products,
 } from '@/lib/db/schema';
 import { env } from '@/lib/env';
-import { getObjectAsDataUrl, isLocalObjectStorage, presignGet } from '@/lib/s3';
+import { getObjectAsDataUrl, isLocalObjectStorage, isLocalUrl, presignGet } from '@/lib/s3';
 
 export type AssetKind = NewAsset['kind'];
 
@@ -467,17 +467,22 @@ export async function getPublicUrls(
 
   const ttl = opts.presignTtlSeconds ?? 3600;
   const uploadsBucket = env.S3_BUCKET_UPLOADS ?? 'uploads';
-  // Local MinIO dev: orchestrator can't fetch `http://localhost`, so inline
-  // every reference as a data URL. Prod buckets (R2, public CDN) stay as
-  // public/presigned URLs.
-  const inlineForOrchestrator = isLocalObjectStorage();
+  // Local MinIO dev runs object storage on http://localhost, which the off-box
+  // orchestrator can't fetch — so references stored there must be inlined as
+  // data URLs. But generated assets (campaign/photoshoot outputs) keep the
+  // orchestrator's own remote blob URL in publicUrl and never mirror bytes into
+  // our bucket: their storageKey has no backing object. Decide per row by URL
+  // reachability rather than a single global flag.
+  const localStorage = isLocalObjectStorage();
   return Promise.all(
     resolvedAssetIds.map(async (id) => {
       const row = byId.get(id)!;
       const bucketKind: 'upload' | 'asset' = row.bucket === uploadsBucket ? 'upload' : 'asset';
-      if (inlineForOrchestrator) {
-        return getObjectAsDataUrl({ key: row.storageKey, bucketKind });
-      }
+      // A remote publicUrl (orchestrator blob, R2/CDN) is already fetchable by
+      // the orchestrator — hand it over as-is, no inlining and no local lookup.
+      if (row.publicUrl && !isLocalUrl(row.publicUrl)) return row.publicUrl;
+      // Bytes live in our own storage. Local MinIO → inline; otherwise presign.
+      if (localStorage) return getObjectAsDataUrl({ key: row.storageKey, bucketKind });
       if (row.publicUrl) return row.publicUrl;
       return presignGet(row.storageKey, ttl, bucketKind);
     }),
