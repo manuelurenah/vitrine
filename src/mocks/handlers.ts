@@ -229,6 +229,11 @@ export const handlers = [
     }),
   ),
 
+  // OAuth token revoke — called by revokeSessionGrant (revoke route + account
+  // deletion). The SDK discards the body, so a 200 is enough. Without this the
+  // request passes through to the real host and hangs the route handler.
+  http.post('*/api/auth/oauth/revoke', () => HttpResponse.json({ ok: true })),
+
   http.get('*/api/trpc/buzz.getBuzzAccount', () =>
     HttpResponse.json({
       result: {
