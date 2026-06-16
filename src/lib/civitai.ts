@@ -1,5 +1,5 @@
 import 'server-only';
-import { fetchMe } from '@civitai/app-sdk';
+import { fetchMe, revokeToken } from '@civitai/app-sdk';
 import {
   buildWorkflowBody,
   createOrchestratorClient,
@@ -222,3 +222,26 @@ export {
   OrchestratorError,
   type WorkflowSnapshot,
 } from '@civitai/app-sdk/orchestrator';
+
+/**
+ * Best-effort revoke of the session's OAuth grant at Civitai. Revokes the
+ * access token then the refresh token; each is wrapped because either may
+ * already be invalid. Never throws — callers always proceed to clear the
+ * local session regardless.
+ */
+export async function revokeSessionGrant(session: Session): Promise<void> {
+  const tryRevoke = async (token: string) => {
+    try {
+      await revokeToken({
+        baseUrl: env.NEXT_PUBLIC_CIVITAI_BASE_URL,
+        clientId: env.CIVITAI_CLIENT_ID,
+        clientSecret: env.CIVITAI_CLIENT_SECRET,
+        token,
+      });
+    } catch {
+      // Best-effort — token may already be invalid.
+    }
+  };
+  if (session.tokens.access_token) await tryRevoke(session.tokens.access_token);
+  if (session.tokens.refresh_token) await tryRevoke(session.tokens.refresh_token);
+}
