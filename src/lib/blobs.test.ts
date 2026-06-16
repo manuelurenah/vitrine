@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { purgeBlobs } from './account';
+import { purgeBlobs } from './blobs';
 
 describe('purgeBlobs', () => {
   it('deletes every blob and counts successes', async () => {
