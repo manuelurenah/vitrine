@@ -1,6 +1,7 @@
 import { hasScope, TokenScope } from '@civitai/app-sdk/scopes';
 import { ArrowUpRight, KeyRound, Sparkles } from 'lucide-react';
 import { redirect } from 'next/navigation';
+import { DeleteAccountDialog } from '@/components/settings/DeleteAccountDialog';
 import { SessionActions } from '@/components/settings/SessionActions';
 import { Badge, BuzzGlyph } from '@/components/ui';
 import { ensureDefaultBrand } from '@/lib/brand';
@@ -139,8 +140,12 @@ export default async function SettingsPage() {
       <Card title="session" tone="danger">
         <p className="mb-3 text-[12.5px] text-fg-2">
           sign out clears your local cookie. revoke also invalidates tokens at Civitai.
+          deleting your account erases all vitrine data and revokes the grant.
         </p>
-        <SessionActions />
+        <div className="flex flex-wrap items-center gap-2">
+          <SessionActions />
+          <DeleteAccountDialog username={username} />
+        </div>
       </Card>
     </div>
   );
