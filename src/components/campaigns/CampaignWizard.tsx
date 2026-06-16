@@ -32,6 +32,7 @@ import {
   type PreviewBrief,
   useCampaignPreview,
 } from '@/hooks/useCampaignPreview';
+import { buzzTopUpUrl } from '@/lib/links';
 import type { EnhancedPrompt } from '@/lib/promptBuilder';
 import { PresetGrid } from './PresetGrid';
 
@@ -727,7 +728,7 @@ function BriefStep({
     <div className="flex flex-col gap-5" data-testid="brief-step">
       {drafting && <DraftingOverlay />}
       <header className="flex flex-wrap items-center gap-3 border-b border-line-subtle pb-4">
-        <span className="t-eyebrow">// review your brief</span>
+        <span className="t-eyebrow">{'// '}review your brief</span>
         <span className="flex-1" />
         <button
           type="button"
@@ -780,7 +781,7 @@ function BriefStep({
           data-testid="submitted-prompt-sidecar"
         >
           <span className="block font-mono text-[10px] uppercase tracking-[0.1em] text-fg-3 mb-1">
-            // your prompt
+            {'// '}your prompt
           </span>
           <p className="text-[13.5px] leading-[1.4] text-fg-0">{brief.prompt}</p>
         </div>
@@ -1078,7 +1079,7 @@ function BriefStep({
           <span className="font-mono text-[11.5px] text-danger" data-testid="insufficient-buzz">
             insufficient buzz ·{' '}
             <a
-              href="https://civitai.com/purchase/buzz"
+              href={buzzTopUpUrl()}
               target="_blank"
               rel="noreferrer"
               className="underline hover:text-fg-0"

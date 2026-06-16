@@ -5,7 +5,7 @@ import { Badge, BuzzGlyph } from '@/components/ui';
 import { ensureDefaultBrand } from '@/lib/brand';
 import { sumChargedBuzz } from '@/lib/buzz';
 import { getBuzzAccount, getMe } from '@/lib/civitai';
-import { env } from '@/lib/env';
+import { buzzTopUpUrl } from '@/lib/links';
 import { REQUESTED_SCOPES } from '@/lib/scopes';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
@@ -39,7 +39,7 @@ export default async function SettingsPage() {
   const username = me?.username ?? 'unknown';
   const civitaiId = me?.id ?? '—';
   const buzzBalance = buzz?.balance ?? null;
-  const topUpUrl = `${env.CIVITAI_BASE_URL.replace(/\/$/, '')}/purchase/buzz`;
+  const topUpUrl = buzzTopUpUrl();
   const grantedMask = session.tokens.scope ?? Number(REQUESTED_SCOPES);
 
   return (

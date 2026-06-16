@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { BuzzGlyph, cn } from '@/components/ui';
+import { buzzTopUpUrl } from '@/lib/links';
 import { activeNavFromPath, NAV, type NavId } from './nav';
 import { UserMenu } from './UserMenu';
 import { Wordmark } from './Wordmark';
@@ -89,12 +90,14 @@ export function Sidebar({ buzzBalance, user }: Props) {
             {(buzzBalance ?? 0).toLocaleString()}
           </span>
         </div>
-        <button
-          type="button"
-          className="rounded-[8px] border-0 bg-buzz px-[10px] py-[7px] text-xs font-semibold text-[#0a0a0f] shadow-[0_0_14px_-3px_var(--buzz-glow)]"
+        <a
+          href={buzzTopUpUrl()}
+          target="_blank"
+          rel="noreferrer"
+          className="block rounded-[8px] border-0 bg-buzz px-[10px] py-[7px] text-center text-xs font-semibold text-[#0a0a0f] shadow-[0_0_14px_-3px_var(--buzz-glow)]"
         >
           top up
-        </button>
+        </a>
       </div>
 
       <UserMenu user={user} />

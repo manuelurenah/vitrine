@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, BuzzPill, Chip, cn, FieldLabel, Input, Textarea } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
 import type { Product } from '@/lib/catalog';
+import { buzzTopUpUrl } from '@/lib/links';
 import {
   PHOTOSHOOT_TEMPLATES,
   recommendedTemplateIds,
@@ -916,7 +917,7 @@ function ReviewStep(props: ReviewStepProps) {
             <span className="font-mono text-[11.5px] text-danger" data-testid="insufficient-buzz">
               insufficient buzz ·{' '}
               <a
-                href="https://civitai.com/purchase/buzz"
+                href={buzzTopUpUrl()}
                 target="_blank"
                 rel="noreferrer"
                 className="underline hover:text-fg-0"

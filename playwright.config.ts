@@ -8,7 +8,7 @@ import { STORAGE_STATE_PATH } from './e2e/global-setup';
  * deterministic and no Buzz is spent.
  *
  * Prereqs:
- *   - CIVITAI_BASE_URL  — your local Civitai dev host (for OAuth + testing-login)
+ *   - NEXT_PUBLIC_CIVITAI_BASE_URL  — your local Civitai dev host (for OAuth + testing-login)
  *   - APP_URL           — where the test starter is reachable (defaults to http://localhost:3334)
  *   - TEST_DATABASE_URL — Postgres URL for the isolated test database
  *                         (defaults to postgres://app:app@localhost:5432/vitrine_test)
@@ -25,9 +25,9 @@ const APP_URL = process.env.APP_URL ?? 'http://localhost:3334';
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? 'postgres://app:app@localhost:5432/vitrine_test';
 
-if (!process.env.CIVITAI_BASE_URL) {
+if (!process.env.NEXT_PUBLIC_CIVITAI_BASE_URL) {
   throw new Error(
-    'CIVITAI_BASE_URL is required for e2e (your local Civitai dev host). See playwright.config.ts header.',
+    'NEXT_PUBLIC_CIVITAI_BASE_URL is required for e2e (your local Civitai dev host). See playwright.config.ts header.',
   );
 }
 

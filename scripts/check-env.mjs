@@ -47,7 +47,7 @@ const schema = z.object({
       "must be ≥32 chars. Generate: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
     ),
   NEXT_PUBLIC_APP_URL: z.string().url('must be a full URL (e.g. http://localhost:3000)'),
-  CIVITAI_BASE_URL: z.string().url().optional(),
+  NEXT_PUBLIC_CIVITAI_BASE_URL: z.string().url().optional(),
   ORCHESTRATOR_URL: z.string().url().optional(),
 });
 

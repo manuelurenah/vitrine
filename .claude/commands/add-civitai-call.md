@@ -9,7 +9,7 @@ Add a Civitai API call named `$ARGUMENTS`.
 1. **`src/lib/civitai.ts`** — add a server-only function that takes the
    `Session` and returns a typed result. Use the SDK's `createAppClient` or
    `callOrchestrator` from `@civitai/app-sdk/orchestrator` if you're hitting
-   the orchestrator; use `fetch(env.CIVITAI_BASE_URL + ...)` with the access
+   the orchestrator; use `fetch(env.NEXT_PUBLIC_CIVITAI_BASE_URL + ...)` with the access
    token if you're hitting `civitai.com` directly.
 2. **`src/app/api/<name>/route.ts`** — thin route handler that reads the
    session with `getSession()` (returns 401 if missing), calls your new

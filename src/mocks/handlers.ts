@@ -13,7 +13,7 @@ import { HttpResponse, http } from 'msw';
  *   - https://example.com/                — scrape fixture (HTML + favicon)
  *
  * Hostnames are matched on path only (`*`), so the same handlers work
- * regardless of CIVITAI_BASE_URL / ORCHESTRATOR_URL env values.
+ * regardless of NEXT_PUBLIC_CIVITAI_BASE_URL / ORCHESTRATOR_URL env values.
  *
  * Step support (post generation-pipeline workstreams):
  *   - `imageGen` (engine `google`, model `nano-banana-2`) → N placeholder

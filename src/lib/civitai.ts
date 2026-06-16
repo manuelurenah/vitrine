@@ -42,7 +42,7 @@ export interface MeResponse {
  * request-scoped via React's `cache()` — no cross-user leakage.
  */
 const fetchMeCached = cache(async (accessToken: string): Promise<MeResponse> => {
-  const data = await fetchMe({ baseUrl: env.CIVITAI_BASE_URL, accessToken });
+  const data = await fetchMe({ baseUrl: env.NEXT_PUBLIC_CIVITAI_BASE_URL, accessToken });
   return data as MeResponse;
 });
 
@@ -78,7 +78,7 @@ export type BuzzBalance = {
  */
 const fetchBuzzAccountCached = cache(async (accessToken: string): Promise<BuzzBalance | null> => {
   try {
-    const url = `${env.CIVITAI_BASE_URL}/api/trpc/buzz.getBuzzAccount?t=${Date.now()}`;
+    const url = `${env.NEXT_PUBLIC_CIVITAI_BASE_URL}/api/trpc/buzz.getBuzzAccount?t=${Date.now()}`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
       cache: 'no-store',

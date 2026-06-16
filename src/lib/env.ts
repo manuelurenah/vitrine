@@ -19,7 +19,6 @@ export const env = createEnv({
         32,
         "SESSION_SECRET must be ≥32 chars. Generate with `node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"`.",
       ),
-    CIVITAI_BASE_URL: z.string().url().default('https://civitai.com'),
     ORCHESTRATOR_URL: z.string().url().default('https://orchestration.civitai.com'),
     // Vitrine infra — optional at build time so the legacy demo + login
     // still work without docker compose. Each module that reads these
@@ -48,14 +47,18 @@ export const env = createEnv({
   },
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url(),
+    // Civitai host. Public (just the base URL, no secret) and read on both the
+    // server (OAuth/API base) and the client ("top up" buzz CTAs), so it lives
+    // in the client block — t3-env exposes client vars to server code too.
+    NEXT_PUBLIC_CIVITAI_BASE_URL: z.string().url().default('https://civitai.com'),
   },
   runtimeEnv: {
     CIVITAI_CLIENT_ID: process.env.CIVITAI_CLIENT_ID,
     CIVITAI_CLIENT_SECRET: process.env.CIVITAI_CLIENT_SECRET,
     SESSION_SECRET: process.env.SESSION_SECRET,
-    CIVITAI_BASE_URL: process.env.CIVITAI_BASE_URL,
     ORCHESTRATOR_URL: process.env.ORCHESTRATOR_URL,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    NEXT_PUBLIC_CIVITAI_BASE_URL: process.env.NEXT_PUBLIC_CIVITAI_BASE_URL,
     DATABASE_URL: process.env.DATABASE_URL,
     S3_ENDPOINT: process.env.S3_ENDPOINT,
     S3_ACCESS_KEY_ID: process.env.S3_ACCESS_KEY_ID,

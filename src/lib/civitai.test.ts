@@ -62,7 +62,7 @@ vi.mock('@civitai/app-sdk', () => ({
 vi.mock('@/lib/env', () => ({
   env: {
     ORCHESTRATOR_URL: 'https://orchestrator.test',
-    CIVITAI_BASE_URL: 'https://civitai.test',
+    NEXT_PUBLIC_CIVITAI_BASE_URL: 'https://civitai.test',
   },
 }));
 

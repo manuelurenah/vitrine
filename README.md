@@ -154,7 +154,7 @@ Make sure your Civitai OAuth app has both `http://localhost:3333/api/auth/callba
 ### Running
 
 ```bash
-CIVITAI_BASE_URL=http://localhost:3000 \
+NEXT_PUBLIC_CIVITAI_BASE_URL=http://localhost:3000 \
 TEST_USER_ID=1 \
 pnpm test:e2e
 ```

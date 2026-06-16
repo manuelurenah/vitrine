@@ -104,7 +104,7 @@ async function refresh(tokens: OAuthTokens): Promise<OAuthTokens> {
     throw new Error('No refresh_token in session — re-paste PROMPT_LAB_SESSION from devtools.');
   }
   return oauthRefresh({
-    baseUrl: process.env.CIVITAI_BASE_URL ?? DEFAULT_CIVITAI_BASE_URL,
+    baseUrl: process.env.NEXT_PUBLIC_CIVITAI_BASE_URL ?? DEFAULT_CIVITAI_BASE_URL,
     clientId: requireEnv('CIVITAI_CLIENT_ID'),
     clientSecret: requireEnv('CIVITAI_CLIENT_SECRET'),
     refreshToken: tokens.refresh_token,

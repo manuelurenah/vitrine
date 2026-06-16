@@ -87,7 +87,7 @@ export default async function globalSetup(_config: FullConfig) {
   // test browsers (those use Playwright's ignoreHTTPSErrors).
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-  const civitaiBaseUrl = requireEnv('CIVITAI_BASE_URL');
+  const civitaiBaseUrl = requireEnv('NEXT_PUBLIC_CIVITAI_BASE_URL');
   const userId = process.env.TEST_USER_ID ?? '1';
   const civitaiHost = new URL(civitaiBaseUrl).hostname;
 

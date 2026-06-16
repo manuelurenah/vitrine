@@ -21,7 +21,7 @@ const CIVITAI_HOSTS_BASE = [
   'https://image.civitai.com',
 ];
 
-/** Read CIVITAI_BASE_URL / ORCHESTRATOR_URL at config-load and fold their
+/** Read NEXT_PUBLIC_CIVITAI_BASE_URL / ORCHESTRATOR_URL at config-load and fold their
  * origins into the CSP allow-list. Lets the starter point at a self-hosted
  * Civitai dev (e.g. https://civitai-dev.blue) without users having to edit
  * CSP by hand. */
@@ -37,7 +37,7 @@ const CIVITAI_HOSTS = Array.from(
   new Set(
     [
       ...CIVITAI_HOSTS_BASE,
-      originOrNull(process.env.CIVITAI_BASE_URL),
+      originOrNull(process.env.NEXT_PUBLIC_CIVITAI_BASE_URL),
       originOrNull(process.env.ORCHESTRATOR_URL),
     ].filter(Boolean),
   ),

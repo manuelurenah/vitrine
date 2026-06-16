@@ -10,7 +10,7 @@ export async function POST() {
   const tryRevoke = async (token: string) => {
     try {
       await revokeToken({
-        baseUrl: env.CIVITAI_BASE_URL,
+        baseUrl: env.NEXT_PUBLIC_CIVITAI_BASE_URL,
         clientId: env.CIVITAI_CLIENT_ID,
         clientSecret: env.CIVITAI_CLIENT_SECRET,
         token,
