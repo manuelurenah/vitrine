@@ -10,7 +10,8 @@ export function DeleteAccountDialog({ username }: { username: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const matches = confirmText.trim() === username;
+  const expected = username.trim();
+  const matches = expected.length > 0 && confirmText.trim() === expected;
 
   function reset() {
     setConfirmText('');
