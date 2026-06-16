@@ -57,6 +57,13 @@
       "when": 1781544245667,
       "tag": "0007_shallow_rattler",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781640404891,
+      "tag": "0008_youthful_cyclops",
+      "breakpoints": true
     }
   ]
 }

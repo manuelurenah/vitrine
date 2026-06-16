@@ -1,3 +1,4 @@
+import { hasScope, TokenScope } from '@civitai/app-sdk/scopes';
 import { ArrowUpRight, KeyRound, Sparkles } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { SessionActions } from '@/components/settings/SessionActions';
@@ -14,12 +15,12 @@ export const metadata = { title: 'settings · vitrine' };
 export const dynamic = 'force-dynamic';
 
 const SCOPE_LABELS: Array<{ bit: number; label: string; reason: string }> = [
-  { bit: 1, label: 'UserRead', reason: 'identity (/me)' },
-  { bit: 2, label: 'BuzzRead', reason: 'buzz balance' },
-  { bit: 4, label: 'AIServicesRead', reason: 'past generations' },
-  { bit: 8, label: 'AIServicesWrite', reason: 'cook + photoshoot' },
-  { bit: 16, label: 'MediaRead', reason: 'image library' },
-  { bit: 32, label: 'MediaWrite', reason: 'asset uploads' },
+  { bit: TokenScope.UserRead, label: 'UserRead', reason: 'identity (/me)' },
+  { bit: TokenScope.BuzzRead, label: 'BuzzRead', reason: 'buzz balance' },
+  { bit: TokenScope.AIServicesRead, label: 'AIServicesRead', reason: 'past generations' },
+  { bit: TokenScope.AIServicesWrite, label: 'AIServicesWrite', reason: 'cook + photoshoot' },
+  { bit: TokenScope.MediaRead, label: 'MediaRead', reason: 'image library' },
+  { bit: TokenScope.MediaWrite, label: 'MediaWrite', reason: 'asset uploads' },
 ];
 
 export default async function SettingsPage() {
@@ -97,7 +98,7 @@ export default async function SettingsPage() {
         </p>
         <ul className="flex flex-wrap gap-2">
           {SCOPE_LABELS.map(({ bit, label, reason }) => {
-            const granted = (grantedMask & bit) === bit;
+            const granted = hasScope(grantedMask, bit);
             return (
               <li key={label}>
                 <Badge kind={granted ? 'live' : 'draft'}>

@@ -65,6 +65,14 @@ test.describe('Campaigns list + wizard', () => {
     const firstPresetId = await adCopyCards.first().getAttribute('data-preset-id');
     expect(firstPresetId).toBeTruthy();
 
+    // Selecting a placement that wasn't in the draft pre-fills its copy card
+    // from an already-filled one (rather than landing blank). facebook is off by
+    // default, so toggling it on adds a fresh card.
+    await page.getByRole('button', { name: /facebook/i }).click();
+    const fbHeadline = page.getByTestId('adcopy-headline-fb');
+    await expect(fbHeadline).toBeVisible();
+    await expect(fbHeadline).not.toHaveValue('');
+
     // Expand advanced — gated on showAdvanced && preview. Wait for total-buzz
     // to confirm the preview returned before clicking.
     await expect(page.getByTestId('total-buzz')).toBeVisible({ timeout: 20_000 });
@@ -75,15 +83,14 @@ test.describe('Campaigns list + wizard', () => {
     const firstAdvancedPresetId = await presetCards.first().getAttribute('data-preset-id');
     expect(firstAdvancedPresetId).toBeTruthy();
 
-    // Verify enhanced prompt + brand layer disclosure on the first preset.
-    await expect(page.getByTestId(`final-prompt-${firstAdvancedPresetId}`)).toBeVisible();
+    // The prompt is editable inline now (no "edit raw prompt" gate); the
+    // brand-layer disclosure still works.
+    const override = page.getByTestId(`override-input-${firstAdvancedPresetId}`);
+    await expect(override).toBeVisible();
     await page.getByTestId(`toggle-brand-${firstAdvancedPresetId}`).click();
     await expect(page.getByTestId(`brand-layer-${firstAdvancedPresetId}`)).toBeVisible();
 
-    // Override the raw prompt on the first preset → debounced re-preview.
-    await page.getByTestId(`toggle-edit-${firstAdvancedPresetId}`).click();
-    const override = page.getByTestId(`override-input-${firstAdvancedPresetId}`);
-    await expect(override).toBeVisible();
+    // Edit the raw prompt on the first preset → debounced re-preview.
     await override.fill('hand-tuned override prompt for e2e — chili oil, dramatic light');
 
     // Cook. Button text encodes the total buzz dynamically — match by test id.

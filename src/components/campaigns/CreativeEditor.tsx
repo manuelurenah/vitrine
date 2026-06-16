@@ -9,6 +9,7 @@ import {
   Share2,
   Sparkles,
   Wand2,
+  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -29,7 +30,6 @@ type Props = {
   campaignTitle: string;
   brandName: string | null;
   brandPalette: string[];
-  brandLogoUrl: string | null;
   tile: CampaignTile;
   versions: TileVersionEntry[];
   /**
@@ -74,7 +74,6 @@ export function CreativeEditor({
   campaignTitle,
   brandName,
   brandPalette,
-  brandLogoUrl,
   tile,
   versions,
   initialVariant = 0,
@@ -133,57 +132,33 @@ export function CreativeEditor({
   const [subhead, setSubhead] = useState(tile.adCopy?.subhead ?? '');
   const [cta, setCta] = useState(tile.adCopy?.cta ?? '');
   const [promptValue, setPromptValue] = useState(tile.prompt);
-  const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // ---- brand overrides (palette + logo) ------------------------------------
-  const [palette, setPalette] = useState<string[]>(brandPalette.slice(0, 6));
-  const [includeLogo, setIncludeLogo] = useState(false);
+  // Which generating action is in flight, if any. "save", "fix" (fix layout)
+  // and "regen" each submit exactly one orchestrator workflow → one version.
+  const [pending, setPending] = useState<null | 'save' | 'fix' | 'regen'>(null);
+  const busy = pending !== null;
 
-  // Sync panel state to currently-viewed version's adCopy
+  // ---- palette override ----------------------------------------------------
+  // Seed from the tile's persisted palette so customizations survive a reload
+  // or regenerate; fall back to the brand palette when the tile has none.
+  const [palette, setPalette] = useState<string[]>((tile.palette ?? brandPalette).slice(0, 6));
+
+  // Sync panel state to the currently-viewed version (copy, prompt, palette).
   useEffect(() => {
     if (!currentVersion) return;
     setHeadline(currentVersion.adCopy?.headline ?? '');
     setSubhead(currentVersion.adCopy?.subhead ?? '');
     setCta(currentVersion.adCopy?.cta ?? '');
     setPromptValue(currentVersion.prompt);
-  }, [currentVersion]);
+    setPalette((currentVersion.palette ?? brandPalette).slice(0, 6));
+  }, [currentVersion, brandPalette]);
 
-  async function handleSave() {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const body: Record<string, unknown> = {};
-      if (headline || subhead) {
-        body.adCopy = { headline, subhead, ...(cta ? { cta } : {}) };
-      }
-      if (promptValue && promptValue !== tile.prompt) {
-        body.prompt = promptValue;
-      }
-      if (!body.adCopy && !body.prompt) {
-        setSaving(false);
-        return;
-      }
-      const res = await fetch(`/api/campaigns/${campaignId}/tiles/${tile.id}`, {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setSaveError(data?.error ?? `http ${res.status}`);
-        return;
-      }
-      router.refresh();
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'save failed');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  // ---- live fix-layout estimate --------------------------------------------
-  const [fixCost, setFixCost] = useState<number | null>(null);
+  // ---- live per-generation estimate ----------------------------------------
+  // Save, fix-layout, and regenerate all submit the same workflow (same
+  // numImages/resolution), so one estimate covers every spending action. It's
+  // surfaced once below the action bar rather than per-button.
+  const [genCost, setGenCost] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -195,12 +170,11 @@ export function CreativeEditor({
           body: JSON.stringify({
             relayout: true,
             ...(palette.length > 0 ? { palette } : {}),
-            includeLogo,
           }),
         });
         if (!res.ok) return;
         const data = (await res.json()) as { cost: number };
-        if (!cancelled) setFixCost(data.cost);
+        if (!cancelled) setGenCost(data.cost);
       } catch {
         /* keep previous estimate */
       }
@@ -209,39 +183,58 @@ export function CreativeEditor({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [campaignId, tile.id, palette, includeLogo]);
+  }, [campaignId, tile.id, palette]);
 
-  const fixCostLabel = fixCost === null ? '…' : String(fixCost);
+  const genCostLabel = genCost === null ? '…' : genCost.toLocaleString();
 
-  // ---- regenerate / fix layout ---------------------------------------------
-  const [regenerating, setRegenerating] = useState(false);
-
-  async function handleRegenerate(fixLayout?: boolean) {
-    setRegenerating(true);
+  // ---- generate (save / fix layout / regenerate) ---------------------------
+  // All three route through the regenerate endpoint so each click renders AND
+  // persists in a single version — "save" no longer stacks a metadata-only
+  // version next to the rendered one.
+  async function submitRegen(
+    kind: 'save' | 'fix' | 'regen',
+    opts: { fixLayout?: boolean; applyEdits?: boolean },
+  ) {
+    setPending(kind);
+    setSaveError(null);
     setImageUrls([]);
     setStatus('cooking');
     try {
       const body: Record<string, unknown> = {};
-      if (fixLayout) {
+      if (opts.fixLayout) {
         body.promptHint = '[fix layout: improve composition, balance, legibility]';
         // Re-layout the current creative, not the original product reference.
         body.relayout = true;
       }
+      if (opts.applyEdits) {
+        // The route requires both headline + subhead for ad copy; send copy only
+        // when both are present so a half-filled card doesn't 400.
+        if (headline && subhead) {
+          body.adCopy = { headline, subhead, ...(cta ? { cta } : {}) };
+        }
+        if (promptValue && promptValue !== currentVersion?.prompt) {
+          body.prompt = promptValue;
+        }
+      }
       if (palette.length > 0) body.palette = palette;
-      if (includeLogo) body.includeLogo = true;
       const res = await fetch(`/api/campaigns/${campaignId}/tiles/${tile.id}/regenerate`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: Object.keys(body).length ? JSON.stringify(body) : undefined,
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) return;
+      if (!res.ok) {
+        setSaveError(data?.error ?? `http ${res.status}`);
+        setStatus('done');
+        return;
+      }
       if (data.workflowId) setWorkflowId(data.workflowId);
       router.refresh();
-    } catch {
-      // silent — status overlay shows cooking; polling will update
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'request failed');
+      setStatus('done');
     } finally {
-      setRegenerating(false);
+      setPending(null);
     }
   }
 
@@ -351,32 +344,33 @@ export function CreativeEditor({
             variant="primary"
             size="sm"
             data-testid="editor-fix-layout"
-            disabled={regenerating}
-            onClick={() => handleRegenerate(true)}
+            disabled={busy}
+            onClick={() => submitRegen('fix', { fixLayout: true })}
             aria-label="fix layout"
             leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
           >
             fix layout
-            <span className="ml-1 font-mono text-[11px] opacity-70">· {fixCostLabel} buzz</span>
           </Button>
           <button
             type="button"
             data-testid="editor-regenerate"
             aria-label="regenerate"
-            disabled={regenerating || pollStatus === 'cooking'}
-            onClick={() => handleRegenerate(false)}
+            title="regenerate · new variation"
+            disabled={busy || pollStatus === 'cooking'}
+            onClick={() => submitRegen('regen', {})}
             className="grid size-8 place-items-center rounded-[8px] border border-line-subtle bg-bg-2 text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0 disabled:opacity-40"
           >
             <RefreshCw
               size={14}
               strokeWidth={1.75}
-              className={regenerating ? 'animate-spin' : ''}
+              className={pending === 'regen' ? 'animate-spin' : ''}
             />
           </button>
           <button
             type="button"
             data-testid="editor-download"
             aria-label="download"
+            title="download this image"
             disabled={!canvasImageUrl}
             onClick={handleDownload}
             className="grid size-8 place-items-center rounded-[8px] border border-line-subtle bg-bg-2 text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0 disabled:opacity-40"
@@ -388,7 +382,7 @@ export function CreativeEditor({
             data-testid="editor-share"
             aria-label="share"
             disabled
-            title="coming soon"
+            title="share · coming soon"
             className="grid size-8 place-items-center rounded-[8px] border border-line-subtle bg-bg-2 text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0 disabled:opacity-40"
           >
             <Share2 size={14} strokeWidth={1.75} />
@@ -398,14 +392,25 @@ export function CreativeEditor({
             data-testid="editor-animate"
             aria-label="animate"
             disabled
-            title="coming soon"
+            title="animate · coming soon"
             className="grid size-8 place-items-center rounded-[8px] border border-line-subtle bg-bg-2 text-fg-1 transition-colors hover:bg-bg-3 hover:text-fg-0 disabled:opacity-40"
           >
             <Wand2 size={14} strokeWidth={1.75} />
           </button>
         </div>
 
-        <p className="text-[12px] text-fg-3">edit fields on the right · changes apply when you regenerate.</p>
+        <div className="flex flex-col items-center gap-1 text-center">
+          <p className="text-[12px] text-fg-3">
+            edit fields on the right · save applies them and renders a new version.
+          </p>
+          <p className="flex items-center gap-1.5 text-[12px] text-fg-2" data-testid="editor-buzz-note">
+            <Zap size={12} strokeWidth={1.75} className="text-volt" />
+            <span>
+              ~{genCostLabel} buzz per generation
+              <span className="text-fg-3"> · save, fix layout & regenerate each spend buzz</span>
+            </span>
+          </p>
+        </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
@@ -438,7 +443,7 @@ export function CreativeEditor({
               value={headline}
               onChange={(e) => setHeadline(e.target.value)}
               placeholder="precision in every drop."
-              disabled={saving}
+              disabled={busy}
             />
           </div>
         </PanelRow>
@@ -454,7 +459,7 @@ export function CreativeEditor({
               onChange={(e) => setSubhead(e.target.value)}
               placeholder="automated · zero variability"
               rows={2}
-              disabled={saving}
+              disabled={busy}
             />
           </div>
         </PanelRow>
@@ -469,7 +474,7 @@ export function CreativeEditor({
               value={cta}
               onChange={(e) => setCta(e.target.value)}
               placeholder="shop now"
-              disabled={saving}
+              disabled={busy}
             />
           </div>
         </PanelRow>
@@ -507,29 +512,6 @@ export function CreativeEditor({
           <p className="mt-2 text-[11px] text-fg-3">applied when you regenerate.</p>
         </PanelRow>
 
-        {/* logo — toggle + preview */}
-        <PanelRow label="logo">
-          <div className="mt-1 flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center overflow-hidden rounded-[8px] border border-line-subtle bg-bg-3">
-              {brandLogoUrl ? (
-                <img src={brandLogoUrl} alt="brand logo" className="h-full w-full object-contain" />
-              ) : (
-                <span className="text-[9px] text-fg-3">no logo</span>
-              )}
-            </div>
-            <label className="flex items-center gap-2 text-[12px] text-fg-1">
-              <input
-                type="checkbox"
-                data-testid="editor-logo-toggle"
-                checked={includeLogo}
-                disabled={!brandLogoUrl}
-                onChange={(e) => setIncludeLogo(e.target.checked)}
-              />
-              include logo on regenerate
-            </label>
-          </div>
-        </PanelRow>
-
         {/* background / prompt — editable */}
         <PanelRow label="background">
           <div className="mt-1 flex flex-col gap-1.5">
@@ -541,7 +523,7 @@ export function CreativeEditor({
               onChange={(e) => setPromptValue(e.target.value)}
               placeholder="describe the background scene…"
               rows={3}
-              disabled={saving}
+              disabled={busy}
             />
           </div>
         </PanelRow>
@@ -550,15 +532,17 @@ export function CreativeEditor({
         <Button
           variant="primary"
           data-testid="editor-save"
-          disabled={saving}
-          onClick={handleSave}
+          disabled={busy}
+          onClick={() => submitRegen('save', { applyEdits: true })}
           aria-label="save changes"
-          className="w-full"
+          className="w-full shrink-0"
           leadingIcon={
-            saving ? <Sparkles size={14} strokeWidth={1.75} className="animate-pulse" /> : undefined
+            pending === 'save' ? (
+              <Sparkles size={14} strokeWidth={1.75} className="animate-pulse" />
+            ) : undefined
           }
         >
-          {saving ? 'saving…' : 'save changes'}
+          {pending === 'save' ? 'saving…' : 'save changes'}
         </Button>
         {saveError && <p className="text-[11.5px] text-danger">{saveError}</p>}
 
@@ -567,10 +551,9 @@ export function CreativeEditor({
           <div className="flex items-center gap-1.5">
             <Sparkles size={13} strokeWidth={1.75} className="text-volt" />
             <span className="font-display text-[13px] font-semibold text-fg-0">fix layout</span>
-            <span className="ml-auto font-mono text-[10px] text-volt">{fixCostLabel} buzz</span>
           </div>
           <p className="mt-1 text-[12px] leading-[1.4] text-fg-1">
-            re-balance type, image, and cta without changing the content.
+            re-arrange the composition into a fresh layout — same product, copy, and colors.
           </p>
         </div>
       </div>

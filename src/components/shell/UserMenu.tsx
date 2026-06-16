@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown, LogOut, Settings, ShieldOff } from 'lucide-react';
+import { ChevronDown, LogOut, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { Avatar, cn } from '@/components/ui';
@@ -11,7 +11,7 @@ type Props = {
 
 export function UserMenu({ user }: Props) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<'none' | 'logout' | 'revoke'>('none');
+  const [busy, setBusy] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -23,13 +23,13 @@ export function UserMenu({ user }: Props) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  async function call(path: '/api/auth/logout' | '/api/auth/revoke') {
-    setBusy(path === '/api/auth/logout' ? 'logout' : 'revoke');
+  async function signOut() {
+    setBusy(true);
     try {
-      await fetch(path, { method: 'POST' });
+      await fetch('/api/auth/logout', { method: 'POST' });
       window.location.href = '/';
     } finally {
-      setBusy('none');
+      setBusy(false);
     }
   }
 
@@ -70,21 +70,12 @@ export function UserMenu({ user }: Props) {
           </Link>
           <button
             type="button"
-            onClick={() => call('/api/auth/logout')}
-            disabled={busy !== 'none'}
-            className="flex w-full items-center gap-2 border-t border-line-subtle px-3 py-[10px] text-left text-[13px] text-fg-0 transition-colors duration-fast ease-out hover:bg-bg-3 disabled:opacity-60"
-          >
-            <LogOut size={14} strokeWidth={1.75} className="text-fg-2" />
-            {busy === 'logout' ? 'signing out…' : 'sign out'}
-          </button>
-          <button
-            type="button"
-            onClick={() => call('/api/auth/revoke')}
-            disabled={busy !== 'none'}
+            onClick={signOut}
+            disabled={busy}
             className="flex w-full items-center gap-2 border-t border-line-subtle px-3 py-[10px] text-left text-[13px] text-danger transition-colors duration-fast ease-out hover:bg-bg-3 disabled:opacity-60"
           >
-            <ShieldOff size={14} strokeWidth={1.75} />
-            {busy === 'revoke' ? 'revoking…' : 'revoke at Civitai'}
+            <LogOut size={14} strokeWidth={1.75} />
+            {busy ? 'signing out…' : 'sign out'}
           </button>
         </div>
       )}

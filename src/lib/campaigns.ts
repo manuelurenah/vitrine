@@ -31,6 +31,8 @@ export type CampaignTile = {
   variantGroupId: string | null;
   variantIndex: number;
   adCopy: AdCopy | null;
+  /** User-customized palette (hex strings) carried across versions; null = use brand palette. */
+  palette: string[] | null;
   assetUrl: string | null;
 };
 
@@ -64,6 +66,7 @@ function toTile(row: CampaignTileRow, assetUrl?: string | null): CampaignTile {
     variantGroupId: row.variantGroupId ?? null,
     variantIndex: row.variantIndex,
     adCopy: (row.adCopy as AdCopy | null) ?? null,
+    palette: (row.palette as string[] | null) ?? null,
     assetUrl: assetUrl ?? null,
   };
 }
@@ -460,7 +463,7 @@ export async function swapTileWorkflow(
   campaignId: string,
   tileId: string,
   newWorkflowId: string,
-  options?: { prompt?: string; adCopy?: AdCopy | null },
+  options?: { prompt?: string; adCopy?: AdCopy | null; palette?: string[] | null; changeNote?: string },
 ): Promise<CampaignTile | null> {
   // Make sure the campaign belongs to the user before mutating any tile.
   const owner = await db
@@ -477,6 +480,7 @@ export async function swapTileWorkflow(
   };
   if (options?.prompt !== undefined) update.prompt = options.prompt;
   if (options?.adCopy !== undefined) update.adCopy = options.adCopy;
+  if (options?.palette !== undefined) update.palette = options.palette;
 
   return db.transaction(async (tx) => {
     const [row] = await tx
@@ -491,7 +495,8 @@ export async function swapTileWorkflow(
         workflowId: newWorkflowId,
         prompt: row.prompt,
         adCopy: row.adCopy ?? null,
-        changeNote: 'regenerated',
+        palette: (row.palette as string[] | null) ?? null,
+        changeNote: options?.changeNote ?? 'regenerated',
       });
     }
 

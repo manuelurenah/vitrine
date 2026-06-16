@@ -27,6 +27,8 @@ export type TileVersionEntry = {
   workflowId: string;
   prompt: string;
   adCopy: AdCopy | null;
+  /** Palette (hex strings) applied to this version, if the user customized it. */
+  palette: string[] | null;
   assetId: string | null;
   assetUrl: string | null;
   changeNote: string | null;

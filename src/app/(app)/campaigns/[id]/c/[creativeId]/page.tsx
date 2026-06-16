@@ -73,7 +73,6 @@ export default async function CreativeEditorPage({
         campaignTitle={campaign.title}
         brandName={brand?.name ?? null}
         brandPalette={brand?.palette ?? []}
-        brandLogoUrl={brand?.logoUrl ?? null}
         tile={tile}
         versions={versions}
         initialVariant={initialVariant}

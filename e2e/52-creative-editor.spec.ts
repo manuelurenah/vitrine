@@ -3,6 +3,7 @@ import { signInToApp } from './helpers/auth';
 import {
   countRows,
   countTileVersions,
+  getLatestVersionPalette,
   getTile,
   markOnboardingComplete,
   resetUserData,
@@ -41,14 +42,19 @@ test.describe('creative editor', () => {
     await headerField.clear();
     await headerField.fill('e2e new headline');
 
-    // Click save and wait for the PATCH to complete.
+    // Save now renders AND persists in a single orchestrator call (it no longer
+    // PATCHes a metadata-only version then re-cooks).
     await page.getByTestId('editor-save').click();
     await page.waitForResponse(
-      (r) => r.url().includes(`/tiles/${tileId}`) && r.request().method() === 'PATCH' && r.ok(),
+      (r) =>
+        r.url().includes(`/tiles/${tileId}/regenerate`) &&
+        r.request().method() === 'POST' &&
+        r.ok(),
       { timeout: 15_000 },
     );
 
-    // A new tile_version row should have been written.
+    // Exactly one new tile_version row — the rendered version — with no phantom
+    // metadata-only version stacked beside it.
     expect(await countTileVersions(tileId)).toBe(2);
 
     // The tile's persisted ad_copy headline should match what we typed.
@@ -113,5 +119,61 @@ test.describe('creative editor', () => {
 
     // A new generation row should have been recorded.
     expect(await countRows('generations')).toBe(before + 1);
+  });
+
+  test('conveys buzz spend via one shared note, not a per-button price', async ({
+    page,
+    baseURL,
+  }) => {
+    const { id, tileId } = await seedDoneCampaign({ versions: 1 });
+    await signInToApp(page, baseURL!);
+    await page.goto(`${baseURL}/campaigns/${id}/c/${tileId}`);
+
+    await expect(page.getByTestId('creative-editor')).toBeVisible({ timeout: 15_000 });
+
+    // A single shared cost line communicates that generating spends buzz.
+    await expect(page.getByTestId('editor-buzz-note')).toContainText(/buzz per generation/i);
+
+    // The action buttons no longer carry their own per-button price.
+    await expect(page.getByTestId('editor-fix-layout')).not.toContainText(/buzz/i);
+    await expect(page.getByTestId('editor-save')).not.toContainText(/buzz/i);
+  });
+
+  test('the logo panel has been removed from the editor', async ({ page, baseURL }) => {
+    const { id, tileId } = await seedDoneCampaign({ versions: 1 });
+    await signInToApp(page, baseURL!);
+    await page.goto(`${baseURL}/campaigns/${id}/c/${tileId}`);
+
+    await expect(page.getByTestId('creative-editor')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('editor-logo-toggle')).toHaveCount(0);
+  });
+
+  test('palette edits persist onto the rendered version', async ({ page, baseURL }) => {
+    const { id, tileId } = await seedDoneCampaign({ versions: 1 });
+    await signInToApp(page, baseURL!);
+    await page.goto(`${baseURL}/campaigns/${id}/c/${tileId}`);
+
+    await expect(page.getByTestId('creative-editor')).toBeVisible({ timeout: 15_000 });
+
+    // Add a swatch (works whether or not the brand seeded a palette), then save.
+    // Save now renders + persists in one call, so the palette must land on both
+    // the tile and the freshly-recorded version row.
+    await page.getByTestId('editor-palette-add').click();
+    await page.getByTestId('editor-save').click();
+    await page.waitForResponse(
+      (r) =>
+        r.url().includes(`/tiles/${tileId}/regenerate`) &&
+        r.request().method() === 'POST' &&
+        r.ok(),
+      { timeout: 15_000 },
+    );
+
+    const tile = await getTile(tileId);
+    expect(Array.isArray(tile?.palette)).toBe(true);
+    expect((tile?.palette as string[]).length).toBeGreaterThan(0);
+
+    const versionPalette = await getLatestVersionPalette(tileId);
+    expect(Array.isArray(versionPalette)).toBe(true);
+    expect((versionPalette as string[]).length).toBeGreaterThan(0);
   });
 });

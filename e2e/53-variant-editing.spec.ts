@@ -51,7 +51,10 @@ test.describe('per-variant editing', () => {
     await headerField.fill('variant one edited');
     await page.getByTestId('editor-save').click();
     await page.waitForResponse(
-      (r) => r.url().includes(`/tiles/${tile1}`) && r.request().method() === 'PATCH' && r.ok(),
+      (r) =>
+        r.url().includes(`/tiles/${tile1}/regenerate`) &&
+        r.request().method() === 'POST' &&
+        r.ok(),
       { timeout: 15_000 },
     );
 

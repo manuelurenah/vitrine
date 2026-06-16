@@ -404,20 +404,32 @@ export async function countTileVersions(tileId: string): Promise<number> {
 }
 
 /**
- * Fetch the current status, prompt, and ad_copy for a campaign tile.
+ * Fetch the current status, prompt, ad_copy, and palette for a campaign tile.
  * Returns null if the tile does not exist.
  */
 export async function getTile(
   tileId: string,
-): Promise<{ status: string; prompt: string; adCopy: unknown } | null> {
+): Promise<{ status: string; prompt: string; adCopy: unknown; palette: unknown } | null> {
   const pool = getPool();
-  const res = await pool.query<{ status: string; prompt: string; ad_copy: unknown }>(
-    `SELECT status, prompt, ad_copy FROM campaign_tiles WHERE id = $1`,
-    [tileId],
-  );
+  const res = await pool.query<{
+    status: string;
+    prompt: string;
+    ad_copy: unknown;
+    palette: unknown;
+  }>(`SELECT status, prompt, ad_copy, palette FROM campaign_tiles WHERE id = $1`, [tileId]);
   const row = res.rows[0];
   if (!row) return null;
-  return { status: row.status, prompt: row.prompt, adCopy: row.ad_copy };
+  return { status: row.status, prompt: row.prompt, adCopy: row.ad_copy, palette: row.palette };
+}
+
+/** Palette stored on the latest (highest-version) tile_version row for a tile. */
+export async function getLatestVersionPalette(tileId: string): Promise<unknown> {
+  const pool = getPool();
+  const res = await pool.query<{ palette: unknown }>(
+    `SELECT palette FROM tile_versions WHERE tile_id = $1 ORDER BY version DESC LIMIT 1`,
+    [tileId],
+  );
+  return res.rows[0]?.palette ?? null;
 }
 
 export async function closeDb(): Promise<void> {

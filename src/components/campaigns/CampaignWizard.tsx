@@ -6,7 +6,6 @@ import {
   ChevronUp,
   Loader2,
   Minus,
-  Pencil,
   Plus,
   RefreshCw,
   Sparkles,
@@ -134,7 +133,6 @@ export function CampaignWizard({ initial, fetcher }: Props) {
   /* ---------------------------------------------------------------- step 2 */
   const { preview, loading, error, schedule } = useCampaignPreview({ fetcher });
   const [userOverrides, setUserOverrides] = useState<Record<string, string>>({});
-  const [editing, setEditing] = useState<Record<string, boolean>>({});
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showBrandLayer, setShowBrandLayer] = useState<Record<string, boolean>>({});
   const [perPresetLoading, setPerPresetLoading] = useState<Record<string, boolean>>({});
@@ -234,7 +232,6 @@ export function CampaignWizard({ initial, fetcher }: Props) {
         setBrief(next);
         setAdCopy(json.draft.adCopy ?? {});
         setUserOverrides({});
-        setEditing({});
         setDraftWarning(
           json.meta?.llm === 'fallback'
             ? `LLM draft unavailable — tried ${(json.meta?.attempts ?? []).join(', ') || 'no models'} · reason: ${json.meta?.reason ?? 'unknown'} · showing template brief`
@@ -398,8 +395,6 @@ export function CampaignWizard({ initial, fetcher }: Props) {
           onRegenerate={handleRegenerateDraft}
           showAdvanced={showAdvanced}
           setShowAdvanced={setShowAdvanced}
-          editing={editing}
-          setEditing={setEditing}
           userOverrides={userOverrides}
           showBrandLayer={showBrandLayer}
           setShowBrandLayer={setShowBrandLayer}
@@ -672,8 +667,6 @@ type BriefStepProps = {
   onRegenerate: () => void;
   showAdvanced: boolean;
   setShowAdvanced: (v: boolean) => void;
-  editing: Record<string, boolean>;
-  setEditing: (next: Record<string, boolean>) => void;
   userOverrides: Record<string, string>;
   showBrandLayer: Record<string, boolean>;
   setShowBrandLayer: (next: Record<string, boolean>) => void;
@@ -702,8 +695,6 @@ function BriefStep({
   onRegenerate,
   showAdvanced,
   setShowAdvanced,
-  editing,
-  setEditing,
   userOverrides,
   showBrandLayer,
   setShowBrandLayer,
@@ -719,6 +710,30 @@ function BriefStep({
   function updateAdCopy(id: string, field: keyof AdCopyShape, value: string) {
     const current = adCopy[id] ?? { headline: '', subhead: '', cta: '' };
     setAdCopy({ ...adCopy, [id]: { ...current, [field]: value } });
+  }
+  // Selecting a new placement after the brief is drafted should not land its
+  // copy card blank. Seed any newly-added preset from an already-filled card
+  // (falling back to the brief title/description) so the user can tweak rather
+  // than retype.
+  function handlePresetsChange(next: string[]) {
+    const added = next.filter((id) => !presetIds.includes(id));
+    if (added.length > 0) {
+      const template: AdCopyShape =
+        presetIds.map((id) => adCopy[id]).find((c) => c && (c.headline || c.subhead || c.cta)) ?? {
+          headline: brief.title,
+          subhead: brief.description,
+          cta: '',
+        };
+      const filled: Record<string, AdCopyShape> = { ...adCopy };
+      for (const id of added) {
+        const existing = filled[id];
+        if (!existing || (!existing.headline && !existing.subhead && !existing.cta)) {
+          filled[id] = { ...template };
+        }
+      }
+      setAdCopy(filled);
+    }
+    setPresetIds(next);
   }
   const total = preview?.totalBuzz ?? 0;
   const insufficientBuzz = typeof buzzBalance === 'number' && total > 0 && total > buzzBalance;
@@ -849,7 +864,7 @@ function BriefStep({
 
       <section>
         <FieldLabel>output formats</FieldLabel>
-        <PresetGrid value={presetIds} onChange={setPresetIds} />
+        <PresetGrid value={presetIds} onChange={handlePresetsChange} />
       </section>
 
       <section className="grid gap-4 md:grid-cols-2">
@@ -934,7 +949,6 @@ function BriefStep({
               const ep = preview.enhancedPrompts[id];
               const estimate = preview.estimatePerPreset[id] ?? 0;
               const errMsg = preview.errors?.[id];
-              const isEditing = !!editing[id];
               const showBrand = !!showBrandLayer[id];
               const isLoading = !!perPresetLoading[id];
               const overrideValue = userOverrides[id] ?? '';
@@ -977,12 +991,21 @@ function BriefStep({
 
                   {ep && (
                     <>
-                      <p
-                        className="mt-3 whitespace-pre-wrap text-[13.5px] leading-[1.55] text-fg-1"
-                        data-testid={`final-prompt-${id}`}
-                      >
-                        {overrideValue.trim() ? overrideValue : ep.finalPrompt}
-                      </p>
+                      {/* Prompt is editable inline — no "edit raw prompt" gate. */}
+                      <div className="mt-3">
+                        <Textarea
+                          rows={4}
+                          value={overrideValue || ep.finalPrompt}
+                          onChange={(e) => onOverrideChange(id, e.target.value)}
+                          data-testid={`override-input-${id}`}
+                          aria-label={`prompt for ${id}`}
+                          className="whitespace-pre-wrap"
+                        />
+                        <p className="mt-1 font-mono text-[10.5px] text-fg-3">
+                          edits replace the assembled prompt sent to the orchestrator. re-estimates
+                          after a short pause.
+                        </p>
+                      </div>
 
                       <button
                         type="button"
@@ -1017,37 +1040,6 @@ function BriefStep({
                             </span>
                             <p className="mt-1 whitespace-pre-wrap">{ep.styleLayer}</p>
                           </div>
-                        </div>
-                      )}
-
-                      <div className="mt-3 flex flex-wrap items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setEditing({ ...editing, [id]: !isEditing })}
-                          aria-pressed={isEditing}
-                          className={cn(
-                            'inline-flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.1em]',
-                            isEditing ? 'text-volt' : 'text-fg-2 hover:text-fg-0',
-                          )}
-                          data-testid={`toggle-edit-${id}`}
-                        >
-                          <Pencil size={12} strokeWidth={2} />
-                          {isEditing ? 'editing raw prompt' : 'edit raw prompt'}
-                        </button>
-                      </div>
-                      {isEditing && (
-                        <div className="mt-2">
-                          <Textarea
-                            rows={4}
-                            value={overrideValue || ep.finalPrompt}
-                            onChange={(e) => onOverrideChange(id, e.target.value)}
-                            data-testid={`override-input-${id}`}
-                            aria-label={`raw prompt override for ${id}`}
-                          />
-                          <p className="mt-1 font-mono text-[10.5px] text-fg-3">
-                            edits replace the assembled prompt sent to the orchestrator.
-                            re-estimates after a short pause.
-                          </p>
                         </div>
                       )}
                     </>

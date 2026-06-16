@@ -70,6 +70,55 @@ function assemble(parts: Array<string | undefined>): string {
     .replace(/\.\s*\.+/g, '.');
 }
 
+/**
+ * A composition archetype for the "fix layout" action. Each variant relocates
+ * the headline, subject, and CTA into a deliberately different arrangement than
+ * the default centered-hero / headline-top / CTA-lower-right layout, so a
+ * re-layout produces a genuinely new composition rather than a restyle.
+ */
+export type LayoutVariant = {
+  id: string;
+  /** Where the headline + subhead block sits. */
+  headline: string;
+  /** Where the CTA button sits. */
+  cta: string;
+  /** Overall composition note — subject placement + negative space. */
+  note: string;
+};
+
+export const LAYOUT_VARIANTS: LayoutVariant[] = [
+  {
+    id: 'split-left',
+    headline: 'the left half, vertically centered',
+    cta: 'the bottom-left, directly under the copy column',
+    note: 'place the product/subject in the right half; reserve the left half as a clean copy column',
+  },
+  {
+    id: 'banner-bottom',
+    headline: 'the lower third as a bold banner band',
+    cta: 'the bottom-right corner inside the banner band',
+    note: 'let the subject fill the upper two-thirds; anchor all copy in a banner across the bottom',
+  },
+  {
+    id: 'corner-top-right',
+    headline: 'a compact block in the top-right corner',
+    cta: 'just beneath the headline block, still top-right',
+    note: 'anchor the subject to the lower-left; cluster the copy in the top-right with breathing room',
+  },
+  {
+    id: 'overlay-center',
+    headline: 'centered across the middle over a soft translucent scrim',
+    cta: 'centered along the bottom edge',
+    note: 'frame the subject behind a centered copy overlay rather than beside it',
+  },
+  {
+    id: 'side-right',
+    headline: 'a vertical column down the right edge',
+    cta: 'the bottom-right, below the column',
+    note: 'place the subject across the left two-thirds; run the copy as a tall right-hand column',
+  },
+];
+
 export type BuildCampaignPromptInput = {
   brief: BriefForPresets;
   brand?: BrandProfile | null;
@@ -79,6 +128,8 @@ export type BuildCampaignPromptInput = {
   adCopy?: AdCopy | null;
   /** When true, instruct the model to incorporate the supplied brand logo. */
   logo?: boolean;
+  /** Re-layout into this composition archetype (fix-layout). Omit for the default placement. */
+  layoutVariant?: LayoutVariant | null;
 };
 
 function copyPlacement(preset: PresetDef): string {
@@ -88,21 +139,27 @@ function copyPlacement(preset: PresetDef): string {
   return 'upper half with the subject anchoring the lower half';
 }
 
-function copyLayer(preset: PresetDef, adCopy: AdCopy): string {
-  const placement = copyPlacement(preset);
+function copyLayer(preset: PresetDef, adCopy: AdCopy, layout?: LayoutVariant): string {
+  const placement = layout ? layout.headline : copyPlacement(preset);
+  const ctaPlacement = layout ? layout.cta : 'near the lower-right corner';
   const parts: string[] = [];
+  if (layout) {
+    parts.push(
+      `compose a fresh, intentional layout — ${layout.note}; do NOT default to a centered hero with the headline across the top`,
+    );
+  }
   parts.push(
     `this is a finished social advertising creative — composition, lighting, and layout must support the overlaid sales message`,
   );
   parts.push(
-    `render the headline "${adCopy.headline}" in the ${placement}, large bold sans-serif uppercase, clean kerning, high-contrast over a subtle dark gradient or solid shape for legibility, no typos`,
+    `render the headline "${adCopy.headline}" in ${placement}, large bold sans-serif uppercase, clean kerning, high-contrast over a subtle dark gradient or solid shape for legibility, no typos`,
   );
   parts.push(
-    `directly beneath, set the subhead "${adCopy.subhead}" in a smaller medium-weight sans-serif, sentence case, two lines max`,
+    `set the subhead "${adCopy.subhead}" adjacent to the headline in a smaller medium-weight sans-serif, sentence case, two lines max`,
   );
   if (adCopy.cta) {
     parts.push(
-      `near the lower-right corner, render a solid rounded-pill button containing the text "${adCopy.cta}" in bold sans-serif, clearly readable, brand-accent fill`,
+      `at ${ctaPlacement}, render a solid rounded-pill button containing the text "${adCopy.cta}" in bold sans-serif, clearly readable, brand-accent fill`,
     );
   }
   parts.push(
@@ -116,7 +173,8 @@ function logoLayer(): string {
 }
 
 export function buildCampaignPrompt(input: BuildCampaignPromptInput): EnhancedPrompt {
-  const { brief, brand, preset, referenceCount = 0, userOverride, adCopy, logo } = input;
+  const { brief, brand, preset, referenceCount = 0, userOverride, adCopy, logo, layoutVariant } =
+    input;
 
   const baseDescription = (brief.description?.trim() || brief.prompt?.trim() || '').replace(
     /\s+/g,
@@ -139,7 +197,7 @@ export function buildCampaignPrompt(input: BuildCampaignPromptInput): EnhancedPr
   const styleStr = hasCopy
     ? `${preset.styleNotes}. on-brand, product-forward, polished ad creative, high quality, commercial-grade composition`
     : `${preset.styleNotes}. on-brand, product-forward, no text overlay, high quality`;
-  const copyStr = hasCopy ? copyLayer(preset, adCopy) : '';
+  const copyStr = hasCopy ? copyLayer(preset, adCopy, layoutVariant ?? undefined) : '';
   const logoStr = logo ? logoLayer() : '';
 
   const finalPrompt = assemble([intentStr, base, brandStr, refStr, styleStr, copyStr, logoStr]);

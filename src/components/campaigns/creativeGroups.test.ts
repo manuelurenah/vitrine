@@ -14,6 +14,7 @@ function tile(over: Partial<CampaignTile>): CampaignTile {
     variantGroupId: null,
     variantIndex: 0,
     adCopy: null,
+    palette: null,
     assetUrl: null,
     ...over,
   };

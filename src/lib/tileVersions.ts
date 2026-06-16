@@ -38,6 +38,7 @@ function toTileVersionEntry(row: TileVersionRow, assetUrl: string | null = null)
     workflowId: row.workflowId,
     prompt: row.prompt,
     adCopy: (row.adCopy as AdCopy | null) ?? null,
+    palette: (row.palette as string[] | null) ?? null,
     assetId: row.assetId ?? null,
     assetUrl,
     changeNote: row.changeNote ?? null,
@@ -60,6 +61,7 @@ export type RecordTileVersionInput = {
   workflowId: string;
   prompt: string;
   adCopy?: unknown;
+  palette?: string[] | null;
   assetId?: string | null;
   changeNote?: string;
   generationId?: string | null;
@@ -91,6 +93,7 @@ export async function recordTileVersion(
         workflowId: input.workflowId,
         prompt: input.prompt,
         adCopy: input.adCopy ?? null,
+        palette: input.palette ?? null,
         assetId: input.assetId ?? null,
         changeNote: input.changeNote ?? null,
         generationId: input.generationId ?? null,
@@ -131,6 +134,7 @@ export async function listTileVersions(
       workflowId: tileVersionsTable.workflowId,
       prompt: tileVersionsTable.prompt,
       adCopy: tileVersionsTable.adCopy,
+      palette: tileVersionsTable.palette,
       assetId: tileVersionsTable.assetId,
       changeNote: tileVersionsTable.changeNote,
       generationId: tileVersionsTable.generationId,
@@ -236,6 +240,7 @@ export async function restoreTileVersion(
     .select({
       prompt: tileVersionsTable.prompt,
       adCopy: tileVersionsTable.adCopy,
+      palette: tileVersionsTable.palette,
       assetId: tileVersionsTable.assetId,
     })
     .from(tileVersionsTable)
@@ -245,6 +250,7 @@ export async function restoreTileVersion(
   if (!target) return null;
 
   const restoredAdCopy = (target.adCopy as AdCopy | null) ?? null;
+  const restoredPalette = (target.palette as string[] | null) ?? null;
   const restoredAssetId = target.assetId ?? null;
 
   return db.transaction(async (tx) => {
@@ -253,6 +259,7 @@ export async function restoreTileVersion(
       .set({
         prompt: target.prompt,
         adCopy: restoredAdCopy,
+        palette: restoredPalette,
         assetId: restoredAssetId,
         updatedAt: new Date(),
       })
@@ -263,6 +270,7 @@ export async function restoreTileVersion(
       workflowId: tile.workflowId,
       prompt: target.prompt,
       adCopy: restoredAdCopy,
+      palette: restoredPalette,
       assetId: restoredAssetId,
       changeNote: `restored v${version}`,
     });
@@ -273,6 +281,7 @@ export async function restoreTileVersion(
       workflowId: tile.workflowId,
       prompt: target.prompt,
       adCopy: restoredAdCopy,
+      palette: restoredPalette,
       assetId: restoredAssetId,
       assetUrl: null,
       changeNote: `restored v${version}`,

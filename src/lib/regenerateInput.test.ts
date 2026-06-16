@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LAYOUT_VARIANTS } from './promptBuilder';
 import { buildTileRegenInput } from './regenerateInput';
 
 const campaign = {
@@ -6,14 +7,35 @@ const campaign = {
   enhancedPrompts: null,
 } as never;
 const tile = { presetId: 'ig-feed', adCopy: null, quantity: 3, assetUrl: 'https://img/live' } as never;
+const copyTile = {
+  presetId: 'ig-feed',
+  adCopy: { headline: 'H', subhead: 'S', cta: 'Buy' },
+  quantity: 3,
+  assetUrl: 'https://img/live',
+} as never;
 const brand = { name: 'Acme', palette: ['#111111'], logoUrl: 'https://img/logo' } as never;
 
 describe('buildTileRegenInput', () => {
-  it('uses the live image for relayout, product refs otherwise', () => {
+  it('always composes from product refs, never the finished creative (relayout included)', () => {
+    // Feeding the finished creative back in made the edit model preserve the
+    // layout; fix-layout now builds from refs so it can re-arrange.
     const relayout = buildTileRegenInput({ campaign, tile, brand, refUrls: ['https://img/ref'], variantsPerPreset: 3, options: { relayout: true } });
-    expect(relayout.input.images).toEqual(['https://img/live']);
+    expect(relayout.input.images).toEqual(['https://img/ref']);
     const plain = buildTileRegenInput({ campaign, tile, brand, refUrls: ['https://img/ref'], variantsPerPreset: 3, options: {} });
     expect(plain.input.images).toEqual(['https://img/ref']);
+  });
+
+  it('injects the chosen layout variant into the prompt', () => {
+    const variant = LAYOUT_VARIANTS[0]!;
+    const r = buildTileRegenInput({
+      campaign,
+      tile: copyTile,
+      brand,
+      refUrls: [],
+      variantsPerPreset: 3,
+      options: { relayout: true, layoutVariant: variant },
+    });
+    expect(r.prompt).toContain(variant.note);
   });
   it('appends the logo to images and the directive to the prompt when included', () => {
     const r = buildTileRegenInput({ campaign, tile, brand, refUrls: ['https://img/ref'], variantsPerPreset: 3, options: { includeLogo: true, logoUrl: 'https://img/logo' } });
