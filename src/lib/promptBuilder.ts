@@ -1,5 +1,4 @@
 import type { AdCopy } from './adCopy';
-import type { AdSizeDef } from './adFormats';
 import type { BrandProfile } from './brand';
 import type { PhotoshootBrief, PhotoshootRatio, PhotoshootTemplate } from './photoshootTemplates';
 import type { BriefForPresets, PresetDef } from './presets';
@@ -253,72 +252,4 @@ export function resolveFinalPrompt(enhanced: EnhancedPrompt): string {
   return enhanced.userOverride && enhanced.userOverride.trim()
     ? enhanced.userOverride.trim()
     : enhanced.finalPrompt;
-}
-
-export type BuildAdPromptInput = {
-  brief: BriefForPresets;
-  brand?: BrandProfile | null;
-  size: AdSizeDef;
-  referenceCount?: number;
-  userOverride?: string;
-  adCopy?: AdCopy | null;
-};
-
-function adCopyLayer(adCopy: AdCopy): string {
-  const parts: string[] = [
-    'this is a finished advertising creative — composition and layout must support the overlaid sales message, kept within the central safe area so nothing critical is lost when cropped',
-    `render the headline "${adCopy.headline}" centered, large bold sans-serif, high contrast over a subtle shape for legibility, no typos`,
-    `set the subhead "${adCopy.subhead}" near the headline in a smaller medium-weight sans-serif, one line if possible`,
-  ];
-  if (adCopy.cta) {
-    parts.push(
-      `render a solid rounded-pill button containing the text "${adCopy.cta}" in bold sans-serif, brand-accent fill, inside the central safe area`,
-    );
-  }
-  parts.push(
-    'all rendered text must be perfectly spelled, sharp, and evenly kerned; absolutely no extra, garbled, or duplicate words',
-  );
-  return parts.join('. ');
-}
-
-/**
- * Build the prompt for one Civitai-ad creative. The image is generated at the
- * size's nearest supported aspect ratio, then center-cropped to the exact pixel
- * size on export — so the prompt instructs a crop-safe, center-weighted layout.
- */
-export function buildAdPrompt(input: BuildAdPromptInput): EnhancedPrompt {
-  const { brief, brand, size, referenceCount = 0, userOverride, adCopy } = input;
-
-  const baseDescription = (brief.description?.trim() || brief.prompt?.trim() || '').replace(
-    /\s+/g,
-    ' ',
-  );
-  const base = assemble([
-    baseDescription,
-    brief.goal ? `goal: ${brief.goal}` : undefined,
-    brief.offer ? `offer: ${brief.offer}` : undefined,
-    brief.audience ? `audience: ${brief.audience}` : undefined,
-    brief.aesthetics ? `aesthetic: ${brief.aesthetics}` : undefined,
-  ]);
-
-  const hasCopy = !!adCopy && !!adCopy.headline && !!adCopy.subhead;
-  const intentStr = `digital advertising creative for a ${size.width}×${size.height} px ${size.formats.join('/')} ad placement, designed to be center-cropped to exactly ${size.width}×${size.height}px — keep the product hero and any text within the central safe area`;
-  const brandStr = brandLayer(brand ?? null);
-  const refStr = referenceLayer(referenceCount);
-  const styleStr = hasCopy
-    ? `${size.styleNotes}. on-brand, product-forward, polished ad creative, commercial-grade, high quality`
-    : `${size.styleNotes}. on-brand, product-forward, no text overlay, high quality`;
-  const copyStr = hasCopy ? adCopyLayer(adCopy as AdCopy) : '';
-
-  const finalPrompt = assemble([intentStr, base, brandStr, refStr, styleStr, copyStr]);
-
-  return {
-    base,
-    brandLayer: brandStr,
-    styleLayer: styleStr,
-    finalPrompt,
-    negativePrompt: hasCopy ? CAMPAIGN_TEXT_NEGATIVE : DEFAULT_NEGATIVE,
-    aspectRatio: size.aspectRatio,
-    userOverride: userOverride && userOverride.trim() ? userOverride.trim() : undefined,
-  };
 }
