@@ -210,10 +210,10 @@ listAdCampaignAssets(userId, campaignId)               // done tiles + asset url
 - `syncAssetsFromSnapshot`: add a third lookup branch (after campaign, photoshoot) resolving `adCampaignTiles` by `workflowId`; on first asset, set `assetId/status='done'`.
 - `markTileFailed`: add a third branch updating `adCampaignTiles`.
 
-### 6.5 `src/lib/adExport.ts` (new — client-safe)
-- Pure geometry: `coverRect(srcW, srcH, dstW, dstH): { sx, sy, sw, sh }` — cover-fit center crop. **Unit-tested** (no canvas needed).
-- `cropImageToSize(src: Blob|string, w: number, h: number): Promise<Blob>` — loads the image, draws via `coverRect` onto a `w×h` canvas, returns a PNG blob. Browser-only.
-- `exportAdCampaignZip(tiles): Promise<Blob>` — fetch each done asset, crop to its exact size, zip (reuse the same zip lib `ExportCampaignButton` uses). Filenames: `<sizeId>-<W>x<H>.png`.
+### 6.5 `src/lib/adExport.ts` (new — server-only)
+Cropping happens **server-side** (no canvas cross-origin taint, mirrors the existing server-side `/api/campaigns/[id]/export`). Adds the `sharp` dependency (de-facto Node image lib; `fit:'cover'` does center-crop+scale to exact px).
+- `cropToExactPng(bytes: Uint8Array | ArrayBuffer, width: number, height: number): Promise<Uint8Array>` — `sharp(buf).resize(width, height, { fit: 'cover', position: 'centre' }).png().toBuffer()`. **Unit-tested**: feed a generated solid PNG, assert output metadata is exactly W×H.
+- Export ZIP reuses the existing `src/lib/zip.ts` `buildZipStored(entries: ZipEntry[])` (NOT raw jszip in the route).
 
 ## 7. API routes (new, under `src/app/api/ads/`)
 
@@ -226,6 +226,12 @@ Body: brief + sizeIds (+ optional adCopy). Builds prompts, calls `estimateImageG
 
 ### `POST /api/ads/[id]/tiles/[tileId]/regenerate`
 Body: `{ promptHint?, adCopy?, prompt? }`. Loads campaign + brand, rebuilds prompt (`buildAdPrompt` with hint/override), `submitImageGen`, `swapAdTileWorkflow`, audit (`recordGeneration` + `recordBuzzEvent` note `'regenerate'`). Returns `{ tile, workflowId }`.
+
+### `GET /api/ads/[id]/export` (mirrors campaigns export, + crop)
+Auth → `getAdCampaign` (404) → `listAdCampaignAssets` (409 if none) → for each done tile: `fetch(publicUrl)` server-side → `cropToExactPng(bytes, tile.width, tile.height)` → push `ZipEntry { name: '<sizeId>-<W>x<H>.png', data }` → `buildZipStored` → return `application/zip` attachment.
+
+### `GET /api/ads/[id]/tiles/[tileId]/download` (single exact-px PNG)
+Auth → load tile (404 / 409 if not done) → `fetch(asset)` → `cropToExactPng` → return `image/png` attachment named `<sizeId>-<W>x<H>.png`.
 
 Workflow polling is the **existing** `/api/workflow/[id]` — unchanged. Terminal success runs `syncAssetsFromSnapshot` (now ad-aware); failure runs `markTileFailed` (now ad-aware).
 
@@ -241,8 +247,8 @@ All under `(app)` → auth + onboarding gated automatically. 404 via `notFound()
 - `AdSizePicker.tsx` — sizes grouped by format/device, each chip shows label + W×H + a mini aspect preview; default selection = `recommendedAdSizeIds()`.
 - `AdCampaignsList.tsx` — grid of past ad campaigns (thumb, title, size count, cooking badge).
 - `AdCampaignDetail.tsx` — header (editable title) + `AdCreativeGrid`.
-- `AdCreativeCard.tsx` — polls `/api/workflow/[id]?wait=15000` until done; renders the generated image in a fixed-aspect box at the **exact target ratio** (`object-fit: cover`) so the preview matches the deliverable; download-exact-PNG button (`cropImageToSize`); regenerate dialog (prompt hint).
-- `ExportAdCampaignButton.tsx` — ZIP all done creatives at exact px (`exportAdCampaignZip`).
+- `AdCreativeCard.tsx` — polls `/api/workflow/[id]?wait=15000` until done; renders the generated image in a fixed-aspect box at the **exact target ratio** (`object-fit: cover`) so the preview matches the deliverable; download-exact-PNG link → `GET /api/ads/[id]/tiles/[tileId]/download`; regenerate dialog (prompt hint).
+- `ExportAdCampaignButton.tsx` — downloads ZIP from `GET /api/ads/[id]/export` (mirror `ExportCampaignButton`).
 - Reuse `generations/PollingCard` patterns where they fit.
 
 ## 10. Navigation
@@ -256,7 +262,7 @@ Add to `NAV` in `src/components/shell/nav.ts` after `photoshoot`:
 - Terminal-failed tiles show an error state + regenerate.
 
 ## 12. Testing
-- **Unit** (`vitest`): `adFormats` (flatten correctness, the 6 sizes, `nearestAspect` table above, id stability), `coverRect` geometry (cover-fit math for landscape/portrait/extreme), `buildAdPrompt` (AR passthrough, copy on/off → negative prompt, crop-safe phrasing present).
+- **Unit** (`vitest`): `adFormats` (flatten correctness, the 6 sizes, `nearestAspect` table above, id stability), `cropToExactPng` (output metadata is exactly W×H for landscape/portrait/extreme targets, via `sharp`), `buildAdPrompt` (AR passthrough, copy on/off → negative prompt, crop-safe phrasing present).
 - **E2E** (`playwright`, new `tests/e2e/70-ads.spec.ts`): cook an ad campaign against the MSW-mocked orchestrator → assert redirect to `/ads/[id]`, tiles transition cooking→done, exact-size download control present. Mirrors `50-campaigns`. MSW handlers already cover submit/estimate/workflow.
 - **Verification commands:** `pnpm typecheck`; `pnpm db:generate` (review SQL) → `pnpm db:migrate` + `pnpm test:db:setup`; `pnpm test:unit`; `pnpm test:e2e`; `pnpm build`.
 
