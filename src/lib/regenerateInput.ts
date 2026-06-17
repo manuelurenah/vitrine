@@ -8,7 +8,7 @@ import {
   type LayoutVariant,
   resolveFinalPrompt,
 } from './promptBuilder';
-import { PRESETS } from './presets';
+import { isAdPreset, PRESETS } from './presets';
 
 export type RegenOptions = {
   /**
@@ -120,6 +120,10 @@ export function buildTileRegenInput(args: {
     prompt,
     aspectRatio: enhanced.aspectRatio,
     numImages: quantity,
+    // Ad presets are center-cropped to exact pixel sizes; request more source
+    // pixels so the crop stays sharp. Mirrors the cook route. Social presets
+    // keep the 1K default. (estimate uses this same input → cost parity.)
+    ...(isAdPreset(tile.presetId) ? { resolution: '2K' as const } : {}),
     ...(enhanced.negativePrompt ? { negativePrompt: enhanced.negativePrompt } : {}),
     ...(editImages.length > 0 ? { images: editImages } : {}),
   };
