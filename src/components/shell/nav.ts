@@ -1,7 +1,14 @@
-import { Camera, Dna, Megaphone } from 'lucide-react';
+import { Camera, Dna, Frame, Megaphone } from 'lucide-react';
 import type { ComponentType, SVGProps } from 'react';
 
-export type NavId = 'dna' | 'overview' | 'catalog' | 'assets' | 'campaigns' | 'photoshoot';
+export type NavId =
+  | 'dna'
+  | 'overview'
+  | 'catalog'
+  | 'assets'
+  | 'campaigns'
+  | 'photoshoot'
+  | 'ads';
 
 export type NavItem = {
   id: NavId;
@@ -20,11 +27,13 @@ export const NAV: NavItem[] = [
   { id: 'assets', label: 'assets', href: '/assets' },
   { id: 'campaigns', label: 'campaigns', href: '/campaigns', icon: Megaphone, shortcut: '⌘2' },
   { id: 'photoshoot', label: 'photoshoot', href: '/photoshoot', icon: Camera, shortcut: '⌘3' },
+  { id: 'ads', label: 'ads', href: '/ads', icon: Frame, shortcut: '⌘4' },
 ];
 
 const PREFIX_TO_ID: Array<[string, NavId]> = [
   ['/campaigns', 'campaigns'],
   ['/photoshoot', 'photoshoot'],
+  ['/ads', 'ads'],
   ['/catalog', 'catalog'],
   ['/assets', 'assets'],
   ['/brand', 'overview'],
