@@ -7,7 +7,7 @@ import type { CampaignTile } from '@/lib/campaigns';
 import { PRESETS } from '@/lib/presets';
 import type { CreativeGroup } from './creativeGroups';
 import { slotsForTile } from './creativeGroups';
-import { useTileWorkflow } from './useTileWorkflow';
+import { type TileWorkflowStatus, useTileWorkflow } from './useTileWorkflow';
 
 type Props = { campaignId: string; group: CreativeGroup };
 
@@ -40,10 +40,13 @@ export function CampaignCreativeRow({ campaignId, group }: Props) {
  */
 function VariantThumb({ campaignId, tile }: { campaignId: string; tile: CampaignTile }) {
   const preset = PRESETS[tile.presetId];
-  const { imageUrls, setWorkflowId } = useTileWorkflow(tile.workflowId, {
-    status: tile.status,
-    imageUrls: tile.assetUrl ? [tile.assetUrl] : [],
-  });
+  const { imageUrls, status, setStatus, setError, setWorkflowId } = useTileWorkflow(
+    tile.workflowId,
+    {
+      status: tile.status,
+      imageUrls: tile.assetUrl ? [tile.assetUrl] : [],
+    },
+  );
   const [regenerating, setRegenerating] = useState(false);
   const base = `/campaigns/${campaignId}/c/${tile.id}`;
   const slots = slotsForTile(tile, imageUrls.length);
@@ -55,7 +58,13 @@ function VariantThumb({ campaignId, tile }: { campaignId: string; tile: Campaign
         method: 'POST',
       });
       const data = (await res.json().catch(() => ({}))) as { workflowId?: string };
-      if (res.ok && data.workflowId) setWorkflowId(data.workflowId);
+      if (res.ok && data.workflowId) {
+        // Clear the failure and flip to cooking so the tile starts polling the
+        // new workflow immediately instead of sitting on the failed state.
+        setError(null);
+        setStatus('cooking');
+        setWorkflowId(data.workflowId);
+      }
     } finally {
       setRegenerating(false);
     }
@@ -67,6 +76,7 @@ function VariantThumb({ campaignId, tile }: { campaignId: string; tile: Campaign
         <RowImage
           key={i}
           url={imageUrls[i] ?? null}
+          status={status}
           editHref={i === 0 ? base : `${base}?v=${i}`}
           ratio={preset.width / preset.height}
           filename={`${preset.id}-${tile.id}-${i}`}
@@ -93,6 +103,7 @@ function tileWidth(ratio: number): number {
 
 function RowImage({
   url,
+  status,
   editHref,
   ratio,
   filename,
@@ -100,6 +111,7 @@ function RowImage({
   regenerating,
 }: {
   url: string | null;
+  status: TileWorkflowStatus;
   editHref: string;
   ratio: number;
   filename: string;
@@ -147,6 +159,24 @@ function RowImage({
         <Link href={editHref} aria-label="edit creative">
           <img src={url} alt="" className="h-full w-full object-cover" />
         </Link>
+      ) : status === 'failed' ? (
+        <button
+          type="button"
+          data-testid="row-image-failed"
+          onClick={onRegenerate}
+          disabled={regenerating}
+          aria-label="generation failed — regenerate"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-bg-3 px-2 text-center text-fg-3 transition-colors hover:text-fg-1 disabled:opacity-60"
+        >
+          <RefreshCw
+            size={14}
+            strokeWidth={1.75}
+            className={regenerating ? 'animate-spin' : ''}
+          />
+          <span className="font-mono text-[10px] leading-tight">
+            {regenerating ? 'retrying…' : "didn't generate · retry"}
+          </span>
+        </button>
       ) : (
         <div className="absolute inset-0 animate-pulse bg-bg-3" data-testid="row-image-skeleton" />
       )}
