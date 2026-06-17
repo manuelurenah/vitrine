@@ -4,7 +4,7 @@ import { getPublicUrls, MissingReferenceError } from '@/lib/assets';
 import { getDefaultBrand } from '@/lib/brand';
 import { recordBuzzEvent } from '@/lib/buzz';
 import { getCampaign, swapTileWorkflow } from '@/lib/campaigns';
-import { OrchestratorError, submitImageGen } from '@/lib/civitai';
+import { OrchestratorError, submitImageGenWithRetry } from '@/lib/civitai';
 import { recordGeneration } from '@/lib/generations';
 import { LAYOUT_VARIANTS } from '@/lib/promptBuilder';
 import { buildTileRegenInput } from '@/lib/regenerateInput';
@@ -105,7 +105,7 @@ export async function POST(req: NextRequest, ctx: { params: Params }) {
   const changeNote = relayout ? 'fix layout' : adCopyEdit || promptEdit ? 'edited' : 'regenerated';
 
   try {
-    const snap = await submitImageGen(session, input);
+    const snap = await submitImageGenWithRetry(session, input);
     const updated = await swapTileWorkflow(userKey, id, tileId, snap.id, {
       prompt: promptWithVariation,
       ...(adCopyEdit ? { adCopy: adCopyEdit } : {}),

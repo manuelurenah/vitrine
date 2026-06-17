@@ -43,6 +43,7 @@ vi.mock('@/lib/assets', () => ({
 }));
 vi.mock('@/lib/civitai', () => ({
   submitImageGen: submitImageGenMock,
+  submitImageGenWithRetry: submitImageGenMock,
   OrchestratorError: FakeOrchestratorError,
 }));
 vi.mock('@/lib/campaigns', () => ({

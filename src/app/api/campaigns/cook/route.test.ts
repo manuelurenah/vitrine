@@ -44,11 +44,23 @@ vi.mock('@/lib/assets', () => ({
     }
   },
 }));
-vi.mock('@/lib/civitai', () => ({
-  estimateImageGen: estimateImageGenMock,
-  submitImageGen: submitImageGenMock,
-  OrchestratorError: FakeOrchestratorError,
-}));
+vi.mock('@/lib/civitai', async () => {
+  // The cook route now fans submits out through `mapWithConcurrency` and retries
+  // each via `submitImageGenWithRetry`. We mock the submit (mapped to the same
+  // `submitImageGenMock` the assertions already use) but keep the REAL
+  // bounded-concurrency runner so order-preservation + the success/failure
+  // partition behave exactly as in production.
+  const { mapWithConcurrency } = await vi.importActual<typeof import('@/lib/concurrency')>(
+    '@/lib/concurrency',
+  );
+  return {
+    estimateImageGen: estimateImageGenMock,
+    submitImageGen: submitImageGenMock,
+    submitImageGenWithRetry: submitImageGenMock,
+    mapWithConcurrency,
+    OrchestratorError: FakeOrchestratorError,
+  };
+});
 vi.mock('@/lib/campaigns', () => ({ createCampaign: createCampaignMock }));
 vi.mock('@/lib/generations', () => ({ recordGeneration: recordGenerationMock }));
 vi.mock('@/lib/buzz', () => ({ recordBuzzEvent: recordBuzzEventMock }));

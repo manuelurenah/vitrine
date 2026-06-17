@@ -6,6 +6,7 @@ import {
   estimateWorkflow,
   getWorkflow,
   type OrchestratorClient,
+  OrchestratorError,
   submitWorkflow,
   type WorkflowSnapshot,
 } from '@civitai/app-sdk/orchestrator';
@@ -150,6 +151,56 @@ export function submitImageGen(
 ): Promise<WorkflowSnapshot> {
   return submitWorkflow(getClient(session), buildVitrineImageGenBody(input));
 }
+
+const sleep = (ms: number): Promise<void> =>
+  ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
+
+/**
+ * A non-retryable client error: any 4xx EXCEPT 429 (rate limit). These won't
+ * succeed on retry — bad request, auth, not-found, insufficient-buzz, etc.
+ * 429 and 5xx (and network/unknown errors) ARE retryable.
+ */
+function isNonRetryableOrchestratorError(err: unknown): boolean {
+  if (!(err instanceof OrchestratorError)) return false;
+  const { status } = err;
+  return (status >= 400 && status <= 428) || (status >= 431 && status <= 499);
+}
+
+/**
+ * `submitImageGen` with retry + exponential backoff. Firing many submits at
+ * once (campaign cook fans out preset × variant) means a fraction transiently
+ * fail with orchestrator rate-limit / 5xx; without a retry they get silently
+ * dropped and the user receives fewer variants than requested.
+ *
+ * Retries on 429, 5xx, and network/unknown errors. Does NOT retry on a
+ * non-retryable 4xx (everything except 429) — those won't succeed on retry, so
+ * we rethrow immediately. Rethrows the last error once all attempts are spent.
+ */
+export async function submitImageGenWithRetry(
+  session: Session,
+  input: VitrineImageGenInput,
+  opts: { attempts?: number; baseDelayMs?: number } = {},
+): Promise<WorkflowSnapshot> {
+  const attempts = opts.attempts ?? 3;
+  const baseDelayMs = opts.baseDelayMs ?? 400;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await submitImageGen(session, input);
+    } catch (err) {
+      lastError = err;
+      if (isNonRetryableOrchestratorError(err)) throw err;
+      if (attempt >= attempts) break;
+      // Exponential backoff with jitter. App-code, so Math.random is fine.
+      const backoff = baseDelayMs * 2 ** (attempt - 1);
+      const jitter = backoff > 0 ? Math.random() * baseDelayMs : 0;
+      await sleep(backoff + jitter);
+    }
+  }
+  throw lastError;
+}
+
+export { mapWithConcurrency } from './concurrency';
 
 function buildUpscaleBody(sourceImageUrl: string): unknown {
   return buildWorkflowBody(

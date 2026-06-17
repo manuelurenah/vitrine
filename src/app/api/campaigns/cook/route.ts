@@ -7,7 +7,12 @@ import { getDefaultBrand } from '@/lib/brand';
 import { briefSchema } from '@/lib/briefSchema';
 import { recordBuzzEvent } from '@/lib/buzz';
 import { createCampaign } from '@/lib/campaigns';
-import { OrchestratorError, submitImageGen, type VitrineImageGenInput } from '@/lib/civitai';
+import {
+  mapWithConcurrency,
+  OrchestratorError,
+  submitImageGenWithRetry,
+  type VitrineImageGenInput,
+} from '@/lib/civitai';
 import { recordGeneration } from '@/lib/generations';
 import { isAdPreset, PRESETS, type PresetId } from '@/lib/presets';
 import { buildCampaignPrompt, type EnhancedPrompt, resolveFinalPrompt } from '@/lib/promptBuilder';
@@ -15,6 +20,12 @@ import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
 
 const MAX_PROMPT_CHARS = 4000;
+
+// Cap how many orchestrator submits are in flight at once. Firing all
+// preset × variant submits simultaneously caused a fraction to transiently
+// fail (rate-limit / 5xx) and get dropped; bounding concurrency + retrying
+// (see `submitImageGenWithRetry`) keeps every requested variant landing.
+const SUBMIT_CONCURRENCY_LIMIT = 6;
 
 const enhancedPromptSchema = z.object({
   base: z.string().max(MAX_PROMPT_CHARS).optional(),
@@ -136,33 +147,54 @@ export async function POST(req: NextRequest) {
   });
 
   // Flat list of (preset, variantIndex) submit jobs, preserving order so the
-  // settled results line up with `submitMeta`. A single submit failure
-  // shouldn't poison the rest. We do NOT pre-estimate separately:
-  // submitImageGen returns the same cost.total whatif would.
-  const submitMeta: Array<{ presetId: PresetId; variantIndex: number }> = [];
-  const submitPromises: Array<Promise<SubmittedTile>> = [];
+  // settled results line up with `submitMeta`. We do NOT pre-estimate
+  // separately: submitImageGen returns the same cost.total whatif would.
+  type SubmitJob = {
+    presetId: PresetId;
+    variantIndex: number;
+    input: VitrineImageGenInput;
+    finalPrompt: string;
+    enhanced: EnhancedPrompt;
+    adCopy: AdCopy | null;
+    variantGroupId: string;
+  };
+  const jobs: SubmitJob[] = [];
   for (const p of perPreset) {
     for (let v = 0; v < variantsPerPreset; v++) {
-      submitMeta.push({ presetId: p.id, variantIndex: v });
-      submitPromises.push(
-        (async (): Promise<SubmittedTile> => {
-          const submit = await submitImageGen(session, p.input);
-          return {
-            presetId: p.id,
-            workflowId: submit.id,
-            prompt: p.finalPrompt,
-            estimatedCost: submit.cost?.total ?? 0,
-            input: p.input,
-            enhanced: p.enhanced,
-            adCopy: p.adCopy,
-            variantGroupId: p.variantGroupId,
-            variantIndex: v,
-          };
-        })(),
-      );
+      jobs.push({
+        presetId: p.id,
+        variantIndex: v,
+        input: p.input,
+        finalPrompt: p.finalPrompt,
+        enhanced: p.enhanced,
+        adCopy: p.adCopy,
+        variantGroupId: p.variantGroupId,
+      });
     }
   }
-  const settled = await Promise.allSettled(submitPromises);
+  const submitMeta = jobs.map((j) => ({ presetId: j.presetId, variantIndex: j.variantIndex }));
+
+  // Bound how many submits are in flight and retry transient failures. A single
+  // submit failure must not poison the rest, and order is preserved so results
+  // stay aligned with `submitMeta`.
+  const settled = await mapWithConcurrency(
+    jobs,
+    SUBMIT_CONCURRENCY_LIMIT,
+    async (job): Promise<SubmittedTile> => {
+      const submit = await submitImageGenWithRetry(session, job.input);
+      return {
+        presetId: job.presetId,
+        workflowId: submit.id,
+        prompt: job.finalPrompt,
+        estimatedCost: submit.cost?.total ?? 0,
+        input: job.input,
+        enhanced: job.enhanced,
+        adCopy: job.adCopy,
+        variantGroupId: job.variantGroupId,
+        variantIndex: job.variantIndex,
+      };
+    },
+  );
 
   const successes: SubmittedTile[] = [];
   const failures: Array<{ presetId: PresetId; error: string; status?: number }> = [];
