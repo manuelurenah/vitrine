@@ -31,6 +31,7 @@ const RATIO_FALLBACK: Record<string, AspectRatio> = {
 };
 
 function presetAspect(preset: PresetDef): AspectRatio {
+  if (preset.aspectRatio) return preset.aspectRatio;
   const direct = RATIO_FALLBACK[preset.ratio];
   if (direct) return direct;
   const r = preset.width / preset.height;
@@ -191,9 +192,12 @@ export function buildCampaignPrompt(input: BuildCampaignPromptInput): EnhancedPr
   const brandStr = brandLayer(brand ?? null);
   const refStr = referenceLayer(referenceCount);
   const hasCopy = !!adCopy && !!adCopy.headline && !!adCopy.subhead;
-  const intentStr = hasCopy
-    ? `social advertising creative for a ${preset.label} ${preset.ratio} placement, designed to be posted as-is — the product is the hero subject and the overlaid headline, subhead, and CTA carry the sales message`
-    : `social media creative for a ${preset.label} ${preset.ratio} placement — the product is the hero subject`;
+  const isAd = preset.platform === 'civitai-ads';
+  const intentStr = isAd
+    ? `digital advertising creative for a ${preset.width}×${preset.height}px Civitai ad placement, designed to be center-cropped to exactly ${preset.width}×${preset.height}px — keep the product hero and any text within the central safe area`
+    : hasCopy
+      ? `social advertising creative for a ${preset.label} ${preset.ratio} placement, designed to be posted as-is — the product is the hero subject and the overlaid headline, subhead, and CTA carry the sales message`
+      : `social media creative for a ${preset.label} ${preset.ratio} placement — the product is the hero subject`;
   const styleStr = hasCopy
     ? `${preset.styleNotes}. on-brand, product-forward, polished ad creative, high quality, commercial-grade composition`
     : `${preset.styleNotes}. on-brand, product-forward, no text overlay, high quality`;
