@@ -480,7 +480,7 @@ export function CreativeEditor({
         </PanelRow>
 
         {/* palette — editable */}
-        <PanelRow label="palette">
+        <PanelRow label="palette" testId="editor-palette-toggle">
           <div className="mt-1 flex flex-wrap gap-2">
             {palette.map((c, i) => (
               <label

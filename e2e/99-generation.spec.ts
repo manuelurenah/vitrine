@@ -22,7 +22,7 @@ test.describe('Generation pipeline smoke', () => {
     await markOnboardingComplete();
   });
 
-  test('preview → cook → poll → upscale → animate', async ({ page, baseURL }) => {
+  test('preview → cook → poll → tiles render', async ({ page, baseURL }) => {
     test.setTimeout(180_000);
     await signInToApp(page, baseURL!);
 
@@ -71,43 +71,14 @@ test.describe('Generation pipeline smoke', () => {
 
     await page.waitForURL(/\/campaigns\/[\w-]+$/, { timeout: 30_000 });
 
-    // ----- poll: detail page long-polls /api/workflow/[id]; image appears
-    // after MSW progression reaches Succeeded.
-    const firstImage = page.locator('[data-image-overlay] img').first();
+    // ----- poll: the detail page long-polls /api/workflow/[id]; the cooked
+    // image lands in the row view once MSW progression reaches Succeeded.
+    //
+    // Inline upscale/animate post-gen actions were removed in the
+    // row-per-variant refactor (dfb7879) — the row view surfaces
+    // edit/download/regenerate only (covered by 52/53 specs), so this smoke
+    // stops at "the cooked tile renders an image".
+    const firstImage = page.locator('[data-testid="campaign-creative-row"] img').first();
     await expect(firstImage).toBeVisible({ timeout: 30_000 });
-
-    // ----- upscale: open the actions menu (hamburger MoreHorizontal button,
-    // aria-label="image actions") then click the upscale chip. The chips live
-    // in a dropdown that is hidden until the menu button is clicked — hover
-    // alone does not reveal them.
-    const overlays = page.locator('[data-image-overlay]');
-    const upscaleOverlay = overlays.first();
-    await upscaleOverlay.getByRole('button', { name: /image actions/i }).click();
-    // Chips are portaled to document.body → scope to the page (the confirm
-    // panel stays inside the overlay).
-    await page.getByTestId('post-gen-chip-upscale-2-').click();
-    await upscaleOverlay.getByTestId('post-gen-confirm-upscale-go').click();
-    // post-gen-upscaled img lives inside the image overlay absolute container.
-    // The child card is absolutely positioned; check the container card instead
-    // to avoid overflow-clipping false-negatives from the ImageSlot's
-    // overflow:hidden parent.
-    await expect(page.getByTestId('post-gen-child-upscale').first()).toBeVisible({
-      timeout: 60_000,
-    });
-
-    // ----- animate: pick a separate overlay if available so the upscale
-    // child card doesn't obstruct the animate chips. Falls back to the same
-    // overlay if only one image rendered.
-    const overlayCount = await overlays.count();
-    const animateOverlay = overlayCount > 1 ? overlays.nth(1) : upscaleOverlay;
-    await animateOverlay.getByRole('button', { name: /image actions/i }).click();
-    await page.getByTestId('post-gen-chip-animate').click();
-    await animateOverlay.getByTestId('post-gen-confirm-animate-go').click();
-    // Check the animate child card container, then the video element inside it.
-    await expect(page.getByTestId('post-gen-child-animate').first()).toBeVisible({
-      timeout: 60_000,
-    });
-    const videoEl = page.getByTestId('post-gen-video').first();
-    await expect(videoEl).toHaveAttribute('controls', '');
   });
 });

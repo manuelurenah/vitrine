@@ -155,6 +155,8 @@ test.describe('creative editor', () => {
 
     await expect(page.getByTestId('creative-editor')).toBeVisible({ timeout: 15_000 });
 
+    // The palette lives in a collapsible section — expand it before editing.
+    await page.getByTestId('editor-palette-toggle').click();
     // Add a swatch (works whether or not the brand seeded a palette), then save.
     // Save now renders + persists in one call, so the palette must land on both
     // the tile and the freshly-recorded version row.
