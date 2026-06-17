@@ -47,7 +47,7 @@ src/
     ├── session.ts                          sealed-cookie session (read · write · refresh)
     ├── civitai.ts                          SDK wiring (fetchMe, buzz, orchestrator)
     ├── userKey.ts                          upserts `users` row; returns stable id
-    ├── db/                                 Drizzle client + schema (12 tables, 8 enums)
+    ├── db/                                 Drizzle client + schema (14 tables, 8 enums)
     ├── onboarding.ts · brand.ts · catalog.ts · campaigns.ts · photoshoots.ts
     ├── adFormats.ts · adCampaigns.ts · adExport.ts · adCopy.ts  (Civitai ads)
     ├── generations.ts · buzz.ts · assets.ts
