@@ -49,7 +49,7 @@ export function ColorPickerChip({ onPick }: Props) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="dialog"
-        className="inline-flex h-10 w-10 items-center justify-center rounded-pill border border-dashed border-line bg-bg-3/60 text-fg-2 transition-colors duration-fast ease-out hover:border-line-volt hover:text-volt"
+        className="inline-flex h-[56px] w-[56px] items-center justify-center rounded-[10px] border border-dashed border-line bg-bg-3/60 text-fg-2 transition-colors duration-fast ease-out hover:border-line-volt hover:text-volt"
         title="pick a custom brand color"
       >
         <Plus size={16} strokeWidth={2} />
@@ -60,7 +60,7 @@ export function ColorPickerChip({ onPick }: Props) {
         <div
           role="dialog"
           aria-label="pick a custom color"
-          className="absolute left-0 top-12 z-overlay w-[228px] rounded-[14px] border border-line-volt bg-bg-2 p-3 shadow-bloom-volt-sm"
+          className="absolute left-0 top-[64px] z-overlay w-[228px] rounded-[14px] border border-line-volt bg-bg-2 p-3 shadow-bloom-volt-sm"
         >
           <HexColorPicker
             color={draft}

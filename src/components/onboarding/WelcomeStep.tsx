@@ -148,11 +148,11 @@ const cards = [
 
 export function WelcomeStep() {
   return (
-    <section className="flex flex-col items-center gap-12 pt-12 text-center">
+    <section className="flex flex-col items-center gap-6 pt-4 text-center lg:gap-8 lg:pt-6">
       <div className="grid h-[56px] w-[56px] place-items-center rounded-[16px] border border-line-volt bg-volt-soft text-volt shadow-bloom-volt-sm">
         <Dna size={28} strokeWidth={1.75} />
       </div>
-      <header className="flex flex-col items-center gap-4">
+      <header className="flex flex-col items-center gap-3">
         <h1 className="t-h1 text-fg-0">
           welcome to{' '}
           <span className="bg-gradient-to-br from-volt to-ion bg-clip-text text-transparent">
@@ -168,7 +168,7 @@ export function WelcomeStep() {
         {cards.map(({ num, title, body, thumbClass, deco }) => (
           <article
             key={num}
-            className="flex min-h-[320px] flex-col gap-3 rounded-[20px] border border-line bg-gradient-to-b from-bg-1 to-bg-2 p-6 text-left transition-all duration-base ease-out hover:-translate-y-[2px] hover:border-line-volt"
+            className="flex flex-col gap-2 rounded-[20px] border border-line bg-gradient-to-b from-bg-1 to-bg-2 p-5 text-left transition-all duration-base ease-out hover:-translate-y-[2px] hover:border-line-volt lg:gap-3 lg:p-6"
           >
             <span className="font-display text-[40px] font-bold leading-none tracking-[-0.04em] text-volt">
               {num}

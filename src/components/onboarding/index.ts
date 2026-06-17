@@ -1,6 +1,5 @@
 export { DnaStep } from './DnaStep';
 export { InputStep } from './InputStep';
-export { NextChoiceModal } from './NextChoiceModal';
 export { NextScreen } from './NextScreen';
 export { OnboardingFrame } from './OnboardingFrame';
 export { ProcessingStep } from './ProcessingStep';

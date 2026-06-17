@@ -79,7 +79,7 @@ export function OnboardingFrame({ step, children, skipHref = '/onboarding/dna' }
       </header>
 
       {/* px-4 on mobile, px-10 on sm+ */}
-      <main className="relative z-card mx-auto w-full max-w-[1080px] px-4 pb-16 sm:px-10">
+      <main className="relative z-card mx-auto w-full max-w-[1080px] px-4 pb-8 sm:px-10 lg:pb-12">
         {children}
       </main>
     </div>

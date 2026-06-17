@@ -30,7 +30,10 @@ export function DnaStep({ payload }: Props) {
   const [tone, setTone] = useState<string[]>(payload.tone ?? []);
   const [font, setFont] = useState<string>(payload.font ?? scrape?.font ?? '');
   const [colors, setColors] = useState<string[]>(
-    payload.colors && payload.colors.length > 0 ? payload.colors : (scrape?.palette ?? []),
+    (payload.colors && payload.colors.length > 0
+      ? payload.colors
+      : (scrape?.palette ?? [])
+    ).slice(0, 6),
   );
   const [logoUrl, setLogoUrl] = useState<string | null>(payload.logoUrl ?? scrape?.logoUrl ?? null);
   const [logoName, setLogoName] = useState<string | null>(payload.logoName ?? null);
@@ -48,12 +51,20 @@ export function DnaStep({ payload }: Props) {
   }
 
   function toggleColor(hex: string) {
-    setColors((cs) => (cs.includes(hex) ? cs.filter((x) => x !== hex) : [...cs, hex]));
+    setColors((cs) => {
+      if (cs.includes(hex)) return cs.filter((x) => x !== hex);
+      if (cs.length >= 6) return cs;
+      return [...cs, hex];
+    });
   }
 
   function addColor(hex: string) {
     const c = hex.toLowerCase();
-    setColors((cs) => (cs.includes(c) ? cs : [c, ...cs]));
+    setColors((cs) => {
+      if (cs.includes(c)) return cs;
+      if (cs.length >= 6) return cs;
+      return [c, ...cs];
+    });
   }
 
   function removeColor(hex: string) {
@@ -211,7 +222,7 @@ export function DnaStep({ payload }: Props) {
                   </button>
                 </div>
               ))}
-              <ColorPickerChip onPick={addColor} />
+              {colors.length < 6 && <ColorPickerChip onPick={addColor} />}
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-3">

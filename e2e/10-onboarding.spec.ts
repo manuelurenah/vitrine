@@ -35,8 +35,8 @@ test.describe('Onboarding flow', () => {
     await page.getByRole('link', { name: /let.s go/i }).click();
 
     // Next — terminal step. Visiting it sets completed_at; the layout gate
-    // will then let us into /campaigns. The step now renders as a choice modal
-    // ("your brand DNA is ready.") overlaid on the dimmed DNA screen.
+    // will then let us into /campaigns. The step renders inline as a full
+    // choice screen ("your brand DNA is ready.") with campaigns + photoshoot cards.
     await page.waitForURL(/\/onboarding\/next/);
     await expect(page.getByRole('heading', { name: /your brand dna is ready/i })).toBeVisible();
     await page.getByTestId('next-choice-campaigns').click();

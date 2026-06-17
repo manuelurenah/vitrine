@@ -12,6 +12,7 @@ import { LogoPreview } from './LogoPreview';
 import { useLogoUpload } from './useLogoUpload';
 
 const SUGGESTED_COLORS = ['#ff7849', '#ffd13d', '#1c4f29', '#7c5cff', '#19f0ff'] as const;
+const MAX_COLORS = 6;
 
 type Props = { payload?: OnboardingPayload };
 
@@ -21,7 +22,9 @@ export function InputStep({ payload = {} }: Props) {
   const [url, setUrl] = useState(payload.websiteUrl ?? '');
   const [brandName, setBrandName] = useState(payload.brandName ?? '');
   const [description, setDescription] = useState(payload.description ?? '');
-  const [colors, setColors] = useState<string[]>(payload.colors ?? []);
+  // No preselected colors — user picks from suggestions / custom, up to MAX_COLORS.
+  const [colors, setColors] = useState<string[]>([]);
+  const [colorError, setColorError] = useState<string | null>(null);
   const [logoName, setLogoName] = useState<string | null>(payload.logoName ?? null);
   const [logoUrl, setLogoUrl] = useState<string | null>(payload.logoUrl ?? null);
   const [urlError, setUrlError] = useState<string | null>(null);
@@ -41,11 +44,30 @@ export function InputStep({ payload = {} }: Props) {
 
   function addColor(hex: string) {
     const c = hex.toLowerCase();
-    setColors((cs) => (cs.includes(c) ? cs : [c, ...cs]));
+    setColors((cs) => {
+      if (cs.includes(c)) return cs;
+      if (cs.length >= MAX_COLORS) {
+        setColorError(`pick up to ${MAX_COLORS} colors`);
+        return cs;
+      }
+      setColorError(null);
+      return [...cs, c];
+    });
   }
 
   function toggleColor(hex: string) {
-    setColors((cs) => (cs.includes(hex) ? cs.filter((x) => x !== hex) : [...cs, hex]));
+    setColors((cs) => {
+      if (cs.includes(hex)) {
+        setColorError(null);
+        return cs.filter((x) => x !== hex);
+      }
+      if (cs.length >= MAX_COLORS) {
+        setColorError(`pick up to ${MAX_COLORS} colors`);
+        return cs;
+      }
+      setColorError(null);
+      return [...cs, hex];
+    });
   }
 
   // Debounced persistence — every editable field rides the same patch so
@@ -127,10 +149,14 @@ export function InputStep({ payload = {} }: Props) {
     router.push('/onboarding/dna');
   }
 
+  // Extracted brand colors are shown as suggestions (unselected) alongside the presets.
+  const extractedColors = (payload.colors ?? []).map((c) => c.toLowerCase());
+  const baseSuggestions = uniqueColors([...extractedColors, ...SUGGESTED_COLORS]);
+  // Custom colors the user picked that aren't already in the suggestion set.
   const customColors = colors.filter(
-    (c) => !SUGGESTED_COLORS.some((s) => s.toLowerCase() === c.toLowerCase()),
+    (c) => !baseSuggestions.some((s) => s.toLowerCase() === c.toLowerCase()),
   );
-  const allSwatches = uniqueColors([...customColors, ...SUGGESTED_COLORS]);
+  const allSwatches = uniqueColors([...customColors, ...baseSuggestions]);
 
   return (
     <section className="flex flex-col gap-10 pt-10">
@@ -286,7 +312,7 @@ export function InputStep({ payload = {} }: Props) {
           <Card className="md:col-span-2">
             <CardHead
               title="brand colors"
-              tag={colors.length > 0 ? `${colors.length} picked` : 'pick a few'}
+              tag={colors.length > 0 ? `${colors.length}/${MAX_COLORS} picked` : 'pick up to 6'}
             />
             <p className="text-[12.5px] text-fg-2">tap a suggestion or click + to add your own.</p>
             <div className="flex flex-wrap gap-3 pt-1">
@@ -299,10 +325,9 @@ export function InputStep({ payload = {} }: Props) {
                     onClick={() => toggleColor(c)}
                     aria-pressed={on}
                     title={c}
-                    className="group relative grid h-10 w-10 place-items-center rounded-pill transition-all duration-fast ease-out hover:scale-[1.06]"
+                    className="group relative grid h-[56px] w-[56px] place-items-end rounded-[10px] border border-line p-2 transition-all duration-fast ease-out hover:scale-[1.04]"
                     style={{
                       background: c,
-                      transform: on ? 'scale(1.08)' : undefined,
                       boxShadow: on
                         ? '0 0 0 2px var(--bg-2), 0 0 0 4px var(--volt), 0 0 16px -2px var(--volt-glow)'
                         : 'inset 0 0 0 1px rgba(255, 255, 255, 0.12)',
@@ -312,7 +337,7 @@ export function InputStep({ payload = {} }: Props) {
                       size={16}
                       strokeWidth={3}
                       className={cn(
-                        'pointer-events-none transition-opacity duration-fast ease-out',
+                        'pointer-events-none absolute right-1.5 top-1.5 transition-opacity duration-fast ease-out',
                         on ? 'opacity-100' : 'opacity-0',
                       )}
                       style={{
@@ -320,12 +345,29 @@ export function InputStep({ payload = {} }: Props) {
                         filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.45))',
                       }}
                     />
-                    <span className="sr-only">{c}</span>
+                    <span
+                      className="pointer-events-none font-mono text-[9.5px] uppercase"
+                      style={{
+                        color: pickContrast(c),
+                        opacity: 0.85,
+                        textShadow:
+                          pickContrast(c) === '#ffffff'
+                            ? '0 1px 1px rgba(0,0,0,0.35)'
+                            : '0 1px 1px rgba(255,255,255,0.35)',
+                      }}
+                    >
+                      {c.slice(1)}
+                    </span>
                   </button>
                 );
               })}
-              <ColorPickerChip onPick={addColor} />
+              {colors.length < MAX_COLORS && <ColorPickerChip onPick={addColor} />}
             </div>
+            {colorError && (
+              <p className="pt-1 font-mono text-[10.5px] uppercase tracking-[0.1em] text-danger">
+                {colorError}
+              </p>
+            )}
           </Card>
         </div>
       </article>

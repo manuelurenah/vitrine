@@ -50,6 +50,6 @@ function Screen({ step, payload }: { step: OnboardingStep; payload: OnboardingPa
     case 'dna':
       return <DnaStep payload={payload} />;
     case 'next':
-      return <NextScreen payload={payload} />;
+      return <NextScreen />;
   }
 }

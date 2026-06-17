@@ -18,7 +18,10 @@ test.describe('onboarding next', () => {
     await resetUserData();
   });
 
-  test('next step renders as a modal over the dimmed DNA screen', async ({ page, baseURL }) => {
+  test('next step renders as a full step screen with both choice cards', async ({
+    page,
+    baseURL,
+  }) => {
     // Sign in — lands somewhere in /onboarding (welcome, since no state exists)
     await signInToApp(page, baseURL!);
 
@@ -26,21 +29,17 @@ test.describe('onboarding next', () => {
     await page.goto(`${baseURL}/onboarding/next`);
     await page.waitForURL(/\/onboarding\/next/);
 
-    // Modal is visible
-    const modal = page.getByTestId('next-choice-modal');
-    await expect(modal).toBeVisible();
-
-    // DNA screen is present in the DOM (dimmed behind the modal)
-    const dnaBehind = page.getByTestId('next-dna-behind');
-    await expect(dnaBehind).toBeAttached();
+    // Rendered inline as a step (no modal, no dimmed DNA scrim behind it)
+    await expect(page.getByRole('heading', { name: /your brand DNA is.*ready/i })).toBeVisible();
+    await expect(page.getByTestId('next-choice-modal')).toHaveCount(0);
+    await expect(page.getByTestId('next-dna-behind')).toHaveCount(0);
 
     // Both choice cards are visible
     await expect(page.getByTestId('next-choice-campaigns')).toBeVisible();
     await expect(page.getByTestId('next-choice-photoshoot')).toBeVisible();
 
-    // Buzz amounts are rendered: 60 for campaigns, 36 for photoshoot
-    await expect(modal.getByText('60')).toBeVisible();
-    await expect(modal.getByText('36')).toBeVisible();
+    // No Buzz estimate on this screen — cost depends on params chosen inside each tool
+    await expect(page.getByTestId('next-choice').getByText(/buzz/i)).toHaveCount(0);
   });
 
   test('clicking campaigns card routes to /campaigns', async ({ page, baseURL }) => {
@@ -63,24 +62,21 @@ test.describe('onboarding next', () => {
     await page.waitForURL(/\/photoshoot$/);
   });
 
+  test('back link routes to /onboarding/dna', async ({ page, baseURL }) => {
+    await signInToApp(page, baseURL!);
+    await page.goto(`${baseURL}/onboarding/next`);
+    await page.waitForURL(/\/onboarding\/next/);
+
+    await page.getByTestId('next-back-link').click();
+    await page.waitForURL(/\/onboarding\/dna$/);
+  });
+
   test('dashboard fallback link routes to /campaigns', async ({ page, baseURL }) => {
     await signInToApp(page, baseURL!);
     await page.goto(`${baseURL}/onboarding/next`);
     await page.waitForURL(/\/onboarding\/next/);
 
     await page.getByTestId('next-dashboard-link').click();
-    await page.waitForURL(/\/campaigns$/);
-  });
-
-  test('Esc closes the modal and navigates to the dashboard', async ({ page, baseURL }) => {
-    await signInToApp(page, baseURL!);
-    await page.goto(`${baseURL}/onboarding/next`);
-    await page.waitForURL(/\/onboarding\/next/);
-
-    // Ensure the modal is open before pressing Escape
-    await expect(page.getByTestId('next-choice-modal')).toBeVisible();
-
-    await page.keyboard.press('Escape');
     await page.waitForURL(/\/campaigns$/);
   });
 
