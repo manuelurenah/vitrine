@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import { extractImageUrls, type WorkflowSnapshot } from '@/lib/civitai';
 import { db } from '@/lib/db';
 import {
+  adCampaignTiles,
   type Asset as AssetRow,
   assets,
   campaignTiles,
@@ -329,8 +330,16 @@ export async function syncAssetsFromSnapshot(
         .where(eq(photoshootTiles.workflowId, workflowId))
         .limit(1)
     : [];
+  const [adTile] =
+    !campaignTile && !photoshootTile
+      ? await db
+          .select()
+          .from(adCampaignTiles)
+          .where(eq(adCampaignTiles.workflowId, workflowId))
+          .limit(1)
+      : [];
 
-  const sourceTileId = campaignTile?.id ?? photoshootTile?.id ?? null;
+  const sourceTileId = campaignTile?.id ?? photoshootTile?.id ?? adTile?.id ?? null;
 
   let inserted = 0;
   for (let i = 0; i < urls.length; i++) {
@@ -367,6 +376,11 @@ export async function syncAssetsFromSnapshot(
             .update(photoshootTiles)
             .set({ assetId: row.id, status: 'done', updatedAt: new Date() })
             .where(eq(photoshootTiles.id, sourceTileId));
+        } else if (adTile) {
+          await db
+            .update(adCampaignTiles)
+            .set({ assetId: row.id, status: 'done', updatedAt: new Date() })
+            .where(eq(adCampaignTiles.id, sourceTileId));
         }
       }
     }
@@ -529,5 +543,17 @@ export async function markTileFailed(workflowId: string, errorMsg: string): Prom
       .update(photoshootTiles)
       .set({ status: 'failed', error: errorMsg, updatedAt: new Date() })
       .where(eq(photoshootTiles.id, photoshootTile.id));
+    return;
+  }
+  const [adTile] = await db
+    .select({ id: adCampaignTiles.id })
+    .from(adCampaignTiles)
+    .where(eq(adCampaignTiles.workflowId, workflowId))
+    .limit(1);
+  if (adTile) {
+    await db
+      .update(adCampaignTiles)
+      .set({ status: 'failed', error: errorMsg, updatedAt: new Date() })
+      .where(eq(adCampaignTiles.id, adTile.id));
   }
 }
