@@ -28,24 +28,28 @@ src/
 │   ├── (app)/                              auth-guarded shell, also enforces onboarding
 │   │   ├── campaigns/                      list · new · [id]
 │   │   ├── photoshoot/                     list · new · [id]
+│   │   ├── ads/                            list · new · [id] (Civitai ad creatives)
 │   │   └── brand/                          dna · book · catalog · assets (+ /new uploader)
 │   ├── api/
 │   │   ├── auth/                           login · callback/civitai · logout · revoke
 │   │   ├── campaigns/                      cook · estimate · [id]/tiles/[tileId]/regenerate
+│   │   ├── ads/                            cook · estimate · [id] DELETE · [id]/export ·
+│   │   │                                    [id]/tiles/[tileId]/{regenerate,download}
 │   │   ├── photoshoot/cook/
 │   │   ├── catalog/products/               GET · POST · [id] GET/PATCH/DELETE
 │   │   ├── assets/                         GET list · POST finalize · presign/
 │   │   └── workflow/[id]/                  long-poll snapshot; updates db on terminal
 │   └── instrumentation.ts                  starts MSW node when MOCK_CIVITAI=1
 ├── components/                             ui · shell · login · onboarding · campaigns ·
-│                                            photoshoot · catalog · assets
+│                                            photoshoot · ads · catalog · assets
 └── lib/
     ├── env.ts                              Zod env validation
     ├── session.ts                          sealed-cookie session (read · write · refresh)
     ├── civitai.ts                          SDK wiring (fetchMe, buzz, orchestrator)
     ├── userKey.ts                          upserts `users` row; returns stable id
-    ├── db/                                 Drizzle client + schema (12 tables, 8 enums)
+    ├── db/                                 Drizzle client + schema (14 tables, 8 enums)
     ├── onboarding.ts · brand.ts · catalog.ts · campaigns.ts · photoshoots.ts
+    ├── adFormats.ts · adCampaigns.ts · adExport.ts · adCopy.ts  (Civitai ads)
     ├── generations.ts · buzz.ts · assets.ts
     └── s3.ts                               presigned PUT + public URL builder
 ```
@@ -76,6 +80,7 @@ src/
 | New Civitai SDK call | Add to `src/lib/civitai.ts`. Don't call SDK from RSCs. |
 | New OAuth scope | Bump `REQUESTED_SCOPES` in `src/lib/scopes.ts` + grant on the OAuth App. Users re-login. |
 | New social preset / shoot template | Append to `PRESETS` / `PHOTOSHOOT_TEMPLATES`. `width`/`height` drive aspect ratio; `styleNotes` get injected into the prompt. |
+| New ad size / format | Append to `AD_FORMATS` in `src/lib/adFormats.ts` (sizes are derived per-dimension; `nearestAspect` maps each to a generation ratio). Add to `recommendedAdSizeIds()` if it should be a default. The exact-pixel deliverable is produced by a server-side `sharp` crop in `src/lib/adExport.ts` — no per-size cook code needed. |
 | New persisted entity | Add the table to `src/lib/db/schema.ts`, run `pnpm db:generate` to emit a migration, run `pnpm db:migrate`. Add a `lib/<entity>.ts` helper module with the same shape as `lib/catalog.ts`. |
 | New env var | Add to Zod schema in `src/lib/env.ts` **and** `.env.example`. |
 | New asset workflow | Use `presignUpload()` from `lib/s3.ts` for client uploads, then `createAsset()` from `lib/assets.ts` to persist. For orchestrator outputs, `syncAssetsFromSnapshot()` already runs from the workflow route. |
@@ -88,6 +93,8 @@ src/
 3. User walks onboarding; visiting `/onboarding/next` sets `completed_at`.
 4. From `/campaigns/new` (or `/photoshoot/new`), client submits a brief → server cooks per-tile workflows in parallel → persists campaign + tiles + generations + buzz events.
 5. Client polls `/api/workflow/[id]?wait=15000`. On terminal status, server updates generation, creates asset rows, links to tile, records charged buzz once.
+
+**Civitai ads** (`/ads`) reuse the same cook/estimate/poll plumbing as campaigns — brief → review → `POST /api/ads/cook` fans out one `submitImageGen` workflow per selected ad size (no LLM draft pass). Specifics: ad sizes come from `src/lib/adFormats.ts` (`AD_FORMATS` → `AD_SIZES`; `recommendedAdSizeIds()` seeds the picker); the generation `source` enum value is `ad_campaign`; `syncAssetsFromSnapshot`/`markTileFailed` are ad-aware and update `ad_campaign_tiles` by `workflow_id` on terminal polls. Exact-pixel deliverables are produced by a server-side `sharp` crop in `src/lib/adExport.ts` — `GET /api/ads/[id]/export` returns a zip of all done creatives; `GET /api/ads/[id]/tiles/[tileId]/download` returns one cropped PNG.
 
 ## Verifying changes
 

@@ -29,6 +29,7 @@ export const buzzEventKind = pgEnum('buzz_event_kind', ['estimate', 'submit', 'r
 export const generationSource = pgEnum('generation_source', [
   'campaign',
   'photoshoot',
+  'ad_campaign',
   'adhoc',
   'upscale',
   'animate',
@@ -245,6 +246,63 @@ export const campaignTiles = pgTable(
   }),
 );
 
+export const adCampaigns = pgTable(
+  'ad_campaigns',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: text('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    brandId: uuid('brand_id').references(() => brandProfiles.id, { onDelete: 'set null' }),
+    productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+    title: text('title').notNull(),
+    brief: jsonb('brief').notNull(),
+    sizeIds: text('size_ids').array().default(sql`ARRAY[]::text[]`).notNull(),
+    referenceAssetIds: text('reference_asset_ids').array().default(sql`ARRAY[]::text[]`).notNull(),
+    enhancedPrompts: jsonb('enhanced_prompts'),
+    adCopy: jsonb('ad_copy'),
+    audience: text('audience'),
+    aesthetics: text('aesthetics'),
+    estimatedBuzz: integer('estimated_buzz').default(0).notNull(),
+    actualBuzz: integer('actual_buzz').default(0).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    userCreatedIdx: index('ad_campaigns_user_created_idx').on(t.userId, t.createdAt),
+  }),
+);
+
+export const adCampaignTiles = pgTable(
+  'ad_campaign_tiles',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    adCampaignId: uuid('ad_campaign_id')
+      .references(() => adCampaigns.id, { onDelete: 'cascade' })
+      .notNull(),
+    sizeId: text('size_id').notNull(),
+    width: integer('width').notNull(),
+    height: integer('height').notNull(),
+    aspectRatio: text('aspect_ratio').notNull(),
+    workflowId: text('workflow_id').notNull(),
+    prompt: text('prompt').notNull(),
+    seed: text('seed'),
+    quantity: integer('quantity').default(1).notNull(),
+    status: tileStatus('status').default('queued').notNull(),
+    estimatedBuzz: integer('estimated_buzz').default(0).notNull(),
+    actualBuzz: integer('actual_buzz').default(0).notNull(),
+    assetId: uuid('asset_id').references(() => assets.id, { onDelete: 'set null' }),
+    adCopy: jsonb('ad_copy'),
+    error: text('error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    campaignIdx: index('ad_campaign_tiles_campaign_idx').on(t.adCampaignId),
+    workflowUidx: uniqueIndex('ad_campaign_tiles_workflow_uidx').on(t.workflowId),
+  }),
+);
+
 export const tileVersions = pgTable(
   'tile_versions',
   {
@@ -382,6 +440,10 @@ export type Campaign = typeof campaigns.$inferSelect;
 export type NewCampaign = typeof campaigns.$inferInsert;
 export type CampaignTile = typeof campaignTiles.$inferSelect;
 export type NewCampaignTile = typeof campaignTiles.$inferInsert;
+export type AdCampaign = typeof adCampaigns.$inferSelect;
+export type NewAdCampaign = typeof adCampaigns.$inferInsert;
+export type AdCampaignTile = typeof adCampaignTiles.$inferSelect;
+export type NewAdCampaignTile = typeof adCampaignTiles.$inferInsert;
 export type Photoshoot = typeof photoshoots.$inferSelect;
 export type NewPhotoshoot = typeof photoshoots.$inferInsert;
 export type PhotoshootTile = typeof photoshootTiles.$inferSelect;

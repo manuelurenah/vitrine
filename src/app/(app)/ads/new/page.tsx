@@ -1,0 +1,73 @@
+import { AdCampaignWizard } from '@/components/ads';
+import { listAssets } from '@/lib/assets';
+import { getDefaultBrand } from '@/lib/brand';
+import { listProducts } from '@/lib/catalog';
+import { getBuzzAccount } from '@/lib/civitai';
+import { getSession } from '@/lib/session';
+import { getUserKey } from '@/lib/userKey';
+
+export const metadata = { title: 'new ad campaign · vitrine' };
+export const dynamic = 'force-dynamic';
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+function firstString(v: string | string[] | undefined): string | undefined {
+  if (Array.isArray(v)) return v[0];
+  return v;
+}
+
+function parseRefs(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => id.startsWith('product:') || id.startsWith('asset:'))
+    .slice(0, 4);
+}
+
+export default async function NewAdCampaignPage({ searchParams }: { searchParams: SearchParams }) {
+  const session = await getSession();
+  const sp = await searchParams;
+  const refsParam = parseRefs(firstString(sp.refs));
+
+  if (!session) {
+    return (
+      <main className="mx-auto flex w-full max-w-[960px] flex-col gap-6 px-6 py-8">
+        <AdCampaignWizard
+          initial={refsParam.length > 0 ? { defaultReferenceAssetIds: refsParam } : undefined}
+        />
+      </main>
+    );
+  }
+
+  const userKey = await getUserKey(session);
+  const [brand, products, assets, buzz] = await Promise.all([
+    getDefaultBrand(userKey),
+    listProducts(userKey),
+    listAssets(userKey),
+    getBuzzAccount(session).catch(() => null),
+  ]);
+
+  return (
+    <main className="mx-auto flex w-full max-w-[960px] flex-col gap-6 px-6 py-8">
+      <header className="flex flex-col gap-2">
+        <span className="t-eyebrow">// new ad campaign</span>
+        <h1 className="text-[22px] font-semibold tracking-[-0.01em] text-fg-0">cook ad creatives</h1>
+        <p className="text-[13.5px] text-fg-2">
+          brief → review → cook. one ready-to-upload creative per ad size. {products.length} product
+          {products.length === 1 ? '' : 's'} · {assets.length} asset
+          {assets.length === 1 ? '' : 's'} available as references.
+        </p>
+      </header>
+      <AdCampaignWizard
+        initial={{
+          brandName: brand?.name ?? null,
+          productCount: products.length,
+          assetCount: assets.length,
+          buzzBalance: buzz?.balance ?? null,
+          ...(refsParam.length > 0 ? { defaultReferenceAssetIds: refsParam } : {}),
+        }}
+      />
+    </main>
+  );
+}
