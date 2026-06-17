@@ -21,7 +21,6 @@ export function AdCreativeCard({ campaignId, tile }: Props) {
   const router = useRouter();
   const aspect = tile.width / tile.height;
   const {
-    workflowId,
     status,
     imageUrls,
     error,
