@@ -219,7 +219,10 @@ export const campaignTiles = pgTable(
       .references(() => campaigns.id, { onDelete: 'cascade' })
       .notNull(),
     presetId: text('preset_id').notNull(),
-    workflowId: text('workflow_id').notNull(),
+    // Nullable: a `failed` tile (submit rejected at cook time) has no workflow
+    // yet. Regenerate populates it. The unique index treats NULLs as distinct,
+    // so multiple failed tiles coexist.
+    workflowId: text('workflow_id'),
     prompt: text('prompt').notNull(),
     seed: text('seed'),
     quantity: integer('quantity').default(1).notNull(),

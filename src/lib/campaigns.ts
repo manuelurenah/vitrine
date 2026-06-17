@@ -24,7 +24,8 @@ export type TileStatus = 'queued' | 'cooking' | 'done' | 'failed';
 export type CampaignTile = {
   id: string;
   presetId: PresetId;
-  workflowId: string;
+  /** Null for a `failed` tile whose submit never landed a workflow. */
+  workflowId: string | null;
   status: TileStatus;
   prompt: string;
   quantity: number;
@@ -102,12 +103,16 @@ export type CreateCampaignInput = {
   presetIds: PresetId[];
   tiles: Array<{
     presetId: PresetId;
-    workflowId: string;
+    /** Null for a failed tile (submit rejected → no workflow). */
+    workflowId: string | null;
     prompt: string;
     quantity?: number;
     variantGroupId?: string | null;
     variantIndex?: number;
     adCopy?: AdCopy | null;
+    /** Defaults to 'cooking'. Failed submits are inserted as 'failed'. */
+    status?: 'cooking' | 'failed';
+    error?: string | null;
   }>;
   estimatedBuzz: number;
   audience?: string | null;
@@ -148,18 +153,20 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Campai
               quantity: t.quantity ?? 1,
               variantGroupId: t.variantGroupId ?? null,
               variantIndex: t.variantIndex ?? 0,
-              status: 'cooking' as TileStatus,
+              status: (t.status ?? 'cooking') as TileStatus,
               adCopy: t.adCopy ?? null,
+              error: t.error ?? null,
             })),
           )
           .returning()
       : [];
 
-    // Record version 1 for every newly inserted tile.
+    // Record version 1 for every newly cooked tile. Failed tiles have no
+    // workflow / asset, so they get no version row.
     for (let i = 0; i < tileRows.length; i++) {
       const tileRow = tileRows[i];
       const tileInput = input.tiles[i];
-      if (tileRow && tileInput) {
+      if (tileRow && tileInput && tileInput.workflowId) {
         await recordTileVersion(tx, {
           tileId: tileRow.id,
           workflowId: tileInput.workflowId,
@@ -394,13 +401,16 @@ export async function updateTileFields(
 
     if (!row) return null;
 
-    await recordTileVersion(tx, {
-      tileId: row.id,
-      workflowId: row.workflowId,
-      prompt: row.prompt,
-      adCopy: row.adCopy ?? null,
-      changeNote: 'edited',
-    });
+    // A failed tile has no workflow yet, so there's no version to snapshot.
+    if (row.workflowId) {
+      await recordTileVersion(tx, {
+        tileId: row.id,
+        workflowId: row.workflowId,
+        prompt: row.prompt,
+        adCopy: row.adCopy ?? null,
+        changeNote: 'edited',
+      });
+    }
 
     return toTile(row);
   });
@@ -476,6 +486,9 @@ export async function swapTileWorkflow(
   const update: Record<string, unknown> = {
     workflowId: newWorkflowId,
     status: 'cooking',
+    // Regenerate may run on a previously-`failed` (null-workflow) tile: it now
+    // has a real workflow, so clear the stale failure reason.
+    error: null,
     updatedAt: new Date(),
   };
   if (options?.prompt !== undefined) update.prompt = options.prompt;

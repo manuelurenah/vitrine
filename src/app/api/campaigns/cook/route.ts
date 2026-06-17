@@ -10,7 +10,7 @@ import { createCampaign } from '@/lib/campaigns';
 import {
   mapWithConcurrency,
   OrchestratorError,
-  submitImageGenWithRetry,
+  submitImageGen,
   type VitrineImageGenInput,
 } from '@/lib/civitai';
 import { recordGeneration } from '@/lib/generations';
@@ -23,8 +23,10 @@ const MAX_PROMPT_CHARS = 4000;
 
 // Cap how many orchestrator submits are in flight at once. Firing all
 // preset × variant submits simultaneously caused a fraction to transiently
-// fail (rate-limit / 5xx) and get dropped; bounding concurrency + retrying
-// (see `submitImageGenWithRetry`) keeps every requested variant landing.
+// fail (rate-limit / 5xx) and get dropped. We bound concurrency to ease the
+// load, but we deliberately do NOT retry: a silent re-submit could double-charge
+// Buzz. Failed submits are persisted as visible `failed` tiles the user can
+// manually regenerate instead.
 const SUBMIT_CONCURRENCY_LIMIT = 6;
 
 const enhancedPromptSchema = z.object({
@@ -172,16 +174,15 @@ export async function POST(req: NextRequest) {
       });
     }
   }
-  const submitMeta = jobs.map((j) => ({ presetId: j.presetId, variantIndex: j.variantIndex }));
 
-  // Bound how many submits are in flight and retry transient failures. A single
-  // submit failure must not poison the rest, and order is preserved so results
-  // stay aligned with `submitMeta`.
+  // Bound how many submits are in flight. A single submit failure must not
+  // poison the rest, and order is preserved so results stay aligned with
+  // `submitMeta`. No retry: failures surface as persisted `failed` tiles below.
   const settled = await mapWithConcurrency(
     jobs,
     SUBMIT_CONCURRENCY_LIMIT,
     async (job): Promise<SubmittedTile> => {
-      const submit = await submitImageGenWithRetry(session, job.input);
+      const submit = await submitImageGen(session, job.input);
       return {
         presetId: job.presetId,
         workflowId: submit.id,
@@ -196,17 +197,24 @@ export async function POST(req: NextRequest) {
     },
   );
 
+  // A submit that failed. We persist it as a `failed` tile so the user sees the
+  // requested variant and can manually regenerate it (a retry here could
+  // double-charge Buzz). `job` carries the same per-preset data the success path
+  // uses (prompt, adCopy, variant group/index) so the failed tile is a faithful
+  // placeholder for what was requested.
+  type FailedTile = { job: SubmitJob; error: string; status?: number };
+
   const successes: SubmittedTile[] = [];
-  const failures: Array<{ presetId: PresetId; error: string; status?: number }> = [];
+  const failures: FailedTile[] = [];
   for (let i = 0; i < settled.length; i++) {
     const r = settled[i]!;
-    const presetId = submitMeta[i]!.presetId;
+    const job = jobs[i]!;
     if (r.status === 'fulfilled') {
       successes.push(r.value);
     } else {
       const reason: unknown = r.reason;
       failures.push({
-        presetId,
+        job,
         error: reason instanceof OrchestratorError ? 'orchestrator_error' : 'submit_failed',
         status: reason instanceof OrchestratorError ? reason.status : undefined,
       });
@@ -215,32 +223,53 @@ export async function POST(req: NextRequest) {
 
   if (successes.length === 0) {
     return NextResponse.json(
-      { error: 'all_submits_failed', failures },
+      { error: 'all_submits_failed', failures: failures.map((f) => ({ presetId: f.job.presetId, error: f.error, status: f.status })) },
       { status: failures[0]?.status && failures[0].status >= 400 ? failures[0].status : 502 },
     );
   }
 
   const estimatedBuzz = successes.reduce((sum, t) => sum + t.estimatedCost, 0);
+  // Persist each preset's enhanced prompt so regenerate (including of a failed
+  // tile) can reuse it. Include failed presets so a failed-only preset still has
+  // its prompt on record.
   const enhancedRecord: Record<string, EnhancedPrompt> = {};
   for (const r of successes) enhancedRecord[r.presetId] = r.enhanced;
+  for (const f of failures) enhancedRecord[f.job.presetId] ??= f.job.enhanced;
+
+  // Successful tiles carry a real workflow id and cook; failed submits are
+  // persisted as `failed` tiles (no workflow, no charge) so the user sees every
+  // requested variant and can regenerate the failed ones manually.
+  const successTiles = successes.map((r) => ({
+    presetId: r.presetId,
+    workflowId: r.workflowId as string | null,
+    prompt: r.prompt,
+    quantity: 1,
+    variantGroupId: r.variantGroupId,
+    variantIndex: r.variantIndex,
+    adCopy: r.adCopy,
+    status: 'cooking' as const,
+  }));
+  const failedTiles = failures.map((f) => ({
+    presetId: f.job.presetId,
+    workflowId: null,
+    prompt: f.job.finalPrompt,
+    quantity: 1,
+    variantGroupId: f.job.variantGroupId,
+    variantIndex: f.job.variantIndex,
+    adCopy: f.job.adCopy,
+    status: 'failed' as const,
+    error: f.error,
+  }));
 
   const campaign = await createCampaign({
     userId: userKey,
     title: brief.title,
     brief,
-    presetIds: [...new Set(successes.map((r) => r.presetId))],
+    presetIds: [...new Set([...successes, ...failures.map((f) => f.job)].map((r) => r.presetId))],
     referenceAssetIds,
     variantsPerPreset,
     enhancedPrompts: enhancedRecord as Record<string, unknown>,
-    tiles: successes.map((r) => ({
-      presetId: r.presetId,
-      workflowId: r.workflowId,
-      prompt: r.prompt,
-      quantity: 1,
-      variantGroupId: r.variantGroupId,
-      variantIndex: r.variantIndex,
-      adCopy: r.adCopy,
-    })),
+    tiles: [...successTiles, ...failedTiles],
     estimatedBuzz,
     audience: brief.audience?.trim() || null,
     aesthetics: brief.aesthetics?.trim() || null,
@@ -277,6 +306,14 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     campaignId: campaign.id,
-    ...(failures.length > 0 ? { partial: failures } : {}),
+    ...(failures.length > 0
+      ? {
+          partial: failures.map((f) => ({
+            presetId: f.job.presetId,
+            error: f.error,
+            ...(f.status !== undefined ? { status: f.status } : {}),
+          })),
+        }
+      : {}),
   });
 }

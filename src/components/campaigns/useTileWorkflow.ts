@@ -25,14 +25,15 @@ export function imageUrlsFromSnap(snap: WorkflowSnapshot | null): string[] {
 }
 
 export type UseTileWorkflow = {
-  workflowId: string;
+  /** Null for a `failed` tile until a regenerate assigns a new workflow. */
+  workflowId: string | null;
   status: TileWorkflowStatus;
   imageUrls: string[];
   error: string | null;
   setStatus: Dispatch<SetStateAction<TileWorkflowStatus>>;
   setImageUrls: Dispatch<SetStateAction<string[]>>;
   setError: Dispatch<SetStateAction<string | null>>;
-  setWorkflowId: Dispatch<SetStateAction<string>>;
+  setWorkflowId: Dispatch<SetStateAction<string | null>>;
 };
 
 /**
@@ -48,7 +49,7 @@ export type UseTileWorkflow = {
  * workflow id).
  */
 export function useTileWorkflow(
-  initialWorkflowId: string,
+  initialWorkflowId: string | null,
   initial: { status: TileWorkflowStatus; imageUrls: string[] },
 ): UseTileWorkflow {
   const [workflowId, setWorkflowId] = useState(initialWorkflowId);
@@ -58,6 +59,10 @@ export function useTileWorkflow(
 
   useEffect(() => {
     let cancelled = false;
+
+    // A `failed` tile has no workflow to poll until the user regenerates it
+    // (which calls `setWorkflowId` with the new id). Skip polling while null.
+    if (!workflowId) return;
 
     async function loop() {
       while (!cancelled) {

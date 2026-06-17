@@ -230,7 +230,7 @@ export function CreativeCard({
             preset={preset}
             status={status}
             error={error}
-            workflowId={workflowId}
+            workflowId={workflowId ?? initialWorkflowId}
           />
         ) : (
           <SingleImage
@@ -239,7 +239,7 @@ export function CreativeCard({
             preset={preset}
             status={status}
             error={error}
-            workflowId={workflowId}
+            workflowId={workflowId ?? initialWorkflowId}
           />
         )}
         {tileMenu}
