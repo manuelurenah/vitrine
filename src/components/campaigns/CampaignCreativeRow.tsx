@@ -23,7 +23,7 @@ export function CampaignCreativeRow({ campaignId, group }: Props) {
           {group.tiles.length} {group.tiles.length === 1 ? 'variant' : 'variants'}
         </span>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-1">
+      <div className="flex flex-wrap gap-3 pb-1">
         {group.tiles.map((tile) => (
           <VariantThumb key={tile.id} campaignId={campaignId} tile={tile} />
         ))}
@@ -78,6 +78,19 @@ function VariantThumb({ campaignId, tile }: { campaignId: string; tile: Campaign
   );
 }
 
+/**
+ * Display width (px) for a variant tile, scaled by aspect ratio so wide banners
+ * (leaderboards at 8:1) get more width instead of rendering as a tiny sliver,
+ * while tall/square tiles stay near the base size. Combined with `flex-wrap` on
+ * the row, tiles lay out as a grid that flows to the next line at the edge.
+ */
+function tileWidth(ratio: number): number {
+  const BASE_HEIGHT = 168;
+  const MIN_WIDTH = 168;
+  const MAX_WIDTH = 480;
+  return Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(BASE_HEIGHT * ratio)));
+}
+
 function RowImage({
   url,
   editHref,
@@ -128,7 +141,7 @@ function RowImage({
   return (
     <div
       className="relative shrink-0 overflow-hidden rounded-[10px] border border-line bg-bg-3"
-      style={{ width: 150, aspectRatio: ratio }}
+      style={{ width: tileWidth(ratio), maxWidth: '100%', aspectRatio: ratio }}
     >
       {url ? (
         <Link href={editHref} aria-label="edit creative">
