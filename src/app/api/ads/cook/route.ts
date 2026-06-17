@@ -19,7 +19,7 @@ const adCopySchema = z.object({
   cta: z.string().max(48).optional(),
 });
 
-const cookSchema = briefSchema.extend({
+const cookSchema = briefSchema.omit({ presetIds: true }).extend({
   sizeIds: z.array(z.string()).min(1).max(6),
   referenceAssetIds: z.array(z.string()).max(8).default([]),
   adCopy: adCopySchema.nullish(),

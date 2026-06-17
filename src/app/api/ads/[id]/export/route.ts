@@ -57,6 +57,7 @@ export async function GET(_: NextRequest, ctx: { params: Params }) {
   return new Response(new Uint8Array(zip), {
     status: 200,
     headers: {
+      'Cache-Control': 'no-store',
       'Content-Type': 'application/zip',
       'Content-Length': String(zip.byteLength),
       'Content-Disposition': `attachment; filename="${filename}"`,

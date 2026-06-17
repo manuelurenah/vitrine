@@ -8,7 +8,7 @@ import { buildAdPrompt, resolveFinalPrompt } from '@/lib/promptBuilder';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
 
-const estimateSchema = briefSchema.extend({
+const estimateSchema = briefSchema.omit({ presetIds: true }).extend({
   sizeIds: z.array(z.string()).min(1).max(6),
   adCopy: z
     .object({

@@ -40,6 +40,7 @@ export async function GET(_: NextRequest, ctx: { params: Params }) {
   return new Response(new Uint8Array(cropped), {
     status: 200,
     headers: {
+      'Cache-Control': 'no-store',
       'Content-Type': 'image/png',
       'Content-Length': String(cropped.byteLength),
       'Content-Disposition': `attachment; filename="${filename}"`,
