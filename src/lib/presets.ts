@@ -115,7 +115,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     styleNotes:
       'ultra-wide leaderboard ad strip; keep the product/subject and any copy within a centered horizontal safe band, simple uncluttered background that stays legible when cropped to a thin horizontal strip, generous horizontal bleed',
     platform: 'civitai-ads',
-    aspectRatio: '16:9',
+    aspectRatio: '8:1',
     exact: true,
   },
   'ad-leaderboard-728x90': {
@@ -127,7 +127,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     styleNotes:
       'ultra-wide leaderboard ad strip; keep the product/subject and any copy within a centered horizontal safe band, simple uncluttered background that stays legible when cropped to a thin horizontal strip, generous horizontal bleed',
     platform: 'civitai-ads',
-    aspectRatio: '16:9',
+    aspectRatio: '8:1',
     exact: true,
   },
   'ad-leaderboard-970x90': {
@@ -139,7 +139,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     styleNotes:
       'ultra-wide leaderboard ad strip; keep the product/subject and any copy within a centered horizontal safe band, simple uncluttered background that stays legible when cropped to a thin horizontal strip, generous horizontal bleed',
     platform: 'civitai-ads',
-    aspectRatio: '16:9',
+    aspectRatio: '8:1',
     exact: true,
   },
   'ad-rectangle-300x250': {
@@ -151,7 +151,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     styleNotes:
       'medium rectangle ad; balanced centered composition with the product as a clear hero, modest margins on all sides for cropping',
     platform: 'civitai-ads',
-    aspectRatio: '1:1',
+    aspectRatio: '5:4',
     exact: true,
   },
   'ad-billboard-970x250': {
@@ -163,7 +163,7 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     styleNotes:
       'wide billboard ad; key subject centered with a strong horizontal composition, clean background, leave bleed at top and bottom for cropping',
     platform: 'civitai-ads',
-    aspectRatio: '16:9',
+    aspectRatio: '4:1',
     exact: true,
   },
   'ad-skyscraper-300x600': {

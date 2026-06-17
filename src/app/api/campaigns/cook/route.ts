@@ -22,7 +22,7 @@ const enhancedPromptSchema = z.object({
   styleLayer: z.string().max(MAX_PROMPT_CHARS).optional(),
   finalPrompt: z.string().min(1).max(MAX_PROMPT_CHARS),
   negativePrompt: z.string().max(MAX_PROMPT_CHARS).default(''),
-  aspectRatio: z.enum(['1:1', '4:5', '9:16', '16:9']),
+  aspectRatio: z.enum(['1:1', '4:5', '9:16', '16:9', '8:1', '4:1', '5:4']),
   userOverride: z.string().max(MAX_PROMPT_CHARS).optional(),
 });
 

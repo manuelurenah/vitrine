@@ -3,7 +3,7 @@ import type { BrandProfile } from './brand';
 import type { PhotoshootBrief, PhotoshootRatio, PhotoshootTemplate } from './photoshootTemplates';
 import type { BriefForPresets, PresetDef } from './presets';
 
-export type AspectRatio = '1:1' | '4:5' | '9:16' | '16:9';
+export type AspectRatio = '1:1' | '4:5' | '9:16' | '16:9' | '8:1' | '4:1' | '5:4';
 
 export type EnhancedPrompt = {
   base: string;

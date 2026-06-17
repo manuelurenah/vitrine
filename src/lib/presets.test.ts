@@ -12,13 +12,13 @@ const AD_PRESET_IDS: PresetId[] = [
 
 const EXPECTED: Record<
   string,
-  { width: number; height: number; aspectRatio: '1:1' | '4:5' | '9:16' | '16:9' }
+  { width: number; height: number; aspectRatio: '1:1' | '4:5' | '9:16' | '16:9' | '8:1' | '4:1' | '5:4' }
 > = {
-  'ad-footer-320x50': { width: 320, height: 50, aspectRatio: '16:9' },
-  'ad-leaderboard-728x90': { width: 728, height: 90, aspectRatio: '16:9' },
-  'ad-leaderboard-970x90': { width: 970, height: 90, aspectRatio: '16:9' },
-  'ad-billboard-970x250': { width: 970, height: 250, aspectRatio: '16:9' },
-  'ad-rectangle-300x250': { width: 300, height: 250, aspectRatio: '1:1' },
+  'ad-footer-320x50': { width: 320, height: 50, aspectRatio: '8:1' },
+  'ad-leaderboard-728x90': { width: 728, height: 90, aspectRatio: '8:1' },
+  'ad-leaderboard-970x90': { width: 970, height: 90, aspectRatio: '8:1' },
+  'ad-billboard-970x250': { width: 970, height: 250, aspectRatio: '4:1' },
+  'ad-rectangle-300x250': { width: 300, height: 250, aspectRatio: '5:4' },
   'ad-skyscraper-300x600': { width: 300, height: 600, aspectRatio: '9:16' },
 };
 
