@@ -9,7 +9,7 @@ import { recordBuzzEvent } from '@/lib/buzz';
 import { createCampaign } from '@/lib/campaigns';
 import { OrchestratorError, submitImageGen, type VitrineImageGenInput } from '@/lib/civitai';
 import { recordGeneration } from '@/lib/generations';
-import { PRESETS, type PresetId } from '@/lib/presets';
+import { isAdPreset, PRESETS, type PresetId } from '@/lib/presets';
 import { buildCampaignPrompt, type EnhancedPrompt, resolveFinalPrompt } from '@/lib/promptBuilder';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
@@ -126,6 +126,9 @@ export async function POST(req: NextRequest) {
       prompt: finalPrompt,
       aspectRatio: enhanced.aspectRatio,
       numImages: 1,
+      // Ad presets are center-cropped to exact pixel sizes; request more source
+      // pixels so the crop stays sharp. Social presets keep the 1K default.
+      ...(isAdPreset(id) ? { resolution: '2K' as const } : {}),
       ...(enhanced.negativePrompt ? { negativePrompt: enhanced.negativePrompt } : {}),
       ...(refUrls.length > 0 ? { images: refUrls } : {}),
     };

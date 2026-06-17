@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { cropToExactPng } from '@/lib/adExport';
 import { getCampaign, listCampaignAssets } from '@/lib/campaigns';
+import { isPresetId, PRESETS } from '@/lib/presets';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
 import { buildZipStored, type ZipEntry } from '@/lib/zip';
@@ -60,14 +62,31 @@ export async function GET(_: NextRequest, ctx: { params: Params }) {
       );
     }
     const buf = new Uint8Array(await res.arrayBuffer());
-    const mime = entry.contentType ?? res.headers.get('content-type');
-    const ext = extFromMime(mime);
-    const base = `${String(idx + 1).padStart(2, '0')}-${safeName(entry.presetId)}`;
+
+    // Ad-format creatives must deliver as EXACT-pixel files. Center-crop the
+    // generated (over-rendered) image down to the preset's exact width×height
+    // and emit a PNG. Social tiles are zipped byte-for-byte, unchanged.
+    const preset = isPresetId(entry.presetId) ? PRESETS[entry.presetId] : undefined;
+    const isExact = preset?.exact === true;
+
+    let data: Uint8Array;
+    let ext: string;
+    let base: string;
+    if (isExact && preset) {
+      data = await cropToExactPng(buf, preset.width, preset.height);
+      ext = 'png';
+      base = `${String(idx + 1).padStart(2, '0')}-${safeName(entry.presetId)}-${preset.width}x${preset.height}`;
+    } else {
+      data = buf;
+      const mime = entry.contentType ?? res.headers.get('content-type');
+      ext = extFromMime(mime);
+      base = `${String(idx + 1).padStart(2, '0')}-${safeName(entry.presetId)}`;
+    }
     let name = `${base}.${ext}`;
     let dup = 1;
     while (usedNames.has(name)) name = `${base}-${++dup}.${ext}`;
     usedNames.add(name);
-    zipEntries.push({ name, data: buf });
+    zipEntries.push({ name, data });
     idx += 1;
   }
 

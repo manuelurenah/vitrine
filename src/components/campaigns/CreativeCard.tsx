@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { PostGenActions } from '@/components/generations/PostGenActions';
 import { Badge, cn } from '@/components/ui';
 import { downloadImagesAsZip } from '@/lib/downloadZip';
-import { PRESETS, type PresetId } from '@/lib/presets';
+import { isAdPreset, PRESETS, type PresetId } from '@/lib/presets';
 import { useTileWorkflow } from './useTileWorkflow';
 
 type RegenerateContext = {
@@ -111,8 +111,24 @@ export function CreativeCard({
   const [regenerating, setRegenerating] = useState(false);
   const [zipping, setZipping] = useState(false);
 
+  // Ad-format creatives must download at EXACT pixel dims. The raw asset URL is
+  // the over-rendered (2K) source, so for ad tiles we hit the server download
+  // route, which center-crops to the preset's width×height and returns a PNG.
+  // Social tiles keep the direct anchor to the raw asset (unchanged).
+  const adExactDownloadHref =
+    isAdPreset(preset.id) && regenerate && regenerate.kind !== 'photoshoot'
+      ? `/api/campaigns/${regenerate.id}/tiles/${regenerate.tileId}/download`
+      : null;
+
   async function downloadAll() {
     if (imgUrls.length === 0 || zipping) return;
+    if (adExactDownloadHref) {
+      const link = document.createElement('a');
+      link.href = adExactDownloadHref;
+      link.rel = 'noopener noreferrer';
+      link.click();
+      return;
+    }
     if (imgUrls.length === 1) {
       const link = document.createElement('a');
       link.href = imgUrls[0]!;

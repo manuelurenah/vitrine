@@ -12,7 +12,7 @@ export const briefSchema = z.object({
   presetIds: z
     .array(z.string())
     .min(1)
-    .max(8)
+    .max(14)
     .transform((ids) => ids.filter(isPresetId) as PresetId[])
     .refine((ids) => ids.length >= 1, 'at least one preset required'),
 });
