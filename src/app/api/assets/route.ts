@@ -1,13 +1,16 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createAsset, listAssets } from '@/lib/assets';
+import { bucketFor, publicUrlFor } from '@/lib/s3';
 import { getSession } from '@/lib/session';
+import { isOwnedStorageKey } from '@/lib/storageKey';
 import { getUserKey } from '@/lib/userKey';
 
 const finalizeSchema = z.object({
   bucket: z.string().min(1).max(120),
   key: z.string().min(1).max(500),
-  publicUrl: z.string().url().optional(),
+  // `publicUrl` from the client is intentionally NOT accepted — it is derived
+  // server-side from the validated bucket+key (see POST handler).
   contentType: z.string().max(120).optional(),
   byteSize: z
     .number()
@@ -53,6 +56,19 @@ export async function POST(req: NextRequest) {
 
   const userKey = await getUserKey(session);
   const data = parsed.data;
+
+  // Re-verify the client-supplied storage pointer server-side. The browser
+  // could otherwise register a DB row pointing at another user's object or at
+  // an arbitrary URL. Allowed buckets are our own upload/asset buckets, the
+  // key must live under this user's prefix, and the public URL is DERIVED
+  // server-side (the client's `publicUrl` is ignored — it could be a
+  // `javascript:`/`data:` payload that later renders as a link).
+  const allowedBuckets = new Set([bucketFor('upload'), bucketFor('asset')]);
+  if (!allowedBuckets.has(data.bucket) || !isOwnedStorageKey(userKey, data.key)) {
+    return NextResponse.json({ error: 'invalid_storage_ref' }, { status: 400 });
+  }
+  const publicUrl = publicUrlFor(data.bucket, data.key);
+
   const metadata: Record<string, unknown> = {};
   if (data.collection) metadata.collection = data.collection;
   if (data.tags && data.tags.length) metadata.tags = data.tags;
@@ -64,7 +80,7 @@ export async function POST(req: NextRequest) {
       kind: data.kind,
       bucket: data.bucket,
       storageKey: data.key,
-      publicUrl: data.publicUrl ?? null,
+      publicUrl,
       contentType: data.contentType ?? null,
       byteSize: data.byteSize ?? null,
       width: data.width ?? null,
@@ -75,9 +91,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ asset }, { status: 201 });
   } catch (err) {
-    return NextResponse.json(
-      { error: 'create_failed', detail: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    console.error('asset finalize failed', err);
+    return NextResponse.json({ error: 'create_failed' }, { status: 500 });
   }
 }
