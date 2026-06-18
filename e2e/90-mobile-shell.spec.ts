@@ -155,4 +155,16 @@ test.describe('mobile shell', () => {
     await page.waitForURL(/\/assets$/, { timeout: 15_000 });
     await expect(page.getByTestId('mobile-tab-bar')).toBeVisible();
   });
+
+  test('brand view has no book sub-tab', async ({ page, baseURL }) => {
+    await signInToApp(page, baseURL!);
+    await page.goto(`${baseURL}/brand`);
+
+    await expect(page.getByTestId('mobile-tab-bar')).toBeVisible();
+
+    // The brand sub-tab strip (dna · book) is removed entirely.
+    await expect(page.locator('nav[aria-label="brand sections"]')).toHaveCount(0);
+    // And there is no link to the removed /brand/book route anywhere.
+    await expect(page.locator('a[href="/brand/book"]')).toHaveCount(0);
+  });
 });

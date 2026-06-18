@@ -4,7 +4,6 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useMediaQuery } from '@/components/ui/useMediaQuery';
 import type { ShellUser } from '@/lib/user';
-import { BrandSubTabs, type BrandSubTabId } from './BrandSubTabs';
 import { type MobileTabId } from './MobileTabBar';
 import { ScreenFrame } from './ScreenFrame';
 import { Shell } from './Shell';
@@ -25,12 +24,6 @@ function mobileTabFromPath(pathname: string): MobileTabId {
   return 'brand';
 }
 
-/** Derive the active BrandSubTab from the current pathname (only used on /brand routes). */
-function brandSubTabFromPath(pathname: string): BrandSubTabId {
-  if (pathname === '/brand/book' || pathname.startsWith('/brand/book/')) return 'book';
-  return 'dna';
-}
-
 /**
  * Client-side responsive shell switcher.
  *
@@ -47,12 +40,9 @@ export function AppShell({ user, buzzBalance, children }: Props) {
 
   if (isMobile) {
     const activeTab = mobileTabFromPath(pathname);
-    const onBrand = activeTab === 'brand';
-    const brandSubTab = onBrand ? brandSubTabFromPath(pathname) : 'dna';
 
     return (
       <ScreenFrame active={activeTab} leadingLogo>
-        {onBrand && <BrandSubTabs active={brandSubTab} />}
         {children}
       </ScreenFrame>
     );

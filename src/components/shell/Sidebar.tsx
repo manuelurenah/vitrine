@@ -54,9 +54,7 @@ export function Sidebar({ buzzBalance, user }: Props) {
   const active: NavId | null = activeNavFromPath(pathname);
 
   const brandItems = NAV.filter((n) => ['dna', 'overview', 'catalog', 'assets'].includes(n.id));
-  const workItems = NAV.filter((n) =>
-    ['campaigns', 'photoshoot', 'animate', 'brandbook'].includes(n.id),
-  );
+  const workItems = NAV.filter((n) => ['campaigns', 'photoshoot'].includes(n.id));
 
   return (
     <aside
