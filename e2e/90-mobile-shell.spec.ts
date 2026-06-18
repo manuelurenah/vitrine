@@ -123,4 +123,16 @@ test.describe('mobile shell', () => {
     await expect(page.getByTestId('mobile-tab-campaigns')).toHaveAttribute('aria-current', 'page');
     await expect(page.getByTestId('mobile-tab-shoot')).not.toHaveAttribute('aria-current', 'page');
   });
+
+  test('content region reserves space for the floating tab bar', async ({ page, baseURL }) => {
+    await signInToApp(page, baseURL!);
+    await page.goto(`${baseURL}/campaigns`);
+
+    const content = page.getByTestId('screen-content');
+    await expect(content).toBeVisible();
+
+    // pill height (64) + edge inset (12) = 76, plus safe-area (0 in headless).
+    const pb = await content.evaluate((el) => parseFloat(getComputedStyle(el).paddingBottom));
+    expect(pb).toBeGreaterThanOrEqual(76);
+  });
 });

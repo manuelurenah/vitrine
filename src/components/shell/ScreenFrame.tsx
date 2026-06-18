@@ -54,8 +54,9 @@ export function ScreenFrame({
   stickyCta,
   children,
 }: Props) {
-  // Content bottom padding: tab bar (76) + sticky CTA row height (~72) if present.
-  const contentPb = 76 + (stickyCta ? 72 : 0);
+  // Content bottom padding baseline: pill height (64) + edge inset (12) = 76,
+  // plus the sticky CTA row (~72) when present. Safe-area is added in CSS.
+  const contentPbBase = 76 + (stickyCta ? 72 : 0);
 
   return (
     <div
@@ -88,8 +89,9 @@ export function ScreenFrame({
 
       {/* Scrollable content region */}
       <div
+        data-testid="screen-content"
         className="relative z-[1] flex-1 overflow-x-hidden overflow-y-auto px-4"
-        style={{ paddingBottom: contentPb }}
+        style={{ paddingBottom: `calc(env(safe-area-inset-bottom) + ${contentPbBase}px)` }}
       >
         {children}
       </div>
@@ -100,7 +102,7 @@ export function ScreenFrame({
           data-testid="screen-sticky-cta"
           className="absolute left-3 right-3 z-[15] rounded-[14px] border border-line p-[10px] backdrop-blur-[14px]"
           style={{
-            bottom: 76,
+            bottom: 'calc(env(safe-area-inset-bottom) + 84px)',
             background: 'rgba(15,15,22,0.92)',
             boxShadow: '0 -8px 32px -12px rgba(0,0,0,0.5)',
           }}
