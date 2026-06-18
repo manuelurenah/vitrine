@@ -164,6 +164,9 @@ async function assertPublicHost(hostname: string): Promise<void> {
  * unchecked resolution between "validate" and "connect". This closes the
  * DNS-rebinding TOCTOU and the redirect-to-internal-host gap that a plain
  * hostname re-resolution leaves open.
+ *
+ * Requires Node >= 20.18 for undici 8 (see `.nvmrc` / package.json engines —
+ * project runs on Node 22 LTS).
  */
 function pinnedDispatcher(): Agent {
   return new Agent({
