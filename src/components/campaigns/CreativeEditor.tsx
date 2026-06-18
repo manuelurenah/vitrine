@@ -15,7 +15,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Button, FieldLabel, Input, Textarea } from '@/components/ui';
-import { PRESETS } from '@/lib/presets';
+import { AD_STACK_COUNT, isStackedPreset, PRESETS, stackedAspectRatio } from '@/lib/presets';
 import type { CampaignTile } from '@/lib/campaigns';
 import type { TileVersionEntry } from '@/lib/tileVersions';
 import { PanelRow } from './PanelRow';
@@ -80,7 +80,11 @@ export function CreativeEditor({
 }: Props) {
   const router = useRouter();
   const preset = PRESETS[tile.presetId];
-  const aspect = preset.width / preset.height;
+  // Stacked (wide-ad) tiles are a 3-banner sheet generated at a friendlier AR,
+  // not the preset's narrow strip — preview at the real sheet ratio so the full
+  // sheet shows instead of a cropped sliver.
+  const stacked = isStackedPreset(tile.presetId);
+  const aspect = stacked ? stackedAspectRatio(preset, AD_STACK_COUNT) : preset.width / preset.height;
 
   // ---- version navigation ---------------------------------------------------
   // versions are sorted asc; default to latest
@@ -421,7 +425,11 @@ export function CreativeEditor({
         <PanelRow label="image" defaultOpen>
           <div className="relative mt-1 h-[110px] overflow-hidden rounded-[8px] bg-bg-3">
             {canvasImageUrl ? (
-              <img src={canvasImageUrl} alt="" className="h-full w-full object-cover" />
+              <img
+                src={canvasImageUrl}
+                alt=""
+                className={`h-full w-full ${stacked ? 'object-contain' : 'object-cover'}`}
+              />
             ) : (
               <div className="absolute inset-0 animate-pulse bg-bg-3" />
             )}
