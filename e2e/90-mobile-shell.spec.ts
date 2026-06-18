@@ -76,4 +76,29 @@ test.describe('mobile shell', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('bottom-sheet')).toBeHidden({ timeout: 5_000 });
   });
+
+  test('tab bar is pinned to the viewport bottom without scrolling', async ({ page, baseURL }) => {
+    await signInToApp(page, baseURL!);
+    await page.goto(`${baseURL}/campaigns`);
+
+    const bar = page.getByTestId('mobile-tab-bar');
+    await expect(bar).toBeVisible();
+
+    const box = await bar.boundingBox();
+    expect(box).not.toBeNull();
+    const viewportHeight = page.viewportSize()!.height; // 844
+
+    // The bar's bottom edge must sit at the bottom of the viewport (tolerance
+    // covers the floating inset + headless safe-area = 0). Before the h-dvh fix
+    // the frame collapses to content height, so the absolute-positioned bar
+    // floats above the bottom (short page) or below the viewport (tall page) —
+    // either way this range fails.
+    const barBottom = box!.y + box!.height;
+    expect(barBottom).toBeGreaterThan(viewportHeight - 90);
+    expect(barBottom).toBeLessThanOrEqual(viewportHeight + 1);
+
+    // On-screen without scrolling.
+    expect(box!.y).toBeGreaterThan(0);
+    expect(box!.y).toBeLessThan(viewportHeight);
+  });
 });

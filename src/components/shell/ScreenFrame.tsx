@@ -60,7 +60,7 @@ export function ScreenFrame({
   return (
     <div
       data-testid="screen-frame"
-      className="relative flex h-full w-full flex-col overflow-hidden bg-bg-0 font-body text-fg-0"
+      className="relative flex h-dvh w-full flex-col overflow-hidden bg-bg-0 font-body text-fg-0"
     >
       {/* Optional volt/ultraviolet bloom */}
       {bloom && (
