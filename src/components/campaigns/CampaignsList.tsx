@@ -3,9 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { FAB } from '@/components/shell';
 import type { BadgeKind } from '@/components/ui';
-import { useMediaQuery } from '@/components/ui/useMediaQuery';
 import { relativeDate } from '@/lib/relativeDate';
 import { GradientThumb, type ThumbTone } from './GradientThumb';
 import { PastRow } from './PastRow';
@@ -31,7 +29,6 @@ type Props = {
 export function CampaignsList({ past }: Props) {
   const pastItems: PastCampaign[] = past ?? [];
   const hasPast = pastItems.length > 0;
-  const isMobile = useMediaQuery('(max-width: 767px)');
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -104,8 +101,6 @@ export function CampaignsList({ past }: Props) {
         )}
       </div>
 
-      {/* Mobile FAB — new campaign */}
-      {isMobile && <FAB href="/campaigns/new" label="new" aria-label="new campaign" />}
     </div>
   );
 }

@@ -5,8 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { GradientThumb, PromptComposer } from '@/components/campaigns';
-import { FAB } from '@/components/shell';
-import { useMediaQuery } from '@/components/ui/useMediaQuery';
 import type { Photoshoot } from '@/lib/photoshoots';
 
 const TONES = ['volt', 'ion', 'ultraviolet', 'flux', 'buzz'] as const;
@@ -18,7 +16,6 @@ function formatDate(ms: number): string {
 }
 
 export function PhotoshootList({ shoots }: Props) {
-  const isMobile = useMediaQuery('(max-width: 767px)');
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -153,8 +150,6 @@ export function PhotoshootList({ shoots }: Props) {
         </section>
       </div>
 
-      {/* Mobile FAB — new photoshoot */}
-      {isMobile && <FAB href="/photoshoot/new" label="new" aria-label="new photoshoot" />}
     </div>
   );
 }

@@ -13,11 +13,9 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
-import { FAB } from '@/components/shell';
 import { Button, cn, Select } from '@/components/ui';
 import { FilterPills } from '@/components/campaigns/FilterPills';
 import type { FilterOption } from '@/components/campaigns/FilterPills';
-import { useMediaQuery } from '@/components/ui/useMediaQuery';
 import type { Asset } from '@/lib/assets';
 import type { ActiveAdhocGeneration } from '@/lib/generations';
 import { AdHocGenerationModal } from './AdHocGenerationModal';
@@ -65,7 +63,6 @@ export function AssetsGallery({
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [sort, setSort] = useState<SortKey>('recent');
-  const isMobile = useMediaQuery('(max-width: 767px)');
 
   // Optimistic list of workflowIds submitted THIS session that the server
   // `cooking` prop hasn't picked up yet (it refreshes on `router.refresh()`).
@@ -115,8 +112,8 @@ export function AssetsGallery({
           campaigns + shoots can pull from here.
         </p>
       </div>
-      {/* Desktop CTAs — Upload (primary) + Generate (secondary) */}
-      <div className="hidden items-center gap-2 sm:flex">
+      {/* Create CTAs — Generate + Upload (visible on all sizes; replaces the mobile FAB) */}
+      <div className="flex items-center gap-2">
         <Button
           variant="secondary"
           size="sm"
@@ -306,9 +303,6 @@ export function AssetsGallery({
         onClose={() => setGenOpen(false)}
         onSubmitted={handleSubmitted}
       />
-
-      {/* Mobile FAB — upload */}
-      {isMobile && <FAB href="/assets/new" label="upload" aria-label="upload asset" />}
     </div>
   );
 }

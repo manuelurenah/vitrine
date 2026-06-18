@@ -23,9 +23,8 @@ test.describe('mobile shell', () => {
     // true, so the element is entirely absent from the DOM.
     await expect(page.getByTestId('desktop-sidebar')).toHaveCount(0);
 
-    // FAB is gated to mobile by CampaignsList's own useMediaQuery check,
-    // so it should be visible on the campaigns list page.
-    await expect(page.getByTestId('fab')).toBeVisible();
+    // The floating FAB has been removed from every mobile list view.
+    await expect(page.getByTestId('fab')).toHaveCount(0);
   });
 
   test('tab bar navigates between sections', async ({ page, baseURL }) => {
@@ -166,5 +165,15 @@ test.describe('mobile shell', () => {
     await expect(page.locator('nav[aria-label="brand sections"]')).toHaveCount(0);
     // And there is no link to the removed /brand/book route anywhere.
     await expect(page.locator('a[href="/brand/book"]')).toHaveCount(0);
+  });
+
+  test('assets create CTA is visible on mobile (no FAB needed)', async ({ page, baseURL }) => {
+    await signInToApp(page, baseURL!);
+    await page.goto(`${baseURL}/assets`);
+
+    await expect(page.getByTestId('mobile-tab-bar')).toBeVisible();
+    // The titleRow generate/upload CTAs, formerly hidden behind `sm:`, are now
+    // visible on mobile so the FAB is no longer needed.
+    await expect(page.getByTestId('open-generate-modal')).toBeVisible();
   });
 });
