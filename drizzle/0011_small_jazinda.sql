@@ -1,0 +1,1 @@
+ALTER TABLE "campaign_tiles" ALTER COLUMN "workflow_id" DROP NOT NULL;

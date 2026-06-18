@@ -163,6 +163,43 @@ describe('buildCampaignPrompt', () => {
   });
 });
 
+describe('buildCampaignPrompt stacked sheets', () => {
+  it('stacked preset + stackCount:3 emits the stacked AR and a stacking prompt', () => {
+    const out = buildCampaignPrompt({
+      brief: baseBrief,
+      brand: fullBrand,
+      preset: PRESETS['ad-billboard-970x250'],
+      stackCount: 3,
+    });
+    // Billboard's per-banner ratio snaps to 5:4 at n=3.
+    expect(out.aspectRatio).toBe('5:4');
+    expect(out.finalPrompt).toContain('3');
+    expect(out.finalPrompt.toLowerCase()).toContain('stacked');
+    expect(out.finalPrompt.toLowerCase()).toContain('banners');
+  });
+
+  it('leaderboard-970 stacked sheet renders at 4:1 at n=3', () => {
+    const out = buildCampaignPrompt({
+      brief: baseBrief,
+      preset: PRESETS['ad-leaderboard-970x90'],
+      stackCount: 3,
+    });
+    expect(out.aspectRatio).toBe('4:1');
+  });
+
+  it('without stackCount a stacked preset falls back to non-stacking behavior', () => {
+    const out = buildCampaignPrompt({
+      brief: baseBrief,
+      preset: PRESETS['ad-billboard-970x250'],
+    });
+    // No stacking directive, and the AR is the preset-derived one (not the
+    // stacked override). Billboard has no static aspectRatio anymore, so it
+    // derives a wide ratio rather than 5:4.
+    expect(out.finalPrompt.toLowerCase()).not.toContain('stacked top-to-bottom');
+    expect(out.aspectRatio).not.toBe('5:4');
+  });
+});
+
 describe('buildCampaignPrompt logo', () => {
   it('omits the logo directive by default', () => {
     const p = buildCampaignPrompt({ brief: baseBrief, preset: PRESETS['ig-feed'], referenceCount: 1 });

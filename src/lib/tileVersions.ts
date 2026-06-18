@@ -193,7 +193,7 @@ async function loadOwnedTile(
   userId: string,
   campaignId: string,
   tileId: string,
-): Promise<{ id: string; workflowId: string } | null> {
+): Promise<{ id: string; workflowId: string | null } | null> {
   const [row] = await db
     .select({ id: campaignTilesTable.id, workflowId: campaignTilesTable.workflowId })
     .from(campaignTilesTable)
@@ -234,6 +234,9 @@ export async function restoreTileVersion(
 ): Promise<TileVersionEntry | null> {
   const tile = await loadOwnedTile(userId, campaignId, tileId);
   if (!tile) return null;
+  // A `failed` tile has no workflow and no versions to restore.
+  if (!tile.workflowId) return null;
+  const tileWorkflowId = tile.workflowId;
 
   // The version being restored must exist for this tile.
   const [target] = await db
@@ -267,7 +270,7 @@ export async function restoreTileVersion(
 
     const newVersion = await recordTileVersion(tx, {
       tileId: tile.id,
-      workflowId: tile.workflowId,
+      workflowId: tileWorkflowId,
       prompt: target.prompt,
       adCopy: restoredAdCopy,
       palette: restoredPalette,
@@ -278,7 +281,7 @@ export async function restoreTileVersion(
     return {
       id: `restored-${tile.id}-${newVersion}`,
       version: newVersion,
-      workflowId: tile.workflowId,
+      workflowId: tileWorkflowId,
       prompt: target.prompt,
       adCopy: restoredAdCopy,
       palette: restoredPalette,

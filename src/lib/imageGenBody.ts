@@ -20,7 +20,7 @@ export type VitrineImageGenInput = {
   negativePrompt?: string;
   /** Reference images. URL, data URL, or raw base64 string. */
   images?: string[];
-  aspectRatio: '1:1' | '4:5' | '9:16' | '16:9';
+  aspectRatio: '1:1' | '4:5' | '9:16' | '16:9' | '8:1' | '4:1' | '5:4';
   numImages: number;
   resolution?: '1K' | '2K';
   /** Override the default engine (`google`). */

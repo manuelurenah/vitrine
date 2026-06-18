@@ -151,6 +151,8 @@ export function submitImageGen(
   return submitWorkflow(getClient(session), buildVitrineImageGenBody(input));
 }
 
+export { mapWithConcurrency } from './concurrency';
+
 function buildUpscaleBody(sourceImageUrl: string): unknown {
   return buildWorkflowBody(
     {

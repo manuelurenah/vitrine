@@ -1,13 +1,13 @@
 'use client';
 
-import { Download, MoreVertical, Pencil, RefreshCw } from 'lucide-react';
+import { Download, Loader2, MoreVertical, Pencil, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { CampaignTile } from '@/lib/campaigns';
-import { PRESETS } from '@/lib/presets';
+import { AD_STACK_COUNT, isStackedPreset, PRESETS, stackedAspectRatio } from '@/lib/presets';
 import type { CreativeGroup } from './creativeGroups';
 import { slotsForTile } from './creativeGroups';
-import { useTileWorkflow } from './useTileWorkflow';
+import { type TileWorkflowStatus, useTileWorkflow } from './useTileWorkflow';
 
 type Props = { campaignId: string; group: CreativeGroup };
 
@@ -21,9 +21,10 @@ export function CampaignCreativeRow({ campaignId, group }: Props) {
         <span className="font-mono text-[11px] text-fg-3">{preset.ratio}</span>
         <span className="font-mono text-[11px] text-fg-3">
           {group.tiles.length} {group.tiles.length === 1 ? 'variant' : 'variants'}
+          {isStackedPreset(group.presetId) ? ` · ${AD_STACK_COUNT} per sheet` : ''}
         </span>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-1">
+      <div className="flex flex-wrap gap-3 pb-1">
         {group.tiles.map((tile) => (
           <VariantThumb key={tile.id} campaignId={campaignId} tile={tile} />
         ))}
@@ -40,13 +41,22 @@ export function CampaignCreativeRow({ campaignId, group }: Props) {
  */
 function VariantThumb({ campaignId, tile }: { campaignId: string; tile: CampaignTile }) {
   const preset = PRESETS[tile.presetId];
-  const { imageUrls, setWorkflowId } = useTileWorkflow(tile.workflowId, {
-    status: tile.status,
-    imageUrls: tile.assetUrl ? [tile.assetUrl] : [],
-  });
+  const { imageUrls, status, setStatus, setError, setWorkflowId } = useTileWorkflow(
+    tile.workflowId,
+    {
+      status: tile.status,
+      imageUrls: tile.assetUrl ? [tile.assetUrl] : [],
+    },
+  );
   const [regenerating, setRegenerating] = useState(false);
   const base = `/campaigns/${campaignId}/c/${tile.id}`;
   const slots = slotsForTile(tile, imageUrls.length);
+  // Stacked (wide-ad) tiles render the 3-banner sheet at its real generated AR,
+  // not the preset's narrow strip ratio. The stack count is the constant.
+  const stacked = isStackedPreset(tile.presetId);
+  const displayRatio = stacked
+    ? stackedAspectRatio(preset, AD_STACK_COUNT)
+    : preset.width / preset.height;
 
   async function redo() {
     setRegenerating(true);
@@ -55,7 +65,13 @@ function VariantThumb({ campaignId, tile }: { campaignId: string; tile: Campaign
         method: 'POST',
       });
       const data = (await res.json().catch(() => ({}))) as { workflowId?: string };
-      if (res.ok && data.workflowId) setWorkflowId(data.workflowId);
+      if (res.ok && data.workflowId) {
+        // Clear the failure and flip to cooking so the tile starts polling the
+        // new workflow immediately instead of sitting on the failed state.
+        setError(null);
+        setStatus('cooking');
+        setWorkflowId(data.workflowId);
+      }
     } finally {
       setRegenerating(false);
     }
@@ -67,8 +83,10 @@ function VariantThumb({ campaignId, tile }: { campaignId: string; tile: Campaign
         <RowImage
           key={i}
           url={imageUrls[i] ?? null}
+          status={status}
           editHref={i === 0 ? base : `${base}?v=${i}`}
-          ratio={preset.width / preset.height}
+          ratio={displayRatio}
+          stacked={stacked}
           filename={`${preset.id}-${tile.id}-${i}`}
           onRegenerate={redo}
           regenerating={regenerating}
@@ -78,17 +96,37 @@ function VariantThumb({ campaignId, tile }: { campaignId: string; tile: Campaign
   );
 }
 
+/**
+ * Display width (px) for a variant tile, scaled by aspect ratio so wide banners
+ * (leaderboards at 8:1) get more width instead of rendering as a tiny sliver,
+ * while tall/square tiles stay near the base size. Stacked 3-banner sheets render
+ * a bit larger so the stacked banners and their text stay legible, but there are
+ * N per row so the bounds stay grid-friendly. Combined with `flex-wrap` on the
+ * row, tiles lay out as a grid that flows to the next line at the edge.
+ */
+function tileWidth(ratio: number, stacked: boolean): number {
+  if (stacked) return Math.max(260, Math.min(480, Math.round(220 * ratio)));
+  const BASE_HEIGHT = 168;
+  const MIN_WIDTH = 168;
+  const MAX_WIDTH = 480;
+  return Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(BASE_HEIGHT * ratio)));
+}
+
 function RowImage({
   url,
+  status,
   editHref,
   ratio,
+  stacked = false,
   filename,
   onRegenerate,
   regenerating,
 }: {
   url: string | null;
+  status: TileWorkflowStatus;
   editHref: string;
   ratio: number;
+  stacked?: boolean;
   filename: string;
   onRegenerate: () => void;
   regenerating: boolean;
@@ -128,14 +166,37 @@ function RowImage({
   return (
     <div
       className="relative shrink-0 overflow-hidden rounded-[10px] border border-line bg-bg-3"
-      style={{ width: 150, aspectRatio: ratio }}
+      style={{ width: tileWidth(ratio, stacked), maxWidth: '100%', aspectRatio: ratio }}
     >
       {url ? (
         <Link href={editHref} aria-label="edit creative">
           <img src={url} alt="" className="h-full w-full object-cover" />
         </Link>
+      ) : status === 'failed' ? (
+        <button
+          type="button"
+          data-testid="row-image-failed"
+          onClick={onRegenerate}
+          disabled={regenerating}
+          aria-label="generation failed — regenerate"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-bg-3 px-2 text-center text-fg-3 transition-colors hover:text-fg-1 disabled:opacity-60"
+        >
+          <RefreshCw
+            size={14}
+            strokeWidth={1.75}
+            className={regenerating ? 'animate-spin' : ''}
+          />
+          <span className="font-mono text-[10px] leading-tight">
+            {regenerating ? 'retrying…' : "didn't generate · retry"}
+          </span>
+        </button>
       ) : (
-        <div className="absolute inset-0 animate-pulse bg-bg-3" data-testid="row-image-skeleton" />
+        <div
+          className="absolute inset-0 flex items-center justify-center bg-bg-2"
+          data-testid="row-image-skeleton"
+        >
+          <Loader2 size={18} strokeWidth={1.75} className="animate-spin text-fg-3" />
+        </div>
       )}
       {url && (
         <div ref={menuRef} className="absolute right-1.5 top-1.5">

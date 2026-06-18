@@ -44,11 +44,22 @@ vi.mock('@/lib/assets', () => ({
     }
   },
 }));
-vi.mock('@/lib/civitai', () => ({
-  estimateImageGen: estimateImageGenMock,
-  submitImageGen: submitImageGenMock,
-  OrchestratorError: FakeOrchestratorError,
-}));
+vi.mock('@/lib/civitai', async () => {
+  // The cook route fans submits out through `mapWithConcurrency`. We mock the
+  // submit but keep the REAL bounded-concurrency runner so order-preservation +
+  // the success/failure partition behave exactly as in production. There is no
+  // retry: failed submits are persisted as `failed` tiles (a retry could
+  // double-charge Buzz).
+  const { mapWithConcurrency } = await vi.importActual<typeof import('@/lib/concurrency')>(
+    '@/lib/concurrency',
+  );
+  return {
+    estimateImageGen: estimateImageGenMock,
+    submitImageGen: submitImageGenMock,
+    mapWithConcurrency,
+    OrchestratorError: FakeOrchestratorError,
+  };
+});
 vi.mock('@/lib/campaigns', () => ({ createCampaign: createCampaignMock }));
 vi.mock('@/lib/generations', () => ({ recordGeneration: recordGenerationMock }));
 vi.mock('@/lib/buzz', () => ({ recordBuzzEvent: recordBuzzEventMock }));
@@ -291,6 +302,34 @@ describe('POST /api/campaigns/cook', () => {
     expect(submitted.negativePrompt).toContain('misspelled text'); // text-aware negative used
   });
 
+  it('stacked wide preset still fans out to N tiles, each a 3-banner stacked sheet', async () => {
+    // A stacked ad format must keep the same tile count as any other format —
+    // N variants → N submits/tiles, NOT collapsed to 1. Each submitted prompt
+    // is a 3-banner stacked sheet at the stacked AR.
+    await POST(
+      makeRequest(validBody({ presetIds: ['ad-billboard-970x250'], variantsPerPreset: 4 })) as never,
+    );
+    expect(submitImageGenMock).toHaveBeenCalledTimes(4);
+    for (const call of submitImageGenMock.mock.calls) {
+      expect(call[1].prompt.toLowerCase()).toContain('stacked');
+      // Billboard's per-banner ratio snaps to 5:4 at the constant stack of 3.
+      expect(call[1].aspectRatio).toBe('5:4');
+      // Ad presets still request 2K source pixels.
+      expect(call[1].resolution).toBe('2K');
+    }
+    // 4 tiles persisted (one per variant), not 1.
+    const tiles = createCampaignMock.mock.calls[0]![0].tiles as Array<unknown>;
+    expect(tiles).toHaveLength(4);
+  });
+
+  it('non-stacked preset is unchanged: N variants → N submits, no stacking directive', async () => {
+    await POST(makeRequest(validBody({ presetIds: ['ig-feed'], variantsPerPreset: 3 })) as never);
+    expect(submitImageGenMock).toHaveBeenCalledTimes(3);
+    for (const call of submitImageGenMock.mock.calls) {
+      expect(call[1].prompt.toLowerCase()).not.toContain('stacked top-to-bottom');
+    }
+  });
+
   it('records one estimate buzz event + one generation per submitted tile', async () => {
     // Cook only emits `kind: estimate` — the real `submit` event is recorded
     // by the workflow polling endpoint when the workflow charges complete.
@@ -304,7 +343,9 @@ describe('POST /api/campaigns/cook', () => {
 
   it('partial failure: one variant submit throws, others persist + response notes partial', async () => {
     // Only the FIRST of the 4 (2 presets × 2 variants) submits rejects; the
-    // other 3 succeed and get persisted as variant tiles.
+    // other 3 succeed. We persist ALL 4 requested variants — the 3 successes as
+    // cooking tiles, the 1 failure as a `failed` tile the user can regenerate
+    // (we deliberately do NOT retry, which could double-charge Buzz).
     submitImageGenMock.mockRejectedValueOnce(
       new FakeOrchestratorError('insufficient buzz', 402, { code: 'NO_BUZZ' }),
     );
@@ -316,7 +357,34 @@ describe('POST /api/campaigns/cook', () => {
     expect(json.partial).toHaveLength(1);
     expect(json.partial[0].error).toBe('orchestrator_error');
     expect(createCampaignMock).toHaveBeenCalledTimes(1);
-    expect(createCampaignMock.mock.calls[0]![0].tiles).toHaveLength(3);
+
+    // All 4 requested variants are persisted: 3 cooking + 1 failed.
+    const tiles = createCampaignMock.mock.calls[0]![0].tiles as Array<{
+      workflowId: string | null;
+      status?: string;
+      error?: string | null;
+    }>;
+    expect(tiles).toHaveLength(4);
+    const cooking = tiles.filter((t) => t.status === 'cooking');
+    const failed = tiles.filter((t) => t.status === 'failed');
+    expect(cooking).toHaveLength(3);
+    expect(failed).toHaveLength(1);
+    // Successful tiles carry a real workflow id; failed tiles carry none.
+    for (const t of cooking) expect(typeof t.workflowId).toBe('string');
+    expect(failed[0]!.workflowId).toBeNull();
+    expect(failed[0]!.error).toBe('orchestrator_error');
+
+    // Audit rows are written ONLY for the 3 successes — a failed tile has no
+    // workflow, so charging it (generation + buzz) would be wrong.
+    expect(recordGenerationMock).toHaveBeenCalledTimes(3);
+    expect(recordBuzzEventMock).toHaveBeenCalledTimes(3);
+    // None of the audit writes reference a null workflow id.
+    for (const call of recordGenerationMock.mock.calls) {
+      expect(typeof call[0].workflowId).toBe('string');
+    }
+    for (const call of recordBuzzEventMock.mock.calls) {
+      expect(typeof call[0].workflowId).toBe('string');
+    }
   });
 
   it('total failure: all submits fail → 402 with all_submits_failed body, no DB writes', async () => {
