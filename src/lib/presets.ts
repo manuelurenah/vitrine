@@ -30,6 +30,13 @@ export type PresetDef = {
   aspectRatio?: AspectRatio;
   /** When true, the deliverable must be cropped to exact width×height. */
   exact?: boolean;
+  /**
+   * When true, each generation renders a single image that stacks
+   * {@link AD_STACK_COUNT} distinct banner variations top-to-bottom at a
+   * supported aspect ratio, so the user can crop their pick. The generation AR
+   * is computed via {@link stackedAspect}; the static `aspectRatio` is omitted.
+   */
+  stacked?: boolean;
 };
 
 export const PRESETS: Record<PresetId, PresetDef> = {
@@ -115,8 +122,8 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     styleNotes:
       'ultra-wide leaderboard ad strip; keep the product/subject and any copy within a centered horizontal safe band, simple uncluttered background that stays legible when cropped to a thin horizontal strip, generous horizontal bleed',
     platform: 'civitai-ads',
-    aspectRatio: '8:1',
-    exact: true,
+    stacked: true,
+    exact: false,
   },
   'ad-leaderboard-728x90': {
     id: 'ad-leaderboard-728x90',
@@ -127,8 +134,8 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     styleNotes:
       'ultra-wide leaderboard ad strip; keep the product/subject and any copy within a centered horizontal safe band, simple uncluttered background that stays legible when cropped to a thin horizontal strip, generous horizontal bleed',
     platform: 'civitai-ads',
-    aspectRatio: '8:1',
-    exact: true,
+    stacked: true,
+    exact: false,
   },
   'ad-leaderboard-970x90': {
     id: 'ad-leaderboard-970x90',
@@ -139,8 +146,8 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     styleNotes:
       'ultra-wide leaderboard ad strip; keep the product/subject and any copy within a centered horizontal safe band, simple uncluttered background that stays legible when cropped to a thin horizontal strip, generous horizontal bleed',
     platform: 'civitai-ads',
-    aspectRatio: '8:1',
-    exact: true,
+    stacked: true,
+    exact: false,
   },
   'ad-rectangle-300x250': {
     id: 'ad-rectangle-300x250',
@@ -163,8 +170,8 @@ export const PRESETS: Record<PresetId, PresetDef> = {
     styleNotes:
       'wide billboard ad; key subject centered with a strong horizontal composition, clean background, leave bleed at top and bottom for cropping',
     platform: 'civitai-ads',
-    aspectRatio: '4:1',
-    exact: true,
+    stacked: true,
+    exact: false,
   },
   'ad-skyscraper-300x600': {
     id: 'ad-skyscraper-300x600',
@@ -186,6 +193,53 @@ export function isPresetId(value: string): value is PresetId {
 
 export function isAdPreset(id: PresetId): boolean {
   return PRESETS[id]?.platform === 'civitai-ads';
+}
+
+/** A constant 3 banner variations per stacked sheet, regardless of variant count. */
+export const AD_STACK_COUNT = 3;
+
+export function isStackedPreset(id: PresetId): boolean {
+  return PRESETS[id]?.stacked === true;
+}
+
+/**
+ * The nano-banana-2-supported aspect ratios a stacked sheet may render at. A
+ * stacked sheet of `n` banners targets `(width/height)/n` — the per-banner
+ * ratio — and snaps to the nearest verified entry so the whole sheet stays at a
+ * model-friendly AR while each banner reads at roughly the right proportion.
+ */
+const VERIFIED_AR: { ar: AspectRatio; r: number }[] = [
+  { ar: '1:1', r: 1 },
+  { ar: '4:5', r: 0.8 },
+  { ar: '5:4', r: 1.25 },
+  { ar: '9:16', r: 0.5625 },
+  { ar: '16:9', r: 16 / 9 },
+  { ar: '4:1', r: 4 },
+  { ar: '8:1', r: 8 },
+];
+
+function nearestStackedEntry(preset: PresetDef, n: number): { ar: AspectRatio; r: number } {
+  const target = preset.width / preset.height / Math.max(1, n);
+  let best = VERIFIED_AR[0]!;
+  let bestDiff = Math.abs(best.r - target);
+  for (const entry of VERIFIED_AR) {
+    const diff = Math.abs(entry.r - target);
+    if (diff < bestDiff) {
+      best = entry;
+      bestDiff = diff;
+    }
+  }
+  return best;
+}
+
+/** The verified aspect-ratio label a stacked sheet of `n` banners renders at. */
+export function stackedAspect(preset: PresetDef, n: number): AspectRatio {
+  return nearestStackedEntry(preset, n).ar;
+}
+
+/** The numeric width/height ratio matching {@link stackedAspect}, for display. */
+export function stackedAspectRatio(preset: PresetDef, n: number): number {
+  return nearestStackedEntry(preset, n).r;
 }
 
 export const PRESET_PLATFORMS: { id: PresetPlatform; label: string }[] = [

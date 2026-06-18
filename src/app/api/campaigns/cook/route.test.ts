@@ -302,6 +302,34 @@ describe('POST /api/campaigns/cook', () => {
     expect(submitted.negativePrompt).toContain('misspelled text'); // text-aware negative used
   });
 
+  it('stacked wide preset still fans out to N tiles, each a 3-banner stacked sheet', async () => {
+    // A stacked ad format must keep the same tile count as any other format —
+    // N variants → N submits/tiles, NOT collapsed to 1. Each submitted prompt
+    // is a 3-banner stacked sheet at the stacked AR.
+    await POST(
+      makeRequest(validBody({ presetIds: ['ad-billboard-970x250'], variantsPerPreset: 4 })) as never,
+    );
+    expect(submitImageGenMock).toHaveBeenCalledTimes(4);
+    for (const call of submitImageGenMock.mock.calls) {
+      expect(call[1].prompt.toLowerCase()).toContain('stacked');
+      // Billboard's per-banner ratio snaps to 5:4 at the constant stack of 3.
+      expect(call[1].aspectRatio).toBe('5:4');
+      // Ad presets still request 2K source pixels.
+      expect(call[1].resolution).toBe('2K');
+    }
+    // 4 tiles persisted (one per variant), not 1.
+    const tiles = createCampaignMock.mock.calls[0]![0].tiles as Array<unknown>;
+    expect(tiles).toHaveLength(4);
+  });
+
+  it('non-stacked preset is unchanged: N variants → N submits, no stacking directive', async () => {
+    await POST(makeRequest(validBody({ presetIds: ['ig-feed'], variantsPerPreset: 3 })) as never);
+    expect(submitImageGenMock).toHaveBeenCalledTimes(3);
+    for (const call of submitImageGenMock.mock.calls) {
+      expect(call[1].prompt.toLowerCase()).not.toContain('stacked top-to-bottom');
+    }
+  });
+
   it('records one estimate buzz event + one generation per submitted tile', async () => {
     // Cook only emits `kind: estimate` — the real `submit` event is recorded
     // by the workflow polling endpoint when the workflow charges complete.

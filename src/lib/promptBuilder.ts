@@ -1,6 +1,7 @@
 import type { AdCopy } from './adCopy';
 import type { BrandProfile } from './brand';
 import type { PhotoshootBrief, PhotoshootRatio, PhotoshootTemplate } from './photoshootTemplates';
+import { stackedAspect } from './presets';
 import type { BriefForPresets, PresetDef } from './presets';
 
 export type AspectRatio = '1:1' | '4:5' | '9:16' | '16:9' | '8:1' | '4:1' | '5:4';
@@ -131,6 +132,12 @@ export type BuildCampaignPromptInput = {
   logo?: boolean;
   /** Re-layout into this composition archetype (fix-layout). Omit for the default placement. */
   layoutVariant?: LayoutVariant | null;
+  /**
+   * For `stacked` presets: render a single image stacking this many distinct
+   * banner variations top-to-bottom at the stacked aspect ratio. Omit (or <2)
+   * for normal single-creative behavior.
+   */
+  stackCount?: number;
 };
 
 function copyPlacement(preset: PresetDef): string {
@@ -173,9 +180,29 @@ function logoLayer(): string {
   return 'incorporate the supplied brand logo as a small mark in a corner, preserving its exact shape, proportions, and colors; do not distort or restyle it';
 }
 
+function stackedIntent(preset: PresetDef, stackCount: number): string {
+  return (
+    `a single advertising image containing ${stackCount} distinct variations of a ` +
+    `${preset.width}×${preset.height}px ${preset.label} banner, arranged as ${stackCount} ` +
+    `equal-height horizontal banners stacked top-to-bottom, edge-to-edge with no outer margin ` +
+    `or gaps; each banner is a complete standalone ad with the brand, a short headline, and a ` +
+    `CTA; make all text large, crisp, sharp, and perfectly legible; vary the copy, color, and ` +
+    `layout across the ${stackCount} banners`
+  );
+}
+
 export function buildCampaignPrompt(input: BuildCampaignPromptInput): EnhancedPrompt {
-  const { brief, brand, preset, referenceCount = 0, userOverride, adCopy, logo, layoutVariant } =
-    input;
+  const {
+    brief,
+    brand,
+    preset,
+    referenceCount = 0,
+    userOverride,
+    adCopy,
+    logo,
+    layoutVariant,
+    stackCount,
+  } = input;
 
   const baseDescription = (brief.description?.trim() || brief.prompt?.trim() || '').replace(
     /\s+/g,
@@ -193,11 +220,17 @@ export function buildCampaignPrompt(input: BuildCampaignPromptInput): EnhancedPr
   const refStr = referenceLayer(referenceCount);
   const hasCopy = !!adCopy && !!adCopy.headline && !!adCopy.subhead;
   const isAd = preset.platform === 'civitai-ads';
-  const intentStr = isAd
-    ? `digital advertising creative for a ${preset.width}×${preset.height}px Civitai ad placement, designed to be center-cropped to exactly ${preset.width}×${preset.height}px — keep the product hero and any text within the central safe area`
-    : hasCopy
-      ? `social advertising creative for a ${preset.label} ${preset.ratio} placement, designed to be posted as-is — the product is the hero subject and the overlaid headline, subhead, and CTA carry the sales message`
-      : `social media creative for a ${preset.label} ${preset.ratio} placement — the product is the hero subject`;
+  // Stacked presets render a multi-banner sheet at a supported AR instead of a
+  // single exact-crop creative. The stacked intent + AR override the normal ad
+  // intent and the per-preset aspect ratio.
+  const isStacked = !!preset.stacked && typeof stackCount === 'number' && stackCount >= 2;
+  const intentStr = isStacked
+    ? stackedIntent(preset, stackCount)
+    : isAd
+      ? `digital advertising creative for a ${preset.width}×${preset.height}px Civitai ad placement, designed to be center-cropped to exactly ${preset.width}×${preset.height}px — keep the product hero and any text within the central safe area`
+      : hasCopy
+        ? `social advertising creative for a ${preset.label} ${preset.ratio} placement, designed to be posted as-is — the product is the hero subject and the overlaid headline, subhead, and CTA carry the sales message`
+        : `social media creative for a ${preset.label} ${preset.ratio} placement — the product is the hero subject`;
   const styleStr = hasCopy
     ? `${preset.styleNotes}. on-brand, product-forward, polished ad creative, high quality, commercial-grade composition`
     : `${preset.styleNotes}. on-brand, product-forward, no text overlay, high quality`;
@@ -212,7 +245,7 @@ export function buildCampaignPrompt(input: BuildCampaignPromptInput): EnhancedPr
     styleLayer: styleStr,
     finalPrompt,
     negativePrompt: hasCopy ? CAMPAIGN_TEXT_NEGATIVE : DEFAULT_NEGATIVE,
-    aspectRatio: presetAspect(preset),
+    aspectRatio: isStacked ? stackedAspect(preset, stackCount) : presetAspect(preset),
     userOverride: userOverride && userOverride.trim() ? userOverride.trim() : undefined,
   };
 }

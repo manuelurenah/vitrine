@@ -14,7 +14,7 @@ import {
   type VitrineImageGenInput,
 } from '@/lib/civitai';
 import { recordGeneration } from '@/lib/generations';
-import { isAdPreset, PRESETS, type PresetId } from '@/lib/presets';
+import { AD_STACK_COUNT, isAdPreset, isStackedPreset, PRESETS, type PresetId } from '@/lib/presets';
 import { buildCampaignPrompt, type EnhancedPrompt, resolveFinalPrompt } from '@/lib/promptBuilder';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
@@ -132,6 +132,10 @@ export async function POST(req: NextRequest) {
       preset,
       referenceCount: refUrls.length,
       adCopy,
+      // Wide ad formats render each variant as a 3-banner stacked sheet (a
+      // constant count, NOT the variant count) at a supported AR. Tile/job
+      // count below still fans out to `variantsPerPreset` for every preset.
+      ...(isStackedPreset(id) ? { stackCount: AD_STACK_COUNT } : {}),
       ...(provided?.userOverride ? { userOverride: provided.userOverride } : {}),
     });
     const finalPrompt = resolveFinalPrompt(enhanced);

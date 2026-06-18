@@ -8,7 +8,7 @@ import {
   type LayoutVariant,
   resolveFinalPrompt,
 } from './promptBuilder';
-import { isAdPreset, PRESETS } from './presets';
+import { AD_STACK_COUNT, isAdPreset, isStackedPreset, PRESETS } from './presets';
 
 export type RegenOptions = {
   /**
@@ -83,6 +83,10 @@ export function buildTileRegenInput(args: {
     !!options.paletteOverride ||
     !!options.includeLogo ||
     !!options.layoutVariant;
+  // Wide-ad formats render as a constant-count stacked banner sheet; keep that
+  // on any rebuild so an edited/relaid-out stacked tile stays a stacked sheet
+  // (not a single banner at the strip ratio).
+  const stackOpt = isStackedPreset(tile.presetId) ? { stackCount: AD_STACK_COUNT } : {};
   const persisted = campaign.enhancedPrompts?.[tile.presetId];
   const enhanced: EnhancedPrompt = mustRebuild
     ? buildCampaignPrompt({
@@ -90,6 +94,7 @@ export function buildTileRegenInput(args: {
         brand: effectiveBrand,
         preset,
         referenceCount: editImages.length,
+        ...stackOpt,
         ...(effectiveAdCopy ? { adCopy: effectiveAdCopy } : {}),
         ...(options.includeLogo ? { logo: true } : {}),
         ...(options.layoutVariant ? { layoutVariant: options.layoutVariant } : {}),
@@ -101,6 +106,7 @@ export function buildTileRegenInput(args: {
           brand: effectiveBrand,
           preset,
           referenceCount: editImages.length,
+          ...stackOpt,
         });
 
   // A user-typed prompt wins over the assembled one as the generation base.

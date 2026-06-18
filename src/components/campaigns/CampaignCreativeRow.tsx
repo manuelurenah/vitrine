@@ -4,7 +4,7 @@ import { Download, Loader2, MoreVertical, Pencil, RefreshCw } from 'lucide-react
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { CampaignTile } from '@/lib/campaigns';
-import { PRESETS } from '@/lib/presets';
+import { AD_STACK_COUNT, isStackedPreset, PRESETS, stackedAspectRatio } from '@/lib/presets';
 import type { CreativeGroup } from './creativeGroups';
 import { slotsForTile } from './creativeGroups';
 import { type TileWorkflowStatus, useTileWorkflow } from './useTileWorkflow';
@@ -21,6 +21,7 @@ export function CampaignCreativeRow({ campaignId, group }: Props) {
         <span className="font-mono text-[11px] text-fg-3">{preset.ratio}</span>
         <span className="font-mono text-[11px] text-fg-3">
           {group.tiles.length} {group.tiles.length === 1 ? 'variant' : 'variants'}
+          {isStackedPreset(group.presetId) ? ` · ${AD_STACK_COUNT} per sheet` : ''}
         </span>
       </div>
       <div className="flex flex-wrap gap-3 pb-1">
@@ -50,6 +51,12 @@ function VariantThumb({ campaignId, tile }: { campaignId: string; tile: Campaign
   const [regenerating, setRegenerating] = useState(false);
   const base = `/campaigns/${campaignId}/c/${tile.id}`;
   const slots = slotsForTile(tile, imageUrls.length);
+  // Stacked (wide-ad) tiles render the 3-banner sheet at its real generated AR,
+  // not the preset's narrow strip ratio. The stack count is the constant.
+  const stacked = isStackedPreset(tile.presetId);
+  const displayRatio = stacked
+    ? stackedAspectRatio(preset, AD_STACK_COUNT)
+    : preset.width / preset.height;
 
   async function redo() {
     setRegenerating(true);
@@ -78,7 +85,8 @@ function VariantThumb({ campaignId, tile }: { campaignId: string; tile: Campaign
           url={imageUrls[i] ?? null}
           status={status}
           editHref={i === 0 ? base : `${base}?v=${i}`}
-          ratio={preset.width / preset.height}
+          ratio={displayRatio}
+          stacked={stacked}
           filename={`${preset.id}-${tile.id}-${i}`}
           onRegenerate={redo}
           regenerating={regenerating}
@@ -91,10 +99,13 @@ function VariantThumb({ campaignId, tile }: { campaignId: string; tile: Campaign
 /**
  * Display width (px) for a variant tile, scaled by aspect ratio so wide banners
  * (leaderboards at 8:1) get more width instead of rendering as a tiny sliver,
- * while tall/square tiles stay near the base size. Combined with `flex-wrap` on
- * the row, tiles lay out as a grid that flows to the next line at the edge.
+ * while tall/square tiles stay near the base size. Stacked 3-banner sheets render
+ * a bit larger so the stacked banners and their text stay legible, but there are
+ * N per row so the bounds stay grid-friendly. Combined with `flex-wrap` on the
+ * row, tiles lay out as a grid that flows to the next line at the edge.
  */
-function tileWidth(ratio: number): number {
+function tileWidth(ratio: number, stacked: boolean): number {
+  if (stacked) return Math.max(260, Math.min(480, Math.round(220 * ratio)));
   const BASE_HEIGHT = 168;
   const MIN_WIDTH = 168;
   const MAX_WIDTH = 480;
@@ -106,6 +117,7 @@ function RowImage({
   status,
   editHref,
   ratio,
+  stacked = false,
   filename,
   onRegenerate,
   regenerating,
@@ -114,6 +126,7 @@ function RowImage({
   status: TileWorkflowStatus;
   editHref: string;
   ratio: number;
+  stacked?: boolean;
   filename: string;
   onRegenerate: () => void;
   regenerating: boolean;
@@ -153,7 +166,7 @@ function RowImage({
   return (
     <div
       className="relative shrink-0 overflow-hidden rounded-[10px] border border-line bg-bg-3"
-      style={{ width: tileWidth(ratio), maxWidth: '100%', aspectRatio: ratio }}
+      style={{ width: tileWidth(ratio, stacked), maxWidth: '100%', aspectRatio: ratio }}
     >
       {url ? (
         <Link href={editHref} aria-label="edit creative">
