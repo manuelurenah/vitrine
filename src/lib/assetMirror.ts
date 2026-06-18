@@ -54,19 +54,36 @@ export type MirrorResult = {
  *
  * Throws on non-2xx fetch or empty body — caller decides what to do.
  */
+/** Hard ceiling on a mirrored object (memory guard). */
+const MAX_MIRROR_BYTES = 100 * 1024 * 1024;
+
 export async function mirrorOrchestratorImage(
   sourceUrl: string,
   opts: { userId: string; bucketKind?: 'asset' | 'upload' },
 ): Promise<MirrorResult> {
+  // SECURITY: this fetches an arbitrary URL server-side. It is only ever fed
+  // orchestrator/CDN-produced URLs today. Before wiring a caller that passes a
+  // user-influenced URL, route the fetch through the SSRF-safe pinned fetch in
+  // lib/scrape.ts (host validated + private IPs refused) — otherwise this is an
+  // unguarded SSRF.
   const response = await fetch(sourceUrl);
   if (!response.ok) {
     throw new Error(`failed_to_fetch_source: status=${response.status} url=${sourceUrl}`);
+  }
+  // Reject obviously-oversized bodies up front so a malicious/huge response
+  // can't be buffered whole into memory.
+  const declared = Number(response.headers.get('content-length') ?? '0');
+  if (Number.isFinite(declared) && declared > MAX_MIRROR_BYTES) {
+    throw new Error(`source_too_large: ${declared} bytes`);
   }
 
   const arrayBuffer = await response.arrayBuffer();
   const body = new Uint8Array(arrayBuffer);
   if (body.byteLength === 0) {
     throw new Error('empty_source_body');
+  }
+  if (body.byteLength > MAX_MIRROR_BYTES) {
+    throw new Error(`source_too_large: ${body.byteLength} bytes`);
   }
 
   const contentType =

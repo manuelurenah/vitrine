@@ -10,6 +10,9 @@ import {
 } from './promptBuilder';
 import { AD_STACK_COUNT, isAdPreset, isStackedPreset, PRESETS } from './presets';
 
+/** Upper bound on images per regenerate call — mirrors the cook-path cap. */
+const MAX_REGEN_IMAGES = 8;
+
 export type RegenOptions = {
   /**
    * Fix-layout flag. The composition is always rebuilt from the product
@@ -120,7 +123,11 @@ export function buildTileRegenInput(args: {
       ? withHint
       : `${withHint} · variation ${options.variation}`;
 
-  const quantity = tile.quantity ?? variantsPerPreset ?? 1;
+  // Clamp to the cook-path ceiling. `tile.quantity` is persisted at cook time
+  // (where it is server-capped), but a clamp here is defense-in-depth so a
+  // future write path that lets the client inflate `quantity` can't amplify
+  // regenerate cost N×.
+  const quantity = Math.min(Math.max(tile.quantity ?? variantsPerPreset ?? 1, 1), MAX_REGEN_IMAGES);
 
   const input: VitrineImageGenInput = {
     prompt,

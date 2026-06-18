@@ -22,6 +22,13 @@ export async function getUserKey(session: Session): Promise<string> {
     session.user = { ...session.user, id, username };
   }
 
+  // Fail closed in production: an `anon` key would collapse multiple users onto
+  // one row, letting them read/mutate each other's data. The `anon` fallback is
+  // a single-tenant local-dev convenience only; never let it run with live data.
+  if (id === undefined && username === undefined && process.env.NODE_ENV === 'production') {
+    throw new Error('getUserKey: session has no Civitai id or username — refusing anon fallback');
+  }
+
   const key = id !== undefined ? String(id) : username ? `u:${username}` : 'anon';
 
   await db

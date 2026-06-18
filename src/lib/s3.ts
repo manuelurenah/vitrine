@@ -39,6 +39,9 @@ export type PresignedUpload = {
 
 const SAFE_EXT = /^[a-z0-9]{1,10}$/i;
 
+/** Hard ceiling for inlining an object into a base64 data URL (memory guard). */
+const MAX_INLINE_BYTES = 50 * 1024 * 1024;
+
 function safeExt(filename: string | undefined): string {
   if (!filename) return 'bin';
   const dot = filename.lastIndexOf('.');
@@ -173,6 +176,11 @@ export async function getObjectAsDataUrl(opts: {
   const client = getClient();
   const out = await client.send(new GetObjectCommand({ Bucket: bucket, Key: opts.key }));
   if (!out.Body) throw new Error(`s3 get returned empty body for ${bucket}/${opts.key}`);
+  // Guard against buffering an unbounded object into memory as base64. Uploads
+  // are size-capped at presign time, but enforce a hard ceiling here too.
+  if (out.ContentLength != null && out.ContentLength > MAX_INLINE_BYTES) {
+    throw new Error(`object ${bucket}/${opts.key} too large to inline (${out.ContentLength} bytes)`);
+  }
   const bytes = await out.Body.transformToByteArray();
   const contentType = out.ContentType || 'application/octet-stream';
   const base64 = Buffer.from(bytes).toString('base64');

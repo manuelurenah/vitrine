@@ -56,4 +56,38 @@ describe('buildTileRegenInput', () => {
     const r = buildTileRegenInput({ campaign, tile, brand, refUrls: [], variantsPerPreset: 3, options: {} });
     expect(r.input.numImages).toBe(3);
   });
+  it('clamps numImages to the regen ceiling (defense against an inflated persisted quantity)', () => {
+    const hugeTile = {
+      presetId: 'ig-feed',
+      adCopy: null,
+      quantity: 999,
+      assetUrl: 'https://img/live',
+    } as never;
+    const r = buildTileRegenInput({
+      campaign,
+      tile: hugeTile,
+      brand,
+      refUrls: [],
+      variantsPerPreset: 3,
+      options: {},
+    });
+    expect(r.input.numImages).toBe(8);
+  });
+  it('clamps numImages to a floor of 1', () => {
+    const zeroTile = {
+      presetId: 'ig-feed',
+      adCopy: null,
+      quantity: 0,
+      assetUrl: 'https://img/live',
+    } as never;
+    const r = buildTileRegenInput({
+      campaign,
+      tile: zeroTile,
+      brand,
+      refUrls: [],
+      variantsPerPreset: 0,
+      options: {},
+    });
+    expect(r.input.numImages).toBe(1);
+  });
 });
