@@ -182,11 +182,14 @@ function logoLayer(): string {
 
 function stackedIntent(preset: PresetDef, stackCount: number): string {
   return (
-    `a single advertising image containing ${stackCount} distinct variations of a ` +
-    `${preset.width}×${preset.height}px ${preset.label} banner, arranged as ${stackCount} ` +
-    `equal-height horizontal banners stacked top-to-bottom, edge-to-edge with no outer margin ` +
-    `or gaps; each banner is a complete standalone ad with the brand, a short headline, and a ` +
-    `CTA; make all text large, crisp, sharp, and perfectly legible; vary the copy, color, and ` +
+    `a single advertising image split into exactly ${stackCount} full-width horizontal banners ` +
+    `stacked in ONE vertical column, one banner per row from top to bottom (${stackCount} rows ` +
+    `total). CRITICAL LAYOUT: arrange the banners ONLY top-to-bottom in a single column — each ` +
+    `banner spans the entire image width edge-to-edge; never place two banners side-by-side, ` +
+    `never use a 2-column or grid layout, never split a row. All ${stackCount} rows have equal ` +
+    `height with a thin divider between them. Each row is one complete standalone ` +
+    `${preset.width}×${preset.height}px ${preset.label} ad with the brand, a short headline, and ` +
+    `a CTA; make all text large, crisp, sharp, and perfectly legible; vary the copy, color, and ` +
     `layout across the ${stackCount} banners`
   );
 }
