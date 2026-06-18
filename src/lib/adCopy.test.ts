@@ -93,6 +93,39 @@ describe('generateCampaignDraft — model fallback chain', () => {
     expect(res.draft.adCopy['ig-feed']).toBeTruthy();
   });
 
+  it('parses extraCopy spares into draft.copyPool, dropping malformed entries', async () => {
+    const withPool = JSON.stringify({
+      brief: {
+        title: 'Zap Season',
+        description: 'A bite-free summer campaign for the countryside.',
+        goal: 'drive online sales',
+        offer: '2-for-1, online only',
+        audience: 'rural families, 25–45',
+        aesthetics: 'bold, high-contrast',
+      },
+      tiles: {
+        'ig-feed': { headline: 'Zap the bite', subhead: 'Sleep bite-free tonight', cta: 'Shop' },
+      },
+      extraCopy: [
+        { headline: 'Outsmart mosquitoes', subhead: 'Two zappers, one price', cta: 'Buy' },
+        { headline: 'Reclaim your evenings', subhead: 'Bite-free patios all summer' },
+        { headline: 'missing subhead so dropped' }, // invalid → filtered out
+      ],
+    });
+    createMock.mockResolvedValueOnce(completion(withPool));
+    const res = await generateCampaignDraft({ ...input });
+    expect(res.meta.llm).toBe('ok');
+    expect(res.draft.copyPool).toHaveLength(2);
+    expect(res.draft.copyPool[0]).toMatchObject({ headline: 'Outsmart mosquitoes', cta: 'Buy' });
+    expect(res.draft.copyPool[1]).toMatchObject({ headline: 'Reclaim your evenings' });
+  });
+
+  it('yields an empty copyPool when the model omits extraCopy', async () => {
+    createMock.mockResolvedValueOnce(completion(VALID));
+    const res = await generateCampaignDraft({ ...input });
+    expect(res.draft.copyPool).toEqual([]);
+  });
+
   it('retries without JSON mode on response_format rejection, then advances if still unusable', async () => {
     createMock
       .mockRejectedValueOnce(new Error('response_format is not supported')) // m1 try1

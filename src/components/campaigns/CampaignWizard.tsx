@@ -44,6 +44,7 @@ type DraftShape = {
   audience: string;
   aesthetics: string;
   adCopy: Record<string, AdCopyShape>;
+  copyPool?: AdCopyShape[];
 };
 
 export type CampaignWizardInitial = {
@@ -126,6 +127,11 @@ export function CampaignWizard({ initial, fetcher }: Props) {
   );
   const [variantsPerPreset, setVariantsPerPreset] = useState<number>(1);
   const [adCopy, setAdCopy] = useState<Record<string, AdCopyShape>>({});
+  // Spare LLM-generated copy variants the review step rotates through as the
+  // user adds output formats. The cursor tracks how many spares we've handed
+  // out so each newly-added placement gets a distinct one (wraps when drained).
+  const [copyPool, setCopyPool] = useState<AdCopyShape[]>([]);
+  const poolCursorRef = useRef(0);
   const [drafting, setDrafting] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [draftWarning, setDraftWarning] = useState<string | null>(null);
@@ -231,6 +237,8 @@ export function CampaignWizard({ initial, fetcher }: Props) {
         };
         setBrief(next);
         setAdCopy(json.draft.adCopy ?? {});
+        setCopyPool(json.draft.copyPool ?? []);
+        poolCursorRef.current = 0;
         setUserOverrides({});
         setDraftWarning(
           json.meta?.llm === 'fallback'
@@ -382,6 +390,8 @@ export function CampaignWizard({ initial, fetcher }: Props) {
           setBrief={setBrief}
           adCopy={adCopy}
           setAdCopy={setAdCopy}
+          copyPool={copyPool}
+          poolCursorRef={poolCursorRef}
           presetIds={presetIds}
           setPresetIds={setPresetIds}
           variantsPerPreset={variantsPerPreset}
@@ -654,6 +664,8 @@ type BriefStepProps = {
   setBrief: (next: PreviewBrief) => void;
   adCopy: Record<string, AdCopyShape>;
   setAdCopy: (next: Record<string, AdCopyShape>) => void;
+  copyPool: AdCopyShape[];
+  poolCursorRef: React.RefObject<number>;
   presetIds: string[];
   setPresetIds: (ids: string[]) => void;
   variantsPerPreset: number;
@@ -682,6 +694,8 @@ function BriefStep({
   setBrief,
   adCopy,
   setAdCopy,
+  copyPool,
+  poolCursorRef,
   presetIds,
   setPresetIds,
   variantsPerPreset,
@@ -711,24 +725,33 @@ function BriefStep({
     const current = adCopy[id] ?? { headline: '', subhead: '', cta: '' };
     setAdCopy({ ...adCopy, [id]: { ...current, [field]: value } });
   }
-  // Selecting a new placement after the brief is drafted should not land its
-  // copy card blank. Seed any newly-added preset from an already-filled card
-  // (falling back to the brief title/description) so the user can tweak rather
-  // than retype.
+  // Seeding a newly-added placement's copy card. Prefer a fresh, distinct
+  // variant from the LLM-generated spare pool (rotating so each add gets its
+  // own angle). When the pool is drained or unavailable (LLM fallback), fall
+  // back to cloning an already-filled card / the brief title+description so the
+  // card is never blank.
+  function nextCopyForAddedPreset(): AdCopyShape {
+    const variant = copyPool.length > 0 ? copyPool[poolCursorRef.current % copyPool.length] : null;
+    if (variant) {
+      poolCursorRef.current += 1;
+      return { ...variant };
+    }
+    const template: AdCopyShape =
+      presetIds.map((id) => adCopy[id]).find((c) => c && (c.headline || c.subhead || c.cta)) ?? {
+        headline: brief.title,
+        subhead: brief.description,
+        cta: '',
+      };
+    return { ...template };
+  }
   function handlePresetsChange(next: string[]) {
     const added = next.filter((id) => !presetIds.includes(id));
     if (added.length > 0) {
-      const template: AdCopyShape =
-        presetIds.map((id) => adCopy[id]).find((c) => c && (c.headline || c.subhead || c.cta)) ?? {
-          headline: brief.title,
-          subhead: brief.description,
-          cta: '',
-        };
       const filled: Record<string, AdCopyShape> = { ...adCopy };
       for (const id of added) {
         const existing = filled[id];
         if (!existing || (!existing.headline && !existing.subhead && !existing.cta)) {
-          filled[id] = { ...template };
+          filled[id] = nextCopyForAddedPreset();
         }
       }
       setAdCopy(filled);

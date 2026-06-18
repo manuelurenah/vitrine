@@ -188,11 +188,19 @@ export type CampaignDraft = {
   audience: string;
   aesthetics: string;
   adCopy: Record<PresetId, AdCopy>;
+  /**
+   * Spare, distinct ad-copy variants beyond the selected placements. The wizard
+   * rotates through these when the user adds new output formats on the review
+   * step, so each added placement gets fresh copy instead of a clone.
+   */
+  copyPool: AdCopy[];
 };
 
 const MAX_TITLE = 80;
 const MAX_DESC = 320;
 const MAX_FIELD = 140;
+/** How many extra spare copy variants to ask the draft LLM for. */
+const DRAFT_SPARE_COPY_COUNT = 4;
 
 function clampField(value: unknown, max: number, fallback = ''): string {
   if (typeof value !== 'string') return fallback;
@@ -223,6 +231,9 @@ function fallbackDraft(
     audience: seed.audience ?? '',
     aesthetics: seed.aesthetics ?? '',
     adCopy,
+    // No LLM means no distinct spares — the wizard falls back to seeding added
+    // placements from an existing card when the pool is empty.
+    copyPool: [],
   };
 }
 
@@ -245,8 +256,12 @@ function buildDraftSystemPrompt(): string {
     '- Vary the angle across placements so the set feels like a campaign, not duplicates.',
     '- Never invent specific prices, dates, sizes, or claims not implied by the prompt or brand.',
     '',
+    'Spare copy:',
+    `- Also produce ${DRAFT_SPARE_COPY_COUNT} extra spare ad-copy variants in "extraCopy" — distinct campaign angles the user may apply to additional placements later.`,
+    '- Each spare must differ from every tile above and from the other spares (different hook/angle), while staying on-brief and on-brand.',
+    '',
     'Output: respond with ONE JSON object only, no markdown, no commentary. Exact shape:',
-    '{ "brief": { "title": string, "description": string, "goal": string, "offer": string, "audience": string, "aesthetics": string }, "tiles": { "<presetId>": { "headline": string, "subhead": string, "cta": string } } }',
+    '{ "brief": { "title": string, "description": string, "goal": string, "offer": string, "audience": string, "aesthetics": string }, "tiles": { "<presetId>": { "headline": string, "subhead": string, "cta": string } }, "extraCopy": [ { "headline": string, "subhead": string, "cta": string } ] }',
     'Use the exact preset ids provided in the user message.',
   ].join('\n');
 }
@@ -353,7 +368,7 @@ export async function generateCampaignDraft(
     const body = {
       model,
       temperature: 0.75,
-      max_tokens: 1400,
+      max_tokens: 1800,
       messages: [
         { role: 'system' as const, content: buildDraftSystemPrompt() },
         {
@@ -413,6 +428,11 @@ export async function generateCampaignDraft(
         : null) ??
       {};
 
+    const extraRaw = Array.isArray(top.extraCopy) ? top.extraCopy : [];
+    const copyPool = extraRaw
+      .map((entry) => sanitize(entry))
+      .filter((c): c is AdCopy => c !== null);
+
     const fb = fallbackDraft(prompt, brand, presetIds);
     const draft: CampaignDraft = {
       title: clampField(briefRaw.title, MAX_TITLE, fb.title),
@@ -422,6 +442,7 @@ export async function generateCampaignDraft(
       audience: clampField(briefRaw.audience, MAX_FIELD, fb.audience),
       aesthetics: clampField(briefRaw.aesthetics, MAX_FIELD, fb.aesthetics),
       adCopy: {} as Record<PresetId, AdCopy>,
+      copyPool,
     };
     const seed: BriefForPresets = {
       prompt,
