@@ -47,16 +47,12 @@ export async function GET(_: NextRequest, ctx: { params: Params }) {
   try {
     res = await fetch(tile.assetUrl);
   } catch (err) {
-    return NextResponse.json(
-      { error: 'fetch_failed', detail: err instanceof Error ? err.message : String(err) },
-      { status: 502 },
-    );
+    console.error('tile download fetch failed', err);
+    return NextResponse.json({ error: 'fetch_failed' }, { status: 502 });
   }
   if (!res.ok) {
-    return NextResponse.json(
-      { error: 'fetch_failed', detail: `${tile.assetUrl} → ${res.status}` },
-      { status: 502 },
-    );
+    console.error('tile download upstream non-ok', tile.assetUrl, res.status);
+    return NextResponse.json({ error: 'fetch_failed' }, { status: 502 });
   }
 
   const buf = new Uint8Array(await res.arrayBuffer());

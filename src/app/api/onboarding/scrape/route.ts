@@ -41,12 +41,14 @@ export async function POST(req: NextRequest) {
           : err.code === 'timeout'
             ? 504
             : 502;
-      return NextResponse.json({ error: err.code, detail: err.message }, { status });
+      // Return only the coarse `code` — the message (e.g. "<host> resolves to
+      // private IP", "could not resolve <host>") is a blind-SSRF oracle that
+      // lets a caller map the internal network. Log specifics server-side.
+      console.error('scrape blocked/failed', err.code, err.message);
+      return NextResponse.json({ error: err.code }, { status });
     }
-    return NextResponse.json(
-      { error: 'scrape_failed', detail: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    console.error('scrape failed', err);
+    return NextResponse.json({ error: 'scrape_failed' }, { status: 500 });
   }
 
   const scrape: ScrapedSite = {

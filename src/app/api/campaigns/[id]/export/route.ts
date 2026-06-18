@@ -50,16 +50,12 @@ export async function GET(_: NextRequest, ctx: { params: Params }) {
     try {
       res = await fetch(entry.publicUrl);
     } catch (err) {
-      return NextResponse.json(
-        { error: 'fetch_failed', detail: err instanceof Error ? err.message : String(err) },
-        { status: 502 },
-      );
+      console.error('export fetch failed', err);
+      return NextResponse.json({ error: 'fetch_failed' }, { status: 502 });
     }
     if (!res.ok) {
-      return NextResponse.json(
-        { error: 'fetch_failed', detail: `${entry.publicUrl} → ${res.status}` },
-        { status: 502 },
-      );
+      console.error('export upstream non-ok', entry.publicUrl, res.status);
+      return NextResponse.json({ error: 'fetch_failed' }, { status: 502 });
     }
     const buf = new Uint8Array(await res.arrayBuffer());
 

@@ -63,6 +63,13 @@ export async function presignUpload(opts: {
   contentType?: string;
   bucketKind?: 'upload' | 'asset';
   expiresIn?: number;
+  /**
+   * When set, the exact byte length is signed into the PUT as `Content-Length`.
+   * Storage (MinIO/R2/S3) then rejects a body of any other size, so the upload
+   * size cap is enforced at the storage layer — not just by the client-supplied
+   * `byteSize` in the presign request (which the client could understate).
+   */
+  contentLength?: number;
 }): Promise<PresignedUpload> {
   const bucket = bucketFor(opts.bucketKind ?? 'upload');
   const key = `${opts.userId}/${randomUUID()}.${safeExt(opts.filename)}`;
@@ -71,6 +78,7 @@ export async function presignUpload(opts: {
     Bucket: bucket,
     Key: key,
     ContentType: opts.contentType ?? 'application/octet-stream',
+    ...(opts.contentLength != null ? { ContentLength: opts.contentLength } : {}),
   });
   const putUrl = await getSignedUrl(client, command, { expiresIn: opts.expiresIn ?? 600 });
   return { bucket, key, putUrl, publicUrl: publicUrlFor(bucket, key) };

@@ -38,12 +38,11 @@ export async function POST(req: NextRequest) {
       filename: parsed.data.filename,
       contentType: parsed.data.contentType,
       bucketKind: parsed.data.bucketKind,
+      contentLength: parsed.data.byteSize,
     });
     return NextResponse.json(upload);
   } catch (err) {
-    return NextResponse.json(
-      { error: 'presign_failed', detail: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    console.error('presign failed', err);
+    return NextResponse.json({ error: 'presign_failed' }, { status: 500 });
   }
 }
