@@ -1,6 +1,8 @@
 import 'server-only';
+import { lookup as dnsLookupCb } from 'node:dns';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { Agent, fetch as safeFetch } from 'undici';
 
 export type ScrapeResult = {
   finalUrl: string;
@@ -84,14 +86,17 @@ export function normalizeUrl(input: string): URL {
 export function isPrivateIp(ip: string): boolean {
   const v = isIP(ip);
   if (v === 4) {
-    const [a, b] = ip.split('.').map((n) => Number(n));
-    if (a === undefined || b === undefined) return true;
+    const [a, b, c] = ip.split('.').map((n) => Number(n));
+    if (a === undefined || b === undefined || c === undefined) return true;
     if (a === 10) return true;
     if (a === 127) return true;
     if (a === 0) return true;
     if (a === 169 && b === 254) return true;
     if (a === 172 && b >= 16 && b <= 31) return true;
     if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true; // 100.64/10 CGNAT / shared
+    if (a === 192 && b === 0 && c === 0) return true; // 192.0.0/24 IETF protocol
+    if (a === 198 && (b === 18 || b === 19)) return true; // 198.18/15 benchmarking
     if (a >= 224) return true; // multicast + reserved
     return false;
   }
@@ -108,6 +113,25 @@ export function isPrivateIp(ip: string): boolean {
     return false;
   }
   return true; // unknown is treated as unsafe
+}
+
+/**
+ * Throw unless every resolved address is a public IP. Shared by the pre-fetch
+ * host check and the connect-time pinned lookup so both apply the exact same
+ * private-range policy. Exported for unit testing.
+ */
+export function assertAddressesPublic(
+  hostname: string,
+  addresses: { address: string }[],
+): void {
+  if (addresses.length === 0) {
+    throw new ScrapeError('blocked_host', `no DNS records for ${hostname}`);
+  }
+  for (const r of addresses) {
+    if (isPrivateIp(r.address)) {
+      throw new ScrapeError('blocked_host', `${hostname} resolves to private IP`);
+    }
+  }
 }
 
 async function assertPublicHost(hostname: string): Promise<void> {
@@ -129,27 +153,51 @@ async function assertPublicHost(hostname: string): Promise<void> {
   } catch {
     throw new ScrapeError('blocked_host', `could not resolve ${hostname}`);
   }
-  if (resolved.length === 0) {
-    throw new ScrapeError('blocked_host', `no DNS records for ${hostname}`);
-  }
-  for (const r of resolved) {
-    if (isPrivateIp(r.address)) {
-      throw new ScrapeError('blocked_host', `${hostname} resolves to private IP`);
-    }
-  }
+  assertAddressesPublic(hostname, resolved);
+}
+
+/**
+ * An undici dispatcher whose DNS resolution is pinned: it resolves the host,
+ * rejects the connection if ANY resolved address is private, and connects to a
+ * validated public address. Because undici uses this lookup for the actual
+ * socket connect — and for every redirect hop it follows — there is no second,
+ * unchecked resolution between "validate" and "connect". This closes the
+ * DNS-rebinding TOCTOU and the redirect-to-internal-host gap that a plain
+ * hostname re-resolution leaves open.
+ */
+function pinnedDispatcher(): Agent {
+  return new Agent({
+    connect: {
+      lookup(hostname, _options, callback) {
+        dnsLookupCb(hostname, { all: true }, (err, addresses) => {
+          if (err) return callback(err, '', 0);
+          const list = addresses as { address: string; family: number }[];
+          try {
+            assertAddressesPublic(hostname, list);
+          } catch (e) {
+            return callback(e as Error, '', 0);
+          }
+          const first = list[0]!;
+          callback(null, first.address, first.family);
+        });
+      },
+    },
+  });
 }
 
 async function fetchHtml(url: URL): Promise<{ html: string; finalUrl: string }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const dispatcher = pinnedDispatcher();
   try {
     let current = url;
     let redirects = 0;
     while (true) {
-      const res = await fetch(current.toString(), {
+      const res = await safeFetch(current.toString(), {
         method: 'GET',
         redirect: 'manual',
         signal: controller.signal,
+        dispatcher,
         headers: {
           'user-agent': USER_AGENT,
           accept: 'text/html,application/xhtml+xml',
@@ -186,6 +234,7 @@ async function fetchHtml(url: URL): Promise<{ html: string; finalUrl: string }> 
     throw new ScrapeError('request_failed', err instanceof Error ? err.message : String(err));
   } finally {
     clearTimeout(timer);
+    void dispatcher.destroy();
   }
 }
 
@@ -195,9 +244,10 @@ async function fetchStylesheetText(html: string, base: URL): Promise<string> {
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), STYLESHEET_TIMEOUT_MS);
+  const dispatcher = pinnedDispatcher();
   try {
     const settled = await Promise.allSettled(
-      urls.map((u) => fetchOneStylesheet(u, controller.signal)),
+      urls.map((u) => fetchOneStylesheet(u, controller.signal, dispatcher)),
     );
     return settled
       .map((r) => (r.status === 'fulfilled' ? r.value : ''))
@@ -205,21 +255,30 @@ async function fetchStylesheetText(html: string, base: URL): Promise<string> {
       .join('\n');
   } finally {
     clearTimeout(timer);
+    void dispatcher.destroy();
   }
 }
 
-async function fetchOneStylesheet(url: URL, signal: AbortSignal): Promise<string> {
+async function fetchOneStylesheet(
+  url: URL,
+  signal: AbortSignal,
+  dispatcher: Agent,
+): Promise<string> {
   try {
     await assertPublicHost(url.hostname);
   } catch {
     return ''; // skip silently — palette is best-effort, never block the page scrape on a bad CSS host
   }
-  let res: Response;
+  let res: Awaited<ReturnType<typeof safeFetch>>;
   try {
-    res = await fetch(url.toString(), {
+    // `redirect: 'follow'` is safe here: the pinned dispatcher re-validates the
+    // resolved IP for every hop it connects to, so a stylesheet that redirects
+    // to an internal host is refused at connect time.
+    res = await safeFetch(url.toString(), {
       method: 'GET',
       redirect: 'follow',
       signal,
+      dispatcher,
       headers: {
         'user-agent': USER_AGENT,
         accept: 'text/css,*/*;q=0.1',
@@ -265,7 +324,16 @@ function collectStylesheetUrls(html: string, base: URL): URL[] {
   return out;
 }
 
-async function readBodyCapped(res: Response, maxBytes: number): Promise<string> {
+type ByteStreamReader = {
+  read: () => Promise<{ done: boolean; value?: Uint8Array }>;
+  releaseLock: () => void;
+};
+type CappableResponse = {
+  body: { getReader: () => ByteStreamReader } | null;
+  text: () => Promise<string>;
+};
+
+async function readBodyCapped(res: CappableResponse, maxBytes: number): Promise<string> {
   if (!res.body) return await res.text();
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];

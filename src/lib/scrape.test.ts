@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assertAddressesPublic,
   isPrivateIp,
   normalizeUrl,
   pickBrandName,
@@ -36,6 +37,19 @@ describe('isPrivateIp', () => {
     ['169.254.0.1', true],
     ['224.0.0.1', true],
     ['0.0.0.0', true],
+    // 100.64.0.0/10 — carrier-grade NAT / shared address space (used by some
+    // cloud/k8s internal networks).
+    ['100.64.0.1', true],
+    ['100.127.255.255', true],
+    ['100.63.255.255', false],
+    ['100.128.0.1', false],
+    // 192.0.0.0/24 — IETF protocol assignments.
+    ['192.0.0.1', true],
+    ['192.0.1.1', false],
+    // 198.18.0.0/15 — benchmarking range.
+    ['198.18.0.1', true],
+    ['198.19.255.255', true],
+    ['198.20.0.1', false],
     ['8.8.8.8', false],
     ['1.1.1.1', false],
     ['::1', true],
@@ -47,6 +61,27 @@ describe('isPrivateIp', () => {
     ['not-an-ip', true],
   ])('private(%s) = %s', (ip, expected) => {
     expect(isPrivateIp(ip)).toBe(expected);
+  });
+});
+
+describe('assertAddressesPublic', () => {
+  it('passes when every resolved address is public', () => {
+    expect(() =>
+      assertAddressesPublic('cdn.example.com', [{ address: '8.8.8.8' }, { address: '1.1.1.1' }]),
+    ).not.toThrow();
+  });
+
+  it('throws when any resolved address is private (rebinding / split-horizon)', () => {
+    expect(() =>
+      assertAddressesPublic('evil.example.com', [
+        { address: '8.8.8.8' },
+        { address: '169.254.169.254' },
+      ]),
+    ).toThrow(/private/);
+  });
+
+  it('throws when there are no resolved addresses', () => {
+    expect(() => assertAddressesPublic('nowhere.example.com', [])).toThrow();
   });
 });
 
