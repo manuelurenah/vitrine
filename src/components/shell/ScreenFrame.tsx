@@ -36,10 +36,9 @@ type Props = {
  *   1. Optional bloom background (z-0, pointer-events-none)
  *   2. Scrollable content region (z-1, independent scroll)
  *   3. Optional sticky CTA (z-15, fixed above tab bar)
- *   4. MobileTabBar (z-20, absolute bottom)
+ *   4. MobileTabBar (z-20, absolute floating pill — inset 12px, safe-area aware)
  *
- * Content padding-bottom = 76px (tab bar) + 72px (stickyCta) when both
- * are present, so the last item is never hidden behind chrome.
+ * Content padding-bottom = calc(safe-area + 76px) (pill height 64 + inset 12) + 72px (stickyCta) when present, so the last item is never hidden behind chrome.
  *
  * Matches mobile-shell.jsx `.m-screen` + `.m-screen-content`.
  */

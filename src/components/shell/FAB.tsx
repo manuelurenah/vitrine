@@ -34,8 +34,8 @@ const fabClass = cn(
   'font-body text-[14px] font-bold tracking-[-0.005em]',
   // Cursor
   'cursor-pointer',
-  // Position: absolute, above tab bar (bottom: 92px = 76px tab bar + 16px gap)
-  'absolute bottom-[92px] right-4 z-[18]',
+  // Position: absolute, above the floating pill (pill top = safe-area + 76px, + 16px gap)
+  'absolute bottom-[calc(env(safe-area-inset-bottom)_+_92px)] right-4 z-[18]',
   // Focus ring
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-volt',
 );
@@ -52,8 +52,7 @@ const fabStyle = {
 /**
  * 52 px floating action button.
  *
- * Positioned `bottom: 92px; right: 16px` — above the 76px tab bar with a
- * 16px gap. Volt fill with a volt bloom shadow.
+ * Positioned `right: 16px`, `bottom: calc(env(safe-area-inset-bottom) + 92px)` — 16px above the floating pill (whose top edge sits at safe-area + 76px). Volt fill with a volt bloom shadow.
  *
  * Renders as a `<Link>` when `href` is provided, otherwise a `<button>`.
  * Touch target is 52px × 52px minimum (≥44px §8 prereq met).
