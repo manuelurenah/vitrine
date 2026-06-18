@@ -17,6 +17,7 @@ import { recordGeneration } from '@/lib/generations';
 import { AD_STACK_COUNT, isAdPreset, isStackedPreset, PRESETS, type PresetId } from '@/lib/presets';
 import { buildCampaignPrompt, type EnhancedPrompt, resolveFinalPrompt } from '@/lib/promptBuilder';
 import { getSession } from '@/lib/session';
+import { rateLimitOr429 } from '@/lib/rateLimitGuard';
 import { getUserKey } from '@/lib/userKey';
 
 const MAX_PROMPT_CHARS = 4000;
@@ -85,6 +86,8 @@ export async function POST(req: NextRequest) {
   } = body;
 
   const userKey = await getUserKey(session);
+  const limited = await rateLimitOr429(`cook:${userKey}`, 15, 60);
+  if (limited) return limited;
   const brand = await getDefaultBrand(userKey);
 
   // Prefer the ad copy already prepared by the wizard (draft step). Only call

@@ -12,6 +12,7 @@ import { db } from '@/lib/db';
 import { generations } from '@/lib/db/schema';
 import { recordGeneration, refreshGenerationSnapshot } from '@/lib/generations';
 import { getSession } from '@/lib/session';
+import { rateLimitOr429 } from '@/lib/rateLimitGuard';
 import { getUserKey } from '@/lib/userKey';
 
 type Params = Promise<{ workflowId: string; index: string }>;
@@ -35,6 +36,8 @@ export async function POST(_: NextRequest, ctx: { params: Params }) {
   }
 
   const userKey = await getUserKey(session);
+  const limited = await rateLimitOr429(`upscale:${userKey}`, 20, 60);
+  if (limited) return limited;
 
   const [parentRow] = await db
     .select()

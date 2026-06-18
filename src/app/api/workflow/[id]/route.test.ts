@@ -19,6 +19,7 @@ const { syncAssetsFromSnapshotMock } = vi.hoisted(() => ({
   syncAssetsFromSnapshotMock: vi.fn(),
 }));
 const { recordBuzzEventMock } = vi.hoisted(() => ({ recordBuzzEventMock: vi.fn() }));
+const { recordSubmitChargeOnceMock } = vi.hoisted(() => ({ recordSubmitChargeOnceMock: vi.fn() }));
 const { pollWorkflowMock } = vi.hoisted(() => ({ pollWorkflowMock: vi.fn() }));
 const { isTerminalMock } = vi.hoisted(() => ({ isTerminalMock: vi.fn() }));
 const { createOrchestratorClientMock } = vi.hoisted(() => ({
@@ -55,7 +56,10 @@ vi.mock('@/lib/assets', () => ({
   markTileFailed: markTileFailedMock,
   syncAssetsFromSnapshot: syncAssetsFromSnapshotMock,
 }));
-vi.mock('@/lib/buzz', () => ({ recordBuzzEvent: recordBuzzEventMock }));
+vi.mock('@/lib/buzz', () => ({
+  recordBuzzEvent: recordBuzzEventMock,
+  recordSubmitChargeOnce: recordSubmitChargeOnceMock,
+}));
 vi.mock('@/lib/env', () => ({
   env: { ORCHESTRATOR_URL: 'https://orch.test' },
 }));
@@ -92,6 +96,7 @@ beforeEach(() => {
   markTileFailedMock.mockResolvedValue(undefined);
   syncAssetsFromSnapshotMock.mockResolvedValue(0);
   recordBuzzEventMock.mockResolvedValue({});
+  recordSubmitChargeOnceMock.mockResolvedValue(true);
 });
 
 describe('GET /api/workflow/[id]', () => {
@@ -131,26 +136,28 @@ describe('GET /api/workflow/[id]', () => {
     expect(markTileFailedMock).not.toHaveBeenCalled();
   });
 
-  it('on terminal success: records a submit buzz event when charged > 0', async () => {
+  it('on terminal success: records the charge once via recordSubmitChargeOnce when charged > 0', async () => {
     pollWorkflowMock.mockResolvedValueOnce({
       id: 'wf_1',
       status: 'succeeded',
       cost: { total: 7 },
     });
     isTerminalMock.mockReturnValueOnce(true);
-    updateGenerationFromSnapshotMock.mockResolvedValueOnce({ chargedBuzz: 0 });
     await GET(makeRequest() as never, makeCtx());
-    expect(recordBuzzEventMock).toHaveBeenCalledTimes(1);
-    expect(recordBuzzEventMock.mock.calls[0]![0]).toMatchObject({
-      kind: 'submit',
+    expect(recordSubmitChargeOnceMock).toHaveBeenCalledTimes(1);
+    expect(recordSubmitChargeOnceMock.mock.calls[0]![0]).toMatchObject({
+      userId: 'user_1',
+      workflowId: 'wf_1',
       charged: 7,
       note: 'workflow_done',
     });
   });
 
-  it('on terminal success: skips buzz event when already recorded (chargedBuzz unchanged)', async () => {
-    // Pre-existing row already shows chargedBuzz=7. Polling sees same value.
-    // The fixed guard compares pre-update chargedBuzz against snapshot.cost.
+  it('on terminal success: still calls recordSubmitChargeOnce on a re-poll (idempotency is in the DB)', async () => {
+    // Dedup moved from a racy chargedBuzz comparison to a DB unique index, so
+    // the route always invokes recordSubmitChargeOnce when charged > 0; the
+    // helper no-ops at the DB level on a duplicate. A concurrent re-poll can no
+    // longer skip-then-double-count.
     getGenerationMock.mockResolvedValueOnce({
       workflowId: 'wf_1',
       userId: 'user_1',
@@ -162,9 +169,9 @@ describe('GET /api/workflow/[id]', () => {
       cost: { total: 7 },
     });
     isTerminalMock.mockReturnValueOnce(true);
-    updateGenerationFromSnapshotMock.mockResolvedValueOnce({ chargedBuzz: 7 });
+    recordSubmitChargeOnceMock.mockResolvedValueOnce(false); // already charged
     await GET(makeRequest() as never, makeCtx());
-    expect(recordBuzzEventMock).not.toHaveBeenCalled();
+    expect(recordSubmitChargeOnceMock).toHaveBeenCalledTimes(1);
   });
 
   it('returns 404 when the workflow does not belong to the user', async () => {
@@ -194,7 +201,7 @@ describe('GET /api/workflow/[id]', () => {
     await GET(makeRequest() as never, makeCtx());
     expect(markTileFailedMock).toHaveBeenCalledTimes(1);
     expect(syncAssetsFromSnapshotMock).not.toHaveBeenCalled();
-    expect(recordBuzzEventMock).not.toHaveBeenCalled();
+    expect(recordSubmitChargeOnceMock).not.toHaveBeenCalled();
   });
 
   it('surfaces OrchestratorError as the corresponding status', async () => {

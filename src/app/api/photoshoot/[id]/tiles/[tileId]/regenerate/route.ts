@@ -10,6 +10,7 @@ import {
   resolveFinalPrompt,
 } from '@/lib/promptBuilder';
 import { getSession } from '@/lib/session';
+import { rateLimitOr429 } from '@/lib/rateLimitGuard';
 import { getUserKey } from '@/lib/userKey';
 
 type Params = Promise<{ id: string; tileId: string }>;
@@ -25,6 +26,8 @@ export async function POST(_: NextRequest, ctx: { params: Params }) {
   if (!session) return NextResponse.json({ error: 'not_authenticated' }, { status: 401 });
 
   const userKey = await getUserKey(session);
+  const limited = await rateLimitOr429(`regen:${userKey}`, 30, 60);
+  if (limited) return limited;
   const { id, tileId } = await ctx.params;
   const shoot = await getPhotoshoot(userKey, id);
   if (!shoot) return NextResponse.json({ error: 'photoshoot_not_found' }, { status: 404 });

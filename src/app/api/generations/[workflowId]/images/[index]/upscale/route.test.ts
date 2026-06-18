@@ -140,11 +140,11 @@ describe('POST /api/generations/[workflowId]/images/[index]/upscale', () => {
     expect((await res.json()).error).toBe('workflow_not_found');
   });
 
-  it('returns 403 when workflow belongs to a different user', async () => {
+  it('returns 404 when workflow belongs to a different user (no enumeration)', async () => {
     parentRowQueue.push(makeParentRow({ userId: 'someone_else' }));
     const res = await POST(makeRequest() as never, makeParams());
-    expect(res.status).toBe(403);
-    expect((await res.json()).error).toBe('forbidden');
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe('workflow_not_found');
   });
 
   it('returns 404 when image index is out of range', async () => {
@@ -181,11 +181,11 @@ describe('POST /api/generations/[workflowId]/images/[index]/upscale', () => {
     expect(rec.tileId).toBe('tile_1');
     expect(rec.estimatedBuzz).toBe(12);
 
-    // Estimate + submit buzz events with note='upscale'
-    expect(recordBuzzEventMock).toHaveBeenCalledTimes(2);
+    // Only the `estimate` event is recorded here now; the authoritative
+    // `submit` charge is recorded once by the terminal workflow poll.
+    expect(recordBuzzEventMock).toHaveBeenCalledTimes(1);
     const kinds = recordBuzzEventMock.mock.calls.map((c) => c[0].kind);
-    expect(kinds).toContain('estimate');
-    expect(kinds).toContain('submit');
+    expect(kinds).toEqual(['estimate']);
     for (const c of recordBuzzEventMock.mock.calls) expect(c[0].note).toBe('upscale');
   });
 

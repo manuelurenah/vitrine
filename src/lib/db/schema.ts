@@ -382,6 +382,17 @@ export const buzzEvents = pgTable(
   }),
 );
 
+/**
+ * Fixed-window rate-limit counters. One row per limiter key
+ * (e.g. `cook:<userId>`, `login:<ip>`). Updated via a single atomic upsert in
+ * lib/rateLimit.ts — correct across concurrent requests and app instances.
+ */
+export const rateLimits = pgTable('rate_limits', {
+  key: text('key').primaryKey(),
+  windowStart: timestamp('window_start', { withTimezone: true }).defaultNow().notNull(),
+  count: integer('count').default(0).notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type BrandProfile = typeof brandProfiles.$inferSelect;

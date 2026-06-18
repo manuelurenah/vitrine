@@ -9,6 +9,7 @@ import { recordGeneration } from '@/lib/generations';
 import { LAYOUT_VARIANTS } from '@/lib/promptBuilder';
 import { buildTileRegenInput } from '@/lib/regenerateInput';
 import { getSession } from '@/lib/session';
+import { rateLimitOr429 } from '@/lib/rateLimitGuard';
 import { getUserKey } from '@/lib/userKey';
 
 type Params = Promise<{ id: string; tileId: string }>;
@@ -44,6 +45,8 @@ export async function POST(req: NextRequest, ctx: { params: Params }) {
   const relayout = parsedBody.success ? (parsedBody.data?.relayout ?? false) : false;
 
   const userKey = await getUserKey(session);
+  const limited = await rateLimitOr429(`regen:${userKey}`, 30, 60);
+  if (limited) return limited;
   const { id, tileId } = await ctx.params;
   const campaign = await getCampaign(userKey, id);
   if (!campaign) return NextResponse.json({ error: 'campaign_not_found' }, { status: 404 });

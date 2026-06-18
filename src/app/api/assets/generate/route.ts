@@ -5,6 +5,7 @@ import { recordBuzzEvent } from '@/lib/buzz';
 import { OrchestratorError, submitImageGen, type VitrineImageGenInput } from '@/lib/civitai';
 import { recordGeneration } from '@/lib/generations';
 import { getSession } from '@/lib/session';
+import { rateLimitOr429 } from '@/lib/rateLimitGuard';
 import { getUserKey } from '@/lib/userKey';
 
 const MAX_PROMPT_CHARS = 4000;
@@ -35,6 +36,8 @@ export async function POST(req: NextRequest) {
     parsed.data;
 
   const userKey = await getUserKey(session);
+  const limited = await rateLimitOr429(`gen:${userKey}`, 20, 60);
+  if (limited) return limited;
 
   let refUrls: string[] = [];
   if (referenceAssetIds.length > 0) {
