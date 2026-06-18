@@ -13,8 +13,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
-import { Button, cn, Select } from '@/components/ui';
-import { FilterPills } from '@/components/campaigns/FilterPills';
+import { Button, Chip, cn, Select } from '@/components/ui';
 import type { FilterOption } from '@/components/campaigns/FilterPills';
 import type { Asset } from '@/lib/assets';
 import type { ActiveAdhocGeneration } from '@/lib/generations';
@@ -112,19 +111,18 @@ export function AssetsGallery({
           campaigns + shoots can pull from here.
         </p>
       </div>
-      {/* Create CTAs — Generate + Upload (visible on all sizes; replaces the mobile FAB) */}
+      {/* Create CTAs — Generate + Upload (match catalog CTA size/style; visible on all sizes) */}
       <div className="flex items-center gap-2">
         <Button
           variant="secondary"
-          size="sm"
-          leadingIcon={<Sparkles size={13} strokeWidth={1.75} />}
+          leadingIcon={<Sparkles size={14} strokeWidth={1.75} />}
           onClick={() => setGenOpen(true)}
           data-testid="open-generate-modal"
         >
           generate
         </Button>
-        <Link href="/assets/new">
-          <Button variant="primary" size="sm" leadingIcon={<Upload size={13} strokeWidth={1.75} />}>
+        <Link href="/assets/new" className="block">
+          <Button variant="primary" leadingIcon={<Upload size={14} strokeWidth={1.75} />}>
             upload
           </Button>
         </Link>
@@ -195,36 +193,42 @@ export function AssetsGallery({
       {/* Title row with CTAs */}
       {titleRow}
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <FilterPills
-          options={filterOptions}
-          active={activeFilter}
-          onChange={setActiveFilter}
-          className="min-w-0 flex-1"
-        />
-
-        {/* Controls — sort + view toggle */}
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {/* Sort dropdown */}
-          <div className="w-[120px]">
-            <Select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-              aria-label="sort assets"
-            >
-              <option value="recent">recent</option>
-              <option value="name">name</option>
-              <option value="type">type</option>
-            </Select>
-          </div>
-
-          {/* Grid / list toggle */}
-          <div
-            role="group"
-            aria-label="view mode"
-            className="flex items-center rounded-[9px] border border-line bg-bg-2 p-[3px]"
+      {/* Toolbar — matches catalog: wrapping filter chips + spacer + sort + view toggle */}
+      <div className="flex flex-wrap items-center gap-2">
+        {filterOptions.map((opt) => (
+          <Chip
+            key={opt.key}
+            active={activeFilter === opt.key}
+            onClick={() => setActiveFilter(opt.key)}
+            role="button"
+            tabIndex={0}
           >
+            {opt.key === 'all' ? `all · ${opt.count}` : `${opt.label} · ${opt.count}`}
+          </Chip>
+        ))}
+
+        {/* spacer */}
+        <span className="flex-1" />
+
+        {/* sort dropdown */}
+        <div className="w-[130px]">
+          <Select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            aria-label="sort assets"
+          >
+            <option value="recent">recent</option>
+            <option value="name">name</option>
+            <option value="type">type</option>
+          </Select>
+        </div>
+
+        {/* grid / list segmented toggle */}
+        <div
+          role="group"
+          aria-label="view mode"
+          className="flex items-center rounded-[9px] border border-line bg-bg-2 p-[3px]"
+        >
             <button
               type="button"
               aria-label="grid view"
@@ -254,7 +258,6 @@ export function AssetsGallery({
               <List size={14} strokeWidth={1.75} />
             </button>
           </div>
-        </div>
       </div>
 
       {/* Cooking placeholder cards — ad-hoc generations still in flight */}

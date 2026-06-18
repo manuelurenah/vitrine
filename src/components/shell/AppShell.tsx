@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useMediaQuery } from '@/components/ui/useMediaQuery';
 import type { ShellUser } from '@/lib/user';
+import { MobileAccountMenu } from './MobileAccountMenu';
 import { type MobileTabId } from './MobileTabBar';
 import { ScreenFrame } from './ScreenFrame';
 import { Shell } from './Shell';
@@ -42,7 +43,7 @@ export function AppShell({ user, buzzBalance, children }: Props) {
     const activeTab = mobileTabFromPath(pathname);
 
     return (
-      <ScreenFrame active={activeTab} leadingLogo>
+      <ScreenFrame active={activeTab} leadingLogo rightSlot={<MobileAccountMenu user={user} />}>
         {children}
       </ScreenFrame>
     );

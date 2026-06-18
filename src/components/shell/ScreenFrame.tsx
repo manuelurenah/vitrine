@@ -89,7 +89,7 @@ export function ScreenFrame({
       {/* Scrollable content region */}
       <div
         data-testid="screen-content"
-        className="relative z-[1] flex-1 overflow-x-hidden overflow-y-auto px-4"
+        className="relative z-[1] flex-1 overflow-x-hidden overflow-y-auto px-4 pt-6"
         style={{ paddingBottom: `calc(env(safe-area-inset-bottom) + ${contentPbBase}px)` }}
       >
         {children}
