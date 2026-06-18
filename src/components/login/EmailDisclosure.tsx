@@ -1,20 +1,14 @@
 'use client';
 
 import { AtSign, ChevronDown } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { Button, cn, FieldLabel, Input } from '@/components/ui';
 
 export function EmailDisclosure() {
   const [open, setOpen] = useState(false);
-  const emailRef = useRef<HTMLInputElement>(null);
 
   function handleToggle() {
-    const next = !open;
-    setOpen(next);
-    if (next) {
-      // give the transition a moment, then focus the email field
-      setTimeout(() => emailRef.current?.focus(), 220);
-    }
+    setOpen((prev) => !prev);
   }
 
   return (
@@ -71,7 +65,6 @@ export function EmailDisclosure() {
             <div>
               <FieldLabel htmlFor="vitrine-email">email</FieldLabel>
               <Input
-                ref={emailRef}
                 id="vitrine-email"
                 type="email"
                 autoComplete="email"
