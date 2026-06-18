@@ -239,6 +239,151 @@ git commit -m "feat(mobile): remove brand/book sub-tabs and tidy dead sidebar na
 
 ---
 
+### Task 3: Remove the mobile floating FAB everywhere
+
+**Files:**
+- Modify: `src/components/campaigns/CampaignsList.tsx` (remove FAB + isMobile/imports)
+- Modify: `src/components/photoshoot/PhotoshootList.tsx` (remove FAB + isMobile/imports)
+- Modify: `src/components/catalog/CatalogGrid.tsx` (remove FAB + isMobile/imports; un-hide header link)
+- Modify: `src/components/assets/AssetsGallery.tsx` (remove FAB + isMobile/imports; un-hide titleRow CTAs)
+- Delete: `src/components/shell/FAB.tsx`
+- Modify: `src/components/shell/index.ts` (remove FAB export)
+- Test: `e2e/90-mobile-shell.spec.ts` (edit one test)
+
+**Interfaces:**
+- Consumes: nothing from Tasks 1-2.
+- Produces: no `FAB` component, no `fab` testid in the DOM. Mobile create entries: campaigns/photoshoot via existing `PromptComposer`; catalog via its now-visible header "new product" link; assets via its now-visible `titleRow` generate/upload CTAs.
+
+**Spec:** `docs/superpowers/specs/2026-06-18-remove-mobile-fab-design.md`
+
+- [ ] **Step 1: Edit the failing test**
+
+In `e2e/90-mobile-shell.spec.ts`, in the `'renders the mobile shell below the breakpoint'` test, replace the FAB block (the comment about CampaignsList's useMediaQuery + `await expect(page.getByTestId('fab')).toBeVisible();`) with:
+
+```ts
+    // The floating FAB has been removed from every mobile list view.
+    await expect(page.getByTestId('fab')).toHaveCount(0);
+```
+
+Then append a new test inside the same `describe` block:
+
+```ts
+  test('assets create CTA is visible on mobile (no FAB needed)', async ({ page, baseURL }) => {
+    await signInToApp(page, baseURL!);
+    await page.goto(`${baseURL}/assets`);
+
+    await expect(page.getByTestId('mobile-tab-bar')).toBeVisible();
+    // The titleRow generate/upload CTAs, formerly hidden behind `sm:`, are now
+    // visible on mobile so the FAB is no longer needed.
+    await expect(page.getByTestId('open-generate-modal')).toBeVisible();
+  });
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `pnpm test:e2e e2e/90-mobile-shell.spec.ts -g "renders the mobile shell|assets create CTA"`
+Expected: FAIL — `fab` currently has count 1 (toHaveCount(0) fails), and `open-generate-modal` is `hidden sm:flex` on mobile (not visible).
+
+- [ ] **Step 3: Remove the FAB from CampaignsList**
+
+In `src/components/campaigns/CampaignsList.tsx`:
+- Delete the import line `import { FAB } from '@/components/shell';`.
+- Delete the import line `import { useMediaQuery } from '@/components/ui/useMediaQuery';`.
+- Delete the line `const isMobile = useMediaQuery('(max-width: 767px)');`.
+- Delete the block:
+```tsx
+      {/* Mobile FAB — new campaign */}
+      {isMobile && <FAB href="/campaigns/new" label="new" aria-label="new campaign" />}
+```
+The always-visible `<PromptComposer />` remains the mobile create entry.
+
+- [ ] **Step 4: Remove the FAB from PhotoshootList**
+
+In `src/components/photoshoot/PhotoshootList.tsx`:
+- Delete the import line `import { FAB } from '@/components/shell';`.
+- Delete the import line `import { useMediaQuery } from '@/components/ui/useMediaQuery';`.
+- Delete the line `const isMobile = useMediaQuery('(max-width: 767px)');`.
+- Delete the block:
+```tsx
+      {/* Mobile FAB — new photoshoot */}
+      {isMobile && <FAB href="/photoshoot/new" label="new" aria-label="new photoshoot" />}
+```
+The always-visible `PromptComposer` ("design shoot") remains the mobile create entry.
+
+- [ ] **Step 5: Remove the FAB from CatalogGrid and un-hide the header link**
+
+In `src/components/catalog/CatalogGrid.tsx`:
+- Delete the import line `import { FAB } from '@/components/shell';`.
+- Delete the import line `import { useMediaQuery } from '@/components/ui/useMediaQuery';`.
+- Delete the line `const isMobile = useMediaQuery('(max-width: 767px)');`.
+- Delete the block:
+```tsx
+      {/* Mobile FAB — new product */}
+      {isMobile && <FAB href="/catalog/new" label="new" aria-label="new product" />}
+```
+- Replace the header link + comment:
+```tsx
+        {/* Desktop-only header button; mobile uses FAB */}
+        <Link href="/catalog/new" className="hidden sm:block">
+```
+with:
+```tsx
+        {/* Header create button — visible on all sizes (replaces the mobile FAB) */}
+        <Link href="/catalog/new" className="block">
+```
+
+- [ ] **Step 6: Remove the FAB from AssetsGallery and un-hide the titleRow CTAs**
+
+In `src/components/assets/AssetsGallery.tsx`:
+- Delete the import line `import { FAB } from '@/components/shell';`.
+- Delete the import line `import { useMediaQuery } from '@/components/ui/useMediaQuery';`.
+- Delete the line `const isMobile = useMediaQuery('(max-width: 767px)');`.
+- Delete the block:
+```tsx
+      {/* Mobile FAB — upload */}
+      {isMobile && <FAB href="/assets/new" label="upload" aria-label="upload asset" />}
+```
+- Replace the CTA wrapper + comment:
+```tsx
+      {/* Desktop CTAs — Upload (primary) + Generate (secondary) */}
+      <div className="hidden items-center gap-2 sm:flex">
+```
+with:
+```tsx
+      {/* Create CTAs — Generate + Upload (visible on all sizes; replaces the mobile FAB) */}
+      <div className="flex items-center gap-2">
+```
+
+- [ ] **Step 7: Delete the FAB component and its export**
+
+```bash
+git rm src/components/shell/FAB.tsx
+```
+
+In `src/components/shell/index.ts`, delete the line:
+```tsx
+export { FAB } from './FAB';
+```
+
+- [ ] **Step 8: Run the tests + typecheck**
+
+Run: `pnpm test:e2e e2e/90-mobile-shell.spec.ts -g "renders the mobile shell|assets create CTA" && pnpm typecheck`
+Expected: both tests PASS; typecheck clean (no stray `FAB` / `isMobile` / `useMediaQuery` references in the four list files).
+
+- [ ] **Step 9: Run the full mobile-shell spec (no regressions)**
+
+Run: `pnpm test:e2e e2e/90-mobile-shell.spec.ts`
+Expected: all tests pass.
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add src/components/campaigns/CampaignsList.tsx src/components/photoshoot/PhotoshootList.tsx src/components/catalog/CatalogGrid.tsx src/components/assets/AssetsGallery.tsx src/components/shell/index.ts e2e/90-mobile-shell.spec.ts
+git commit -m "feat(mobile): remove floating FAB, surface header create CTAs on mobile"
+```
+
+---
+
 ## Self-Review
 
 **Spec coverage:**
