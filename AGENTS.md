@@ -56,6 +56,9 @@ src/
 ## Patterns to keep
 
 - **OAuth + tokens stay server-side.** Browser only ever sees the opaque `httpOnly` `civ_session` cookie. Never expose `access_token`, `refresh_token`, or `CIVITAI_CLIENT_SECRET`.
+- **Object storage stays on a separate origin from the app.** Uploads accept `image/svg+xml`, and an SVG with embedded script executes in whatever origin *serves* it. Assets are served from `S3_PUBLIC_URL` (MinIO `:9000` / R2), never the app origin — keep it that way. Proxying the assets bucket under the app domain (or a shared cookie domain) would turn any uploaded SVG into stored XSS. (audit #13)
+- **Asset finalize re-derives the storage pointer.** `POST /api/assets` must not trust client `publicUrl`/`bucket`/`key` — it validates the bucket + `isOwnedStorageKey` prefix and rebuilds `publicUrl` via `publicUrlFor`. (audit #3/#4)
+- **Server-side URL fetches go through the SSRF-safe path.** `lib/scrape.ts` pins DNS (validated public IPs only) for all outbound brand-site fetches. Any new code that fetches a user-influenced URL server-side (e.g. a future `assetMirror` caller) must reuse that pinned fetch, not bare `fetch`.
 - **Session = sealed cookie.** Read via `getSession()` in `src/lib/session.ts`. If `null`, user is logged out. Don't reach into the cookie store anywhere else.
 - **User key = drizzle FK.** Always call `getUserKey(session)` before writing any user-scoped row — it upserts the `users` row that everything else FKs to.
 - **Onboarding gate.** `app/page.tsx` and `(app)/layout.tsx` both check `getOnboarding(userKey).completedAt`. Incomplete users get redirected to `/onboarding/<currentStep>`. If you add new app routes that should be gated, put them under `src/app/(app)/`.

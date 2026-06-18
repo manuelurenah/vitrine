@@ -24,27 +24,32 @@ Plus audit-trail integrity bugs in the Buzz "charge once" path (non-idempotent u
 
 ## Triage board
 
+> **Implemented 2026-06-18** on branch `fix/security-audit-prestaging` (commits `c32451e`…`ac3aa67`). All P0/P1 + cheap-P2 landed; only the CSP-nonce half of #10 is deferred, and #13/#19 are documented/accepted.
+
 | # | Sev | Area | Finding | Status |
 |---|-----|------|---------|--------|
-| 1 | 🔴 P0 | SSRF | DNS-rebinding TOCTOU in `fetchHtml` | ☐ open |
-| 2 | 🔴 P0 | SSRF | Stylesheet fetch `redirect:'follow'` bypasses host check | ☐ open |
-| 3 | 🔴 P0 | Upload/XSS | Asset finalize trusts client `bucket`/`key`/`publicUrl` | ☐ open |
-| 4 | 🔴 P0 | XSS | `publicUrl` accepts `javascript:`/`data:` → stored XSS in `<a href>` | ☐ open |
-| 5 | 🔴 P0 | DoS/cost | No rate limiting on cook/generate/scrape/login/LLM | ☐ open |
-| 6 | 🟠 P1 | Payment | Terminal Buzz charge not idempotent under concurrent polls | ☐ open |
-| 7 | 🟠 P1 | Payment | Animate/upscale double-record `submit` (charged=0) | ☐ open |
-| 8 | 🟠 P1 | Payment | `buzz_events` has no DB-level idempotency constraint | ☐ open |
-| 9 | 🟠 P1 | Upload | Presigned PUT signs ContentType but **not** ContentLength | ☐ open |
-| 10 | 🟠 P1 | Headers | CSP allows `unsafe-inline`/`unsafe-eval`; no HSTS | ☐ open |
-| 11 | 🟠 P1 | Info-leak | `err.message`/`err.body` echoed to client (S3, scrape SSRF-oracle, orchestrator) | ☐ open |
-| 12 | 🟡 P2 | SSRF | `assetMirror.ts` unguarded fetch + unbounded buffer (latent, no caller) | ☐ open |
-| 13 | 🟡 P2 | Upload | SVG accepted; XSS contained only by separate storage origin | ☐ open |
-| 14 | 🟡 P2 | Multi-tenant | `getUserKey` `anon` fallback can collapse users (latent) | ☐ open |
-| 15 | 🟡 P2 | Hardening | `isPrivateIp` omits `100.64.0.0/10` (CGNAT) + benchmark ranges | ☐ open |
-| 16 | 🟡 P2 | Enumeration | `403` vs `404` oracle on animate/upscale (others use 404) | ☐ open |
-| 17 | 🟡 P2 | DoS | `getObjectAsDataUrl` unbounded base64 into memory (dev path) | ☐ open |
-| 18 | 🟡 P2 | Payment | Regenerate `numImages` not re-clamped server-side (theoretical) | ☐ open |
-| 19 | 🟡 P2 | Prompt-inj | User text → LLM prompt (contained: clamped + escaped) | ☐ accept |
+| 1 | 🔴 P0 | SSRF | DNS-rebinding TOCTOU in `fetchHtml` | ☑ done — pinned-lookup undici dispatcher |
+| 2 | 🔴 P0 | SSRF | Stylesheet fetch `redirect:'follow'` bypasses host check | ☑ done — every hop revalidated at connect |
+| 3 | 🔴 P0 | Upload/XSS | Asset finalize trusts client `bucket`/`key`/`publicUrl` | ☑ done — `isOwnedStorageKey` + re-derived URL |
+| 4 | 🔴 P0 | XSS | `publicUrl` accepts `javascript:`/`data:` → stored XSS in `<a href>` | ☑ done — client `publicUrl` no longer stored |
+| 5 | 🔴 P0 | DoS/cost | No rate limiting on cook/generate/scrape/login/LLM | ☑ done — Postgres fixed-window limiter |
+| 6 | 🟠 P1 | Payment | Terminal Buzz charge not idempotent under concurrent polls | ☑ done — `recordSubmitChargeOnce` |
+| 7 | 🟠 P1 | Payment | Animate/upscale double-record `submit` (charged=0) | ☑ done — inline `submit` dropped |
+| 8 | 🟠 P1 | Payment | `buzz_events` has no DB-level idempotency constraint | ☑ done — partial unique index (migration 0012) |
+| 9 | 🟠 P1 | Upload | Presigned PUT signs ContentType but **not** ContentLength | ☑ done — Content-Length signed |
+| 10 | 🟠 P1 | Headers | CSP allows `unsafe-inline`/`unsafe-eval`; no HSTS | ◐ partial — HSTS added; **CSP nonce deferred** |
+| 11 | 🟠 P1 | Info-leak | `err.message`/`err.body` echoed to client (S3, scrape SSRF-oracle, orchestrator) | ☑ done — coarse codes; logged server-side |
+| 12 | 🟡 P2 | SSRF | `assetMirror.ts` unguarded fetch + unbounded buffer (latent, no caller) | ☑ done — size cap + SSRF prerequisite documented |
+| 13 | 🟡 P2 | Upload | SVG accepted; XSS contained only by separate storage origin | ⊘ documented — invariant recorded in AGENTS.md |
+| 14 | 🟡 P2 | Multi-tenant | `getUserKey` `anon` fallback can collapse users (latent) | ☑ done — throws in production |
+| 15 | 🟡 P2 | Hardening | `isPrivateIp` omits `100.64.0.0/10` (CGNAT) + benchmark ranges | ☑ done |
+| 16 | 🟡 P2 | Enumeration | `403` vs `404` oracle on animate/upscale (others use 404) | ☑ done |
+| 17 | 🟡 P2 | DoS | `getObjectAsDataUrl` unbounded base64 into memory (dev path) | ☑ done — 50MB ceiling |
+| 18 | 🟡 P2 | Payment | Regenerate `numImages` not re-clamped server-side (theoretical) | ☑ done — clamped to [1,8] |
+| 19 | 🟡 P2 | Prompt-inj | User text → LLM prompt (contained: clamped + escaped) | ⊘ accepted — defense-in-depth only |
+
+### Still open after this pass
+- **#10 CSP nonce** — `script-src` still has `'unsafe-inline'`/`'unsafe-eval'`. Needs a per-request nonce threaded through middleware + root layout (regression-prone); deferred to a focused follow-up. HSTS is in place.
 
 ---
 
