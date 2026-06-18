@@ -135,4 +135,24 @@ test.describe('mobile shell', () => {
     const pb = await content.evaluate((el) => parseFloat(getComputedStyle(el).paddingBottom));
     expect(pb).toBeGreaterThanOrEqual(76);
   });
+
+  test('catalog and assets tabs navigate; animate tab is gone', async ({ page, baseURL }) => {
+    await signInToApp(page, baseURL!);
+    await page.goto(`${baseURL}/campaigns`);
+
+    await expect(page.getByTestId('mobile-tab-bar')).toBeVisible();
+
+    // The animate nav tab has been removed.
+    await expect(page.getByTestId('mobile-tab-animate')).toHaveCount(0);
+
+    // catalog tab → /catalog
+    await page.getByTestId('mobile-tab-catalog').click();
+    await page.waitForURL(/\/catalog$/, { timeout: 15_000 });
+    await expect(page.getByTestId('mobile-tab-bar')).toBeVisible();
+
+    // assets tab → /assets
+    await page.getByTestId('mobile-tab-assets').click();
+    await page.waitForURL(/\/assets$/, { timeout: 15_000 });
+    await expect(page.getByTestId('mobile-tab-bar')).toBeVisible();
+  });
 });

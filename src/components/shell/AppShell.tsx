@@ -19,7 +19,8 @@ type Props = {
 function mobileTabFromPath(pathname: string): MobileTabId {
   if (pathname === '/campaigns' || pathname.startsWith('/campaigns/')) return 'campaigns';
   if (pathname === '/photoshoot' || pathname.startsWith('/photoshoot/')) return 'photoshoot';
-  if (pathname === '/animate' || pathname.startsWith('/animate/')) return 'animate';
+  if (pathname === '/catalog' || pathname.startsWith('/catalog/')) return 'catalog';
+  if (pathname === '/assets' || pathname.startsWith('/assets/')) return 'assets';
   // brand/* and any unrecognised path → brand tab
   return 'brand';
 }

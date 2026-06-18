@@ -1,15 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { Camera, Dna, Megaphone, Video } from 'lucide-react';
+import { Camera, Dna, Images, Megaphone, Package } from 'lucide-react';
 import { cn } from '@/components/ui';
 
-/**
- * The four primary tab keys. "animate" has no page route yet — its link
- * points to a future `/animate` path and is visually present but the route
- * returns 404 until that page is built.
- */
-export type MobileTabId = 'campaigns' | 'photoshoot' | 'animate' | 'brand';
+/** The five primary mobile tab keys, left→right in the bottom pill. */
+export type MobileTabId = 'campaigns' | 'photoshoot' | 'catalog' | 'assets' | 'brand';
 
 type TabDef = {
   id: MobileTabId;
@@ -21,12 +17,8 @@ type TabDef = {
 const TABS: TabDef[] = [
   { id: 'campaigns', label: 'campaigns', href: '/campaigns', icon: Megaphone },
   { id: 'photoshoot', label: 'shoot', href: '/photoshoot', icon: Camera },
-  /**
-   * "animate" has no app page yet — the API route
-   * `/api/generations/[id]/images/[index]/animate` exists, but there is no
-   * `/animate` page. Link resolves to a 404 until Task N creates that page.
-   */
-  { id: 'animate', label: 'animate', href: '/animate', icon: Video },
+  { id: 'catalog', label: 'catalog', href: '/catalog', icon: Package },
+  { id: 'assets', label: 'assets', href: '/assets', icon: Images },
   { id: 'brand', label: 'brand', href: '/brand', icon: Dna },
 ];
 
@@ -52,7 +44,7 @@ export function MobileTabBar({ active }: Props) {
     <nav
       data-testid="mobile-tab-bar"
       aria-label="primary"
-      className="absolute left-3 right-3 z-20 grid grid-cols-4 items-center rounded-[28px] border border-line-subtle backdrop-blur-[14px]"
+      className="absolute left-3 right-3 z-20 grid grid-cols-5 items-center rounded-[28px] border border-line-subtle backdrop-blur-[14px]"
       style={{
         height: 64,
         bottom: 'calc(env(safe-area-inset-bottom) + 12px)',
@@ -80,7 +72,7 @@ export function MobileTabBar({ active }: Props) {
             {isActive && (
               <span
                 aria-hidden="true"
-                className="absolute inset-[6px] rounded-[18px] bg-volt-soft"
+                className="absolute inset-x-[6px] inset-y-[3px] rounded-[18px] bg-volt-soft"
               />
             )}
             <span
