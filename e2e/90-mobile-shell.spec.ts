@@ -101,4 +101,26 @@ test.describe('mobile shell', () => {
     expect(box!.y).toBeGreaterThan(0);
     expect(box!.y).toBeLessThan(viewportHeight);
   });
+
+  test('tab bar renders as a floating rounded pill with an active a11y marker', async ({ page, baseURL }) => {
+    await signInToApp(page, baseURL!);
+    await page.goto(`${baseURL}/campaigns`);
+
+    const bar = page.getByTestId('mobile-tab-bar');
+    await expect(bar).toBeVisible();
+
+    // Pill shape: 28px corner radius (was 0 on the old edge-to-edge bar).
+    const radius = await bar.evaluate((el) => getComputedStyle(el).borderTopLeftRadius);
+    expect(radius).toBe('28px');
+
+    // Floating: inset from both screen edges.
+    const box = await bar.boundingBox();
+    const viewportWidth = page.viewportSize()!.width; // 390
+    expect(box!.x).toBeGreaterThan(0);
+    expect(box!.x + box!.width).toBeLessThan(viewportWidth);
+
+    // Active tab marked for a11y; siblings not.
+    await expect(page.getByTestId('mobile-tab-campaigns')).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByTestId('mobile-tab-shoot')).not.toHaveAttribute('aria-current', 'page');
+  });
 });

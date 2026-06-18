@@ -36,27 +36,28 @@ type Props = {
 };
 
 /**
- * 76 px primary bottom tab bar.
+ * Floating 64 px primary bottom tab bar (iOS-26 style pill).
  *
- * Positioned absolute at the bottom of its containing block (ScreenFrame).
- * Background: rgba(15,15,22,0.94) + backdrop-blur(14px).
- * Active tab: volt color + drop-shadow glow.
- * Includes faux iOS home-indicator bar at the very bottom.
+ * `position: absolute` inside a viewport-height ScreenFrame (`h-dvh`), inset
+ * 12 px from the left/right edges and `calc(env(safe-area-inset-bottom) + 12px)`
+ * from the bottom — so it floats above the content and clears the home
+ * indicator on notched devices. Rounded 28 px pill, full border + elevation
+ * shadow, backdrop blur.
  *
- * Touch targets: each tab column is min-h-[44px], meeting the §8 prereq.
- * Matches mobile-shell.jsx / vitrine-mobile.css `.m-tabbar`.
+ * Active tab: inset `bg-volt-soft` capsule behind the column, with the volt
+ * icon/label + glow on top. Touch targets stay min-h-[44px] (§8 prereq).
  */
 export function MobileTabBar({ active }: Props) {
   return (
     <nav
       data-testid="mobile-tab-bar"
       aria-label="primary"
-      className="absolute bottom-0 left-0 right-0 z-20 grid grid-cols-4 items-center border-t border-line-subtle backdrop-blur-[14px]"
+      className="absolute left-3 right-3 z-20 grid grid-cols-4 items-center rounded-[28px] border border-line-subtle backdrop-blur-[14px]"
       style={{
-        height: 76,
-        paddingTop: 8,
-        paddingBottom: 14,
+        height: 64,
+        bottom: 'calc(env(safe-area-inset-bottom) + 12px)',
         background: 'rgba(15,15,22,0.94)',
+        boxShadow: '0 8px 32px -8px rgba(0,0,0,0.6)',
       }}
     >
       {TABS.map((tab) => {
@@ -71,26 +72,29 @@ export function MobileTabBar({ active }: Props) {
             aria-label={tab.label}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'flex min-h-[44px] flex-col items-center justify-center gap-[3px]',
+              'relative flex min-h-[44px] flex-col items-center justify-center gap-[3px]',
               'text-[10.5px] font-medium tracking-[-0.005em] transition-colors duration-[120ms] ease-out',
               isActive ? 'text-volt' : 'text-fg-3 hover:text-fg-1',
             )}
           >
+            {isActive && (
+              <span
+                aria-hidden="true"
+                className="absolute inset-[6px] rounded-[18px] bg-volt-soft"
+              />
+            )}
             <span
-              className={cn('inline-flex', isActive && 'drop-shadow-[0_0_6px_var(--volt-glow)]')}
+              className={cn(
+                'relative inline-flex',
+                isActive && 'drop-shadow-[0_0_6px_var(--volt-glow)]',
+              )}
             >
               <Icon size={20} strokeWidth={1.75} />
             </span>
-            <span>{tab.label}</span>
+            <span className="relative">{tab.label}</span>
           </Link>
         );
       })}
-
-      {/* Faux iOS home indicator */}
-      <span
-        aria-hidden="true"
-        className="absolute bottom-[5px] left-1/2 h-1 w-[110px] -translate-x-1/2 rounded-pill bg-white/50"
-      />
     </nav>
   );
 }
