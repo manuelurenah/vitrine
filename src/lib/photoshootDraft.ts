@@ -74,7 +74,6 @@ function parseJson(text: string): unknown {
  * free fallbacks (deduped).
  */
 const DEFAULT_FALLBACK_TAIL = [
-  'stepfun/step-3.5-flash',
   'google/gemini-2.5-flash-lite',
   'openai/gpt-4.1-nano',
 ];

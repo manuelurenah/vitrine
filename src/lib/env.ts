@@ -32,7 +32,7 @@ export const env = createEnv({
     S3_PUBLIC_URL: z.string().url().optional(),
     REDIS_URL: z.string().optional(),
     OPENROUTER_API_KEY: z.string().optional(),
-    OPENROUTER_MODEL: z.string().default('stepfun/step-3.5-flash'),
+    OPENROUTER_MODEL: z.string().default('google/gemini-2.5-flash-lite'),
     /**
      * Comma-separated fallback chain. We try each model in order until one
      * returns a usable response. Free OpenRouter models share upstream

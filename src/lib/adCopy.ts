@@ -305,7 +305,6 @@ export type CampaignDraftResult = {
  * free fallbacks (deduped). Tweak the list as new free models surface.
  */
 const DEFAULT_FALLBACK_TAIL = [
-  'stepfun/step-3.5-flash',
   'google/gemini-2.5-flash-lite',
   'openai/gpt-4.1-nano',
 ];
