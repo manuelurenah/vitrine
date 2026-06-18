@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, MoreVertical, Pencil, RefreshCw } from 'lucide-react';
+import { Download, Loader2, MoreVertical, Pencil, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import type { CampaignTile } from '@/lib/campaigns';
@@ -178,7 +178,12 @@ function RowImage({
           </span>
         </button>
       ) : (
-        <div className="absolute inset-0 animate-pulse bg-bg-3" data-testid="row-image-skeleton" />
+        <div
+          className="absolute inset-0 flex items-center justify-center bg-bg-2"
+          data-testid="row-image-skeleton"
+        >
+          <Loader2 size={18} strokeWidth={1.75} className="animate-spin text-fg-3" />
+        </div>
       )}
       {url && (
         <div ref={menuRef} className="absolute right-1.5 top-1.5">
