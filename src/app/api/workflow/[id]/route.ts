@@ -7,7 +7,7 @@ import {
 } from '@civitai/app-sdk/orchestrator';
 import { type NextRequest, NextResponse } from 'next/server';
 import { markTileFailed, syncAssetsFromSnapshot } from '@/lib/assets';
-import { recordBuzzEvent } from '@/lib/buzz';
+import { recordSubmitChargeOnce } from '@/lib/buzz';
 import { env } from '@/lib/env';
 import {
   getGeneration,
@@ -84,10 +84,6 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const done = isTerminal(snapshot);
     if (done) {
       const charged = snapshot.cost?.total ?? 0;
-      // Capture the previous chargedBuzz BEFORE updating so we can correctly
-      // dedupe the `submit` buzz event across re-polls. `owned` was read at
-      // the top of this request and still reflects pre-update state.
-      const previouslyCharged = owned.chargedBuzz;
       await updateGenerationFromSnapshot(id, snapshot);
       const status = String(snapshot.status ?? '').toLowerCase();
       if (status.includes('fail') || status.includes('error')) {
@@ -100,11 +96,13 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
         // campaign/photoshoot badges never resolve.
         await syncAssetsFromSnapshot(userKey, snapshot);
       }
-      if (charged > 0 && previouslyCharged !== charged) {
-        await recordBuzzEvent({
+      // Record the single authoritative charge. Idempotent at the DB level
+      // (buzz_events_submit_once partial unique index), so concurrent re-polls
+      // of the same workflow can't double-count the spend.
+      if (charged > 0) {
+        await recordSubmitChargeOnce({
           userId: userKey,
           workflowId: id,
-          kind: 'submit',
           charged,
           note: 'workflow_done',
         });

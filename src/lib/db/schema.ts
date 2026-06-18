@@ -372,6 +372,13 @@ export const buzzEvents = pgTable(
   (t) => ({
     userIdx: index('buzz_events_user_idx').on(t.userId, t.createdAt),
     workflowIdx: index('buzz_events_workflow_idx').on(t.workflowId),
+    // At most one `submit` (the authoritative charge) per workflow. This is the
+    // DB-level backstop for the "charge buzz once" invariant: concurrent
+    // terminal polls of the same workflow can no longer insert duplicate
+    // charge rows that corrupt the user-facing "buzz spent" total.
+    submitOnce: uniqueIndex('buzz_events_submit_once')
+      .on(t.workflowId)
+      .where(sql`${t.kind} = 'submit'`),
   }),
 );
 

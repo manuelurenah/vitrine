@@ -1,5 +1,5 @@
 import 'server-only';
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { type BuzzEvent as BuzzEventRow, buzzEvents } from '@/lib/db/schema';
 
@@ -51,6 +51,40 @@ export async function recordBuzzEvent(input: RecordBuzzInput): Promise<BuzzEvent
     })
     .returning();
   return toEvent(row!);
+}
+
+/**
+ * Record the single authoritative `submit` (charge) event for a workflow,
+ * idempotently. Backed by the `buzz_events_submit_once` partial unique index,
+ * so concurrent terminal polls of the same workflow can't insert duplicate
+ * charge rows (which would inflate the user-facing "buzz spent" total).
+ *
+ * Returns `true` if this call inserted the charge, `false` if a charge for the
+ * workflow already existed (the conflict was a no-op).
+ */
+export async function recordSubmitChargeOnce(input: {
+  userId: string;
+  workflowId: string;
+  charged: number;
+  estimated?: number;
+  note?: string;
+}): Promise<boolean> {
+  const rows = await db
+    .insert(buzzEvents)
+    .values({
+      userId: input.userId,
+      workflowId: input.workflowId,
+      kind: 'submit',
+      estimated: input.estimated ?? 0,
+      charged: input.charged,
+      note: input.note ?? null,
+    })
+    .onConflictDoNothing({
+      target: buzzEvents.workflowId,
+      where: sql`${buzzEvents.kind} = 'submit'`,
+    })
+    .returning({ id: buzzEvents.id });
+  return rows.length > 0;
 }
 
 export async function listBuzzEvents(userId: string, limit = 100): Promise<BuzzEvent[]> {

@@ -45,7 +45,9 @@ export async function POST(_: NextRequest, ctx: { params: Params }) {
     return NextResponse.json({ error: 'workflow_not_found' }, { status: 404 });
   }
   if (parentRow.userId !== userKey) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+    // 404 (not 403) so an authenticated user can't enumerate which workflow
+    // IDs exist — matches api/workflow/[id]'s anti-enumeration stance.
+    return NextResponse.json({ error: 'workflow_not_found' }, { status: 404 });
   }
 
   // Pull cached snapshot. Refresh if missing, empty, or has GC'd blobs.
@@ -97,17 +99,13 @@ export async function POST(_: NextRequest, ctx: { params: Params }) {
       input: { sourceUrl },
       estimatedBuzz,
     });
+    // Only the `estimate` event is recorded here. The authoritative `submit`
+    // charge is recorded once, with the real charged cost, when the terminal
+    // workflow poll lands in api/workflow/[id] (recordSubmitChargeOnce).
     await recordBuzzEvent({
       userId: userKey,
       workflowId: newWorkflowId,
       kind: 'estimate',
-      estimated: estimatedBuzz,
-      note: 'upscale',
-    });
-    await recordBuzzEvent({
-      userId: userKey,
-      workflowId: newWorkflowId,
-      kind: 'submit',
       estimated: estimatedBuzz,
       note: 'upscale',
     });
@@ -119,16 +117,11 @@ export async function POST(_: NextRequest, ctx: { params: Params }) {
       parentImageIndex: index,
     });
   } catch (err) {
+    console.error('upscale failed', err);
     if (err instanceof OrchestratorError) {
-      return NextResponse.json(
-        { error: 'orchestrator_error', detail: err.body },
-        { status: err.status },
-      );
+      return NextResponse.json({ error: 'orchestrator_error' }, { status: err.status });
     }
-    return NextResponse.json(
-      { error: 'unknown', detail: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: 'unknown' }, { status: 500 });
   }
 }
 
