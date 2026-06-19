@@ -63,6 +63,7 @@ export function ProductDetailGallery({
 
   const hero = images[activeIdx] ?? images[0] ?? null;
   const total = images.length;
+  const isLastImage = total <= 1;
 
   // -------------------------------------------------------------------------
   // Per-photo delete (calls DELETE /api/assets/:id — soft-deletes the asset)
@@ -73,11 +74,17 @@ export function ProductDetailGallery({
   // strip on next load. This is acceptable for v1.
   // -------------------------------------------------------------------------
   async function deletePhoto(img: GalleryImage) {
+    if (images.length <= 1) return;
     if (!window.confirm(`remove "${img.name}" from this product?`)) return;
     setDeletingId(img.id);
     try {
       const res = await fetch(`/api/assets/${img.id}`, { method: 'DELETE' });
+      if (res.status === 409) {
+        setUploadError('a product needs at least one image');
+        return;
+      }
       if (!res.ok) throw new Error(`http ${res.status}`);
+      setUploadError(null);
       setImages((prev) => {
         const next = prev.filter((i) => i.id !== img.id);
         return next;
@@ -224,11 +231,11 @@ export function ProductDetailGallery({
               {/* Delete photo */}
               <button
                 type="button"
-                title="remove this photo"
-                aria-label="remove this photo"
-                disabled={deletingId === hero.id}
+                title={isLastImage ? 'a product needs at least one image' : 'remove this photo'}
+                aria-label={isLastImage ? 'a product needs at least one image' : 'remove this photo'}
+                disabled={deletingId === hero.id || isLastImage}
                 onClick={() => deletePhoto(hero)}
-                className="grid size-7 place-items-center rounded-pill bg-bg-0 text-fg-0 transition-colors hover:bg-bg-0 disabled:opacity-50"
+                className={`grid size-7 place-items-center rounded-pill bg-bg-0 text-fg-0 transition-colors hover:bg-bg-0 disabled:opacity-50${isLastImage ? ' cursor-not-allowed opacity-60' : ''}`}
               >
                 <Trash2 size={13} strokeWidth={1.75} />
               </button>
