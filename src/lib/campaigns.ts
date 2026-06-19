@@ -7,6 +7,7 @@ import {
   type CampaignTile as CampaignTileRow,
   campaigns as campaignsTable,
   campaignTiles as campaignTilesTable,
+  products as productsTable,
 } from '@/lib/db/schema';
 
 export type CampaignSummary = {
@@ -100,6 +101,9 @@ export type CreateCampaignInput = {
   userId: string;
   title: string;
   brief: BriefForPresets;
+  /** Primary catalog product this campaign is for. Validated against `userId`; a
+   *  foreign or unknown id is dropped to null. Drives the catalog usage count. */
+  productId?: string | null;
   presetIds: PresetId[];
   tiles: Array<{
     presetId: PresetId;
@@ -123,10 +127,23 @@ export type CreateCampaignInput = {
 
 export async function createCampaign(input: CreateCampaignInput): Promise<Campaign> {
   return db.transaction(async (tx) => {
+    // Validate the product belongs to this user before linking — never FK a
+    // campaign to a foreign or unknown product.
+    let productId: string | null = null;
+    if (input.productId) {
+      const [owned] = await tx
+        .select({ id: productsTable.id })
+        .from(productsTable)
+        .where(and(eq(productsTable.id, input.productId), eq(productsTable.userId, input.userId)))
+        .limit(1);
+      productId = owned ? owned.id : null;
+    }
+
     const [campaignRow] = await tx
       .insert(campaignsTable)
       .values({
         userId: input.userId,
+        productId,
         title: input.title,
         brief: input.brief,
         presetIds: input.presetIds,

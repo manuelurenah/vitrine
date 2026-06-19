@@ -268,10 +268,17 @@ export async function POST(req: NextRequest) {
     error: f.error,
   }));
 
+  // The catalog "use in campaign" CTA stages the product as a `product:<id>`
+  // token in referenceAssetIds. Persist the first one as the campaign's primary
+  // product so the catalog can count usage (createCampaign validates ownership).
+  const productId =
+    referenceAssetIds.find((r) => r.startsWith('product:'))?.slice('product:'.length) || null;
+
   const campaign = await createCampaign({
     userId: userKey,
     title: brief.title,
     brief,
+    productId,
     presetIds: [...new Set([...successes, ...failures.map((f) => f.job)].map((r) => r.presetId))],
     referenceAssetIds,
     variantsPerPreset,

@@ -1,8 +1,9 @@
 import 'server-only';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   assets as assetsTable,
+  campaigns as campaignsTable,
   type Product as ProductRow,
   productAssets as productAssetsTable,
   products as productsTable,
@@ -23,7 +24,11 @@ export type Product = {
   createdAt: number;
 };
 
-function toProduct(row: ProductRow, heroUrl?: string | null): Product {
+// `usedInCount` is DERIVED from the number of campaigns linked to the product
+// (campaigns.product_id), not read from the stale denormalized column. Read
+// paths (getProduct/listProducts) pass the live count; mutation paths that don't
+// touch campaign links fall back to the column.
+function toProduct(row: ProductRow, heroUrl?: string | null, usedInCount?: number): Product {
   return {
     id: row.id,
     userId: row.userId,
@@ -33,7 +38,7 @@ function toProduct(row: ProductRow, heroUrl?: string | null): Product {
     status: row.status,
     heroAssetId: row.heroAssetId ?? undefined,
     heroUrl: heroUrl ?? undefined,
-    usedInCount: row.usedInCount,
+    usedInCount: usedInCount ?? row.usedInCount,
     createdAt: row.createdAt.getTime(),
   };
 }
@@ -191,7 +196,12 @@ export async function getProduct(userId: string, id: string): Promise<Product | 
     .leftJoin(assetsTable, eq(assetsTable.id, productsTable.heroAssetId))
     .where(and(eq(productsTable.id, id), eq(productsTable.userId, userId)))
     .limit(1);
-  return row ? toProduct(row.product, row.heroUrl) : null;
+  if (!row) return null;
+  const [usage] = await db
+    .select({ n: count() })
+    .from(campaignsTable)
+    .where(and(eq(campaignsTable.userId, userId), eq(campaignsTable.productId, id)));
+  return toProduct(row.product, row.heroUrl, usage?.n ?? 0);
 }
 
 export async function listProducts(userId: string): Promise<Product[]> {
@@ -204,7 +214,17 @@ export async function listProducts(userId: string): Promise<Product[]> {
     .leftJoin(assetsTable, eq(assetsTable.id, productsTable.heroAssetId))
     .where(eq(productsTable.userId, userId))
     .orderBy(desc(productsTable.createdAt));
-  return rows.map((r) => toProduct(r.product, r.heroUrl));
+
+  // One grouped query for every product's live campaign-usage count, then map
+  // by product id. Avoids an N+1 of per-product counts.
+  const usageRows = await db
+    .select({ productId: campaignsTable.productId, n: count() })
+    .from(campaignsTable)
+    .where(and(eq(campaignsTable.userId, userId), isNotNull(campaignsTable.productId)))
+    .groupBy(campaignsTable.productId);
+  const usageByProduct = new Map(usageRows.map((u) => [u.productId, u.n]));
+
+  return rows.map((r) => toProduct(r.product, r.heroUrl, usageByProduct.get(r.product.id) ?? 0));
 }
 
 export async function deleteProduct(userId: string, id: string): Promise<boolean> {
