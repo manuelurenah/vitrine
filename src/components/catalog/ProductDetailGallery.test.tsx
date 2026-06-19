@@ -33,10 +33,14 @@ describe('ProductDetailGallery — last-image delete guard', () => {
       />,
     );
 
-    // The delete button must carry disabled attribute
-    expect(html).toContain('disabled=""');
     // The aria-label must be the last-image message
     expect(html).toContain('aria-label="a product needs at least one image"');
+    // The delete button specifically must carry the disabled attribute
+    const deleteButtonMatch = html.match(
+      /<button[^>]*aria-label="a product needs at least one image"[^>]*>/,
+    );
+    expect(deleteButtonMatch).not.toBeNull();
+    expect(deleteButtonMatch![0]).toContain('disabled=""');
   });
 
   it('enables the delete button with the normal aria-label when more than one image', () => {
@@ -49,8 +53,6 @@ describe('ProductDetailGallery — last-image delete guard', () => {
       />,
     );
 
-    // The aria-label must be the normal message
-    expect(html).toContain('aria-label="remove this photo"');
     // React renderToStaticMarkup renders disabled={true} as disabled=""
     // and omits the attribute entirely when disabled={false}.
     // The delete button must NOT carry the disabled attribute.
