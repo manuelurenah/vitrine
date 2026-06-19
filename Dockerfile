@@ -1,0 +1,34 @@
+# Production image for vitrine. Build context = this repo (single checkout).
+#
+# Deployed to vitrine.civitai.com on the Civitai cluster via FluxCD
+# (talos-infra). All server env (OAuth creds, DATABASE_URL, S3_*) is injected
+# at runtime by the deployment; only NEXT_PUBLIC_* is needed at build time.
+FROM node:24-alpine
+
+RUN npm install -g pnpm@10
+
+WORKDIR /app
+COPY . .
+
+# @civitai/app-sdk is a published npm package, pinned in the lockfile. Plain
+# registry install — no side-by-side civitai-app-starters checkout needed.
+RUN pnpm install --frozen-lockfile
+
+# NEXT_PUBLIC_* vars are inlined into the client bundle at build time.
+ARG NEXT_PUBLIC_APP_URL=https://vitrine.civitai.com
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+
+# devDependencies (drizzle-kit) are kept so the cluster initContainer can run
+# migrations before each rollout: `node ./node_modules/drizzle-kit/bin.cjs migrate`.
+#
+# Placeholder DATABASE_URL for the build only: the db client throws at import if
+# unset, but pg's Pool is lazy so no DB is contacted during page-data
+# collection. Inline (not ENV) so it never reaches the runtime image.
+# SKIP_ENV_VALIDATION=1 turns off t3-env build-time validation; real server env
+# arrives at runtime and fails fast there if missing.
+RUN DATABASE_URL=postgres://build:build@127.0.0.1:5432/build \
+    SKIP_ENV_VALIDATION=1 NODE_ENV=production pnpm build
+
+ENV NODE_ENV=production
+EXPOSE 3000
+CMD ["./node_modules/.bin/next", "start", "-p", "3000"]

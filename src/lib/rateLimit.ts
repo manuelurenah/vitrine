@@ -6,8 +6,8 @@ import type { NextRequest } from 'next/server';
  * Postgres-backed fixed-window rate limiter. Backed by the `rate_limits` table
  * (one row per key), updated with a single atomic upsert so it is correct
  * across concurrent requests and multiple app instances. Chosen over Redis to
- * avoid a new runtime dependency — `DATABASE_URL` is always present, while
- * `REDIS_URL` is optional.
+ * avoid a new runtime dependency — `DATABASE_URL` is always present, so no
+ * separate cache service is needed.
  *
  * Fails OPEN: if the DB check errors, the request is allowed (rate limiting is
  * a guard rail, not a correctness gate — it must never take the app down).

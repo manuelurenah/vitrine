@@ -1,0 +1,16 @@
+# Build context = repo root. Keep secrets and local artifacts out of the image.
+node_modules
+.next
+.next-test
+.git
+.env
+.env.*
+!.env.example
+test-results
+playwright-report
+*.tsbuildinfo
+.serena
+.claude
+claudedocs
+design_handoff_vitrine
+.DS_Store

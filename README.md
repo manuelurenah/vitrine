@@ -101,7 +101,7 @@ src/
 │   ├── catalog/                   Grid · Detail · AddProductForm
 │   └── assets/                    AssetUploader (presign + XHR PUT + finalize) · AssetsGallery
 ├── lib/
-│   ├── env.ts                     Zod env (CIVITAI_*, SESSION_SECRET, DATABASE_URL, S3_*, REDIS_URL)
+│   ├── env.ts                     Zod env (CIVITAI_*, SESSION_SECRET, DATABASE_URL, S3_*)
 │   ├── session.ts                 sealed-cookie session
 │   ├── civitai.ts                 SDK wiring — fetchMe, buzz, orchestrator
 │   ├── scopes.ts                  REQUESTED_SCOPES bitmask
@@ -180,7 +180,7 @@ Global setup signs in once via Civitai's `testing-login` provider, then seals a 
 
 ## Deploying
 
-Vercel-ready. Set `CIVITAI_CLIENT_ID`, `CIVITAI_CLIENT_SECRET`, `SESSION_SECRET`, `NEXT_PUBLIC_APP_URL`, `DATABASE_URL` (Vercel Postgres / Neon), `S3_ENDPOINT` + `S3_ACCESS_KEY_ID` + `S3_SECRET_ACCESS_KEY` + `S3_BUCKET_*` + `S3_PUBLIC_URL` (R2), and register the prod redirect URI on the OAuth App. `REDIS_URL` is optional today.
+Vercel-ready. Set `CIVITAI_CLIENT_ID`, `CIVITAI_CLIENT_SECRET`, `SESSION_SECRET`, `NEXT_PUBLIC_APP_URL`, `DATABASE_URL` (Vercel Postgres / Neon), `S3_ENDPOINT` + `S3_ACCESS_KEY_ID` + `S3_SECRET_ACCESS_KEY` + `S3_BUCKET_*` + `S3_PUBLIC_URL` (R2), and register the prod redirect URI on the OAuth App.
 
 ## Useful scripts
 
