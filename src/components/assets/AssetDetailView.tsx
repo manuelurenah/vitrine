@@ -117,7 +117,12 @@ export function AssetDetailView({
       const res = await fetch(`/api/assets/${asset.id}`, { method: 'DELETE' });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
-        setDeleteError(body.error ?? `http ${res.status}`);
+        const rawError = body.error ?? `http ${res.status}`;
+        const friendlyError =
+          res.status === 409 && rawError === 'last_product_image'
+            ? 'a product needs at least one image'
+            : rawError;
+        setDeleteError(friendlyError);
         setDeleting(false);
         return;
       }
