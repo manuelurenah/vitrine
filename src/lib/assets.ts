@@ -13,7 +13,7 @@ import {
 } from '@/lib/db/schema';
 import { env } from '@/lib/env';
 import { getObjectAsDataUrl, isLocalObjectStorage, isLocalUrl, presignGet } from '@/lib/s3';
-import { deleteTileVersionForWorkflow } from '@/lib/tileVersions';
+import { deleteTileVersionForWorkflow, revertTileToLatestVersion } from '@/lib/tileVersions';
 
 export type AssetKind = NewAsset['kind'];
 
@@ -514,14 +514,20 @@ export async function markTileFailed(workflowId: string): Promise<void> {
     .where(eq(campaignTiles.workflowId, workflowId))
     .limit(1);
   if (campaignTile) {
-    await db
-      .update(campaignTiles)
-      .set({ status: 'failed', updatedAt: new Date() })
-      .where(eq(campaignTiles.id, campaignTile.id));
-    // A failed generation must not leave the version that `swapTileWorkflow`
-    // inserted optimistically at submit time — drop it so failures don't stack
-    // an empty, asset-less version on top of the tile's successful history.
+    // Drop the version `swapTileWorkflow` inserted optimistically at submit for
+    // the failed workflow, so failures don't stack an empty, asset-less version
+    // on top of the tile's successful history.
     await deleteTileVersionForWorkflow(campaignTile.id, workflowId);
+    // Then revert the tile to its latest surviving version: a tile that still
+    // has good history must not read as `failed` in the grid. Only mark it
+    // failed when nothing survives (a genuine first-generation failure).
+    const reverted = await revertTileToLatestVersion(campaignTile.id);
+    if (!reverted) {
+      await db
+        .update(campaignTiles)
+        .set({ status: 'failed', updatedAt: new Date() })
+        .where(eq(campaignTiles.id, campaignTile.id));
+    }
     return;
   }
   const [photoshootTile] = await db

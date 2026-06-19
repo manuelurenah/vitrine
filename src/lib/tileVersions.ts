@@ -140,6 +140,49 @@ export async function deleteTileVersionForWorkflow(
 }
 
 /**
+ * Points a tile back at its latest surviving version — status `done`, with that
+ * version's workflow, asset, prompt, ad copy and palette. Called after a failed
+ * generation's version is removed so a tile that still has good history doesn't
+ * read as `failed` in the campaign grid. The tile's `workflowId` is reset to the
+ * surviving version's so the grid's live poll resolves the good (done) workflow
+ * instead of the failed one.
+ *
+ * Returns `false` when no version survives (a genuine first-generation failure),
+ * leaving the caller to mark the tile failed.
+ */
+export async function revertTileToLatestVersion(tileId: string): Promise<boolean> {
+  const [latest] = await db
+    .select({
+      workflowId: tileVersionsTable.workflowId,
+      prompt: tileVersionsTable.prompt,
+      adCopy: tileVersionsTable.adCopy,
+      palette: tileVersionsTable.palette,
+      assetId: tileVersionsTable.assetId,
+    })
+    .from(tileVersionsTable)
+    .where(eq(tileVersionsTable.tileId, tileId))
+    .orderBy(desc(tileVersionsTable.version))
+    .limit(1);
+
+  if (!latest) return false;
+
+  await db
+    .update(campaignTilesTable)
+    .set({
+      status: 'done',
+      workflowId: latest.workflowId,
+      assetId: latest.assetId ?? null,
+      prompt: latest.prompt,
+      adCopy: (latest.adCopy as AdCopy | null) ?? null,
+      palette: (latest.palette as string[] | null) ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(campaignTilesTable.id, tileId));
+
+  return true;
+}
+
+/**
  * Returns all versions for a tile, verified against ownership via userId +
  * campaignId join.  Ordered by version ascending.
  */
