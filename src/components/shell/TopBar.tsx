@@ -1,7 +1,7 @@
 'use client';
 
-import { ArrowLeft, MoreHorizontal, Search } from 'lucide-react';
-import { BuzzPill, IconButton } from '@/components/ui';
+import { ArrowLeft } from 'lucide-react';
+import { BuzzPill } from '@/components/ui';
 import { ThemeToggle } from './ThemeToggle';
 
 export type Crumb = { label: string; href?: string };
@@ -44,14 +44,8 @@ export function TopBar({ crumbs = [], back, buzzBalance }: Props) {
       )}
 
       <div className="ml-auto flex items-center gap-2">
-        <div className="flex h-8 min-w-[240px] items-center gap-2 rounded-[8px] border border-line-subtle bg-bg-2 px-[10px] text-[12.5px] text-fg-2">
-          <Search size={14} strokeWidth={1.75} />
-          <span>search</span>
-          <span className="ml-auto font-mono text-[10.5px] text-fg-3">⌘k</span>
-        </div>
         {typeof buzzBalance === 'number' && <BuzzPill amount={buzzBalance} />}
         <ThemeToggle />
-        <IconButton variant="secondary" aria-label="more" icon={<MoreHorizontal size={16} />} />
       </div>
     </header>
   );
