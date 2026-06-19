@@ -313,6 +313,7 @@ export async function isSoleProductImage(userId: string, assetId: string): Promi
     .where(
       and(
         inArray(productAssets.productId, linkedProductIds),
+        eq(assets.userId, userId),
         isNull(assets.deletedAt),
       ),
     )

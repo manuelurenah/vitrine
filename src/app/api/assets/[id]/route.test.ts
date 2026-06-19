@@ -84,25 +84,3 @@ describe('DELETE /api/assets/[id]', () => {
     expect(softDeleteAssetMock).toHaveBeenCalledWith('user_1', 'asset_1');
   });
 });
-
-/* -------------------------------------------------------------------------- *
- * isSoleProductImage — unit tests with mocked db
- * -------------------------------------------------------------------------- */
-
-describe('isSoleProductImage', () => {
-  // We test isSoleProductImage by importing from @/lib/assets with a separate
-  // mock of @/lib/db. Because vi.mock is hoisted to the top of the file and
-  // acts globally, we use a fresh sub-describe that re-mocks @/lib/db at the
-  // module level. To avoid conflicts with the route-level mock of @/lib/assets,
-  // we use vi.importActual to get the real implementation and call it directly
-  // in a separate test file. Per the task brief, we MAY rely on a lighter helper
-  // test if mocking the query builder is disproportionate — and since the route
-  // tests already provide branch coverage (both true/false paths are exercised
-  // via the mock), we note this limitation and test isSoleProductImage via a
-  // separate file instead.
-  //
-  // See src/lib/assets.isSoleProductImage.test.ts for the dedicated unit tests.
-  it.todo(
-    'unit tests for isSoleProductImage are in src/lib/assets.isSoleProductImage.test.ts',
-  );
-});
