@@ -119,6 +119,27 @@ export async function recordTileVersion(
 }
 
 /**
+ * Removes the version row that was optimistically inserted for `workflowId` at
+ * submit time (before the generation's outcome was known). Called when a
+ * generation terminates in failure so a dead, asset-less version doesn't stack
+ * on top of the tile's successful history. `workflowId` is unique per
+ * generation, so this only ever targets the failed attempt's own row.
+ *
+ * Idempotent — a no-op if the row was already removed or never existed.
+ * Returns the number of rows deleted.
+ */
+export async function deleteTileVersionForWorkflow(
+  tileId: string,
+  workflowId: string,
+): Promise<number> {
+  const deleted = await db
+    .delete(tileVersionsTable)
+    .where(and(eq(tileVersionsTable.tileId, tileId), eq(tileVersionsTable.workflowId, workflowId)))
+    .returning({ id: tileVersionsTable.id });
+  return deleted.length;
+}
+
+/**
  * Returns all versions for a tile, verified against ownership via userId +
  * campaignId join.  Ordered by version ascending.
  */

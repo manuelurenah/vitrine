@@ -4,7 +4,7 @@ import { Check, Library, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react'
 import { useRouter } from 'next/navigation';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
-import { Button, Chip, cn, FieldLabel, Input, TabStrip, Textarea } from '@/components/ui';
+import { Button, Chip, cn, FieldLabel, Input, Spinner, TabStrip, Textarea } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
 
 const MAX_BYTES = 20 * 1024 * 1024;
@@ -612,7 +612,7 @@ function ThumbCard({
       {isHero && <CoverBadge />}
       {isInFlight && (
         <span className="absolute inset-0 flex items-center justify-center bg-black/40">
-          <span className="h-5 w-5 animate-spin rounded-full border-2 border-fg-3 border-t-volt" />
+          <Spinner size={20} className="text-volt" label="uploading" />
         </span>
       )}
       {item.status === 'done' && (

@@ -14,7 +14,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { Button, FieldLabel, Input, Textarea } from '@/components/ui';
+import { Button, FieldLabel, Input, Textarea, useToast } from '@/components/ui';
 import { AD_STACK_COUNT, isStackedPreset, PRESETS, stackedAspectRatio } from '@/lib/presets';
 import type { CampaignTile } from '@/lib/campaigns';
 import type { TileVersionEntry } from '@/lib/tileVersions';
@@ -79,6 +79,7 @@ export function CreativeEditor({
   initialVariant = 0,
 }: Props) {
   const router = useRouter();
+  const { toast } = useToast();
   const preset = PRESETS[tile.presetId];
   // Stacked (wide-ad) tiles are a 3-banner sheet generated at a friendlier AR,
   // not the preset's narrow strip — preview at the real sheet ratio so the full
@@ -105,12 +106,21 @@ export function CreativeEditor({
     prevVersionCountRef.current = versions.length;
   }, [versions.length]);
 
+  // Keep the selected index in range when the list shrinks — a failed attempt's
+  // version is removed server-side, so a post-failure refresh hands us a shorter
+  // `versions` array and the previously-latest index would dangle out of bounds.
+  useEffect(() => {
+    setVersionIdx((idx) => Math.min(idx, Math.max(0, versions.length - 1)));
+  }, [versions.length]);
+
   const currentVersion = versions[versionIdx];
 
   // ---- workflow polling -----------------------------------------------------
   const {
+    workflowId: pollWorkflowId,
     status: pollStatus,
     imageUrls: liveUrls,
+    error: pollError,
     setWorkflowId,
     setStatus,
     setImageUrls,
@@ -136,12 +146,16 @@ export function CreativeEditor({
   const [subhead, setSubhead] = useState(tile.adCopy?.subhead ?? '');
   const [cta, setCta] = useState(tile.adCopy?.cta ?? '');
   const [promptValue, setPromptValue] = useState(tile.prompt);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Which generating action is in flight, if any. "save", "fix" (fix layout)
   // and "regen" each submit exactly one orchestrator workflow → one version.
   const [pending, setPending] = useState<null | 'save' | 'fix' | 'regen'>(null);
   const busy = pending !== null;
+
+  // The workflow the user actively submitted and is awaiting. Gates the failure
+  // toast so it fires on a live orchestrator failure, not on a persisted
+  // `failed` status read at mount.
+  const expectedWorkflowRef = useRef<string | null>(null);
 
   // ---- palette override ----------------------------------------------------
   // Seed from the tile's persisted palette so customizations survive a reload
@@ -200,7 +214,6 @@ export function CreativeEditor({
     opts: { fixLayout?: boolean; applyEdits?: boolean },
   ) {
     setPending(kind);
-    setSaveError(null);
     setImageUrls([]);
     setStatus('cooking');
     try {
@@ -228,19 +241,57 @@ export function CreativeEditor({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setSaveError(data?.error ?? `http ${res.status}`);
         setStatus('done');
+        toast({
+          variant: 'error',
+          title: "couldn't start generation",
+          description: data?.error ?? `http ${res.status}`,
+          action: { label: 'try again', onClick: () => submitRegen(kind, opts) },
+        });
         return;
       }
-      if (data.workflowId) setWorkflowId(data.workflowId);
+      if (data.workflowId) {
+        // Mark this workflow as one the user actively kicked off this session.
+        // Only a terminal failure of an expected workflow raises a toast — a
+        // persisted `failed` status read on page load/refresh stays silent.
+        expectedWorkflowRef.current = data.workflowId;
+        setWorkflowId(data.workflowId);
+      }
       router.refresh();
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'request failed');
       setStatus('done');
+      toast({
+        variant: 'error',
+        title: "couldn't start generation",
+        description: err instanceof Error ? err.message : 'request failed',
+        action: { label: 'try again', onClick: () => submitRegen(kind, opts) },
+      });
     } finally {
       setPending(null);
     }
   }
+
+  // Live terminal failure of a generation the user kicked off this session.
+  // Gated on `expectedWorkflowRef` (set in `submitRegen`) so the toast is a
+  // reaction to a live orchestrator result — NOT to the persisted `failed`
+  // status the tile may carry on page load/refresh. Clearing the ref after
+  // firing also dedupes the failed→done→failed status flap to a single toast.
+  useEffect(() => {
+    if (pollStatus !== 'failed' || !pollWorkflowId) return;
+    if (expectedWorkflowRef.current !== pollWorkflowId) return;
+    expectedWorkflowRef.current = null;
+    toast({
+      variant: 'error',
+      title: 'generation failed',
+      description: pollError ?? "this render didn't finish. nothing was saved — try again.",
+      action: { label: 'try again', onClick: () => submitRegen('regen', {}) },
+    });
+    // Clear the loading state and resync history so the failed version drops out
+    // and the canvas reverts to the previous working creative.
+    setStatus('done');
+    router.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pollStatus, pollWorkflowId, pollError]);
 
   // ---- download ------------------------------------------------------------
   function handleDownload() {
@@ -305,9 +356,13 @@ export function CreativeEditor({
           </button>
         </div>
 
-        {/* canvas */}
+        {/* canvas — `aspectRatio` drives the natural size, but a `min-h` floor
+            keeps very wide presets (e.g. leaderboard 970×90) tall enough for the
+            cooking overlay to fit. The image uses `object-contain` so a
+            wider-than-tall creative letterboxes inside the floored box rather
+            than cropping to a sliver. */}
         <div
-          className="relative w-full max-w-[480px] overflow-hidden rounded-[14px] border border-line bg-bg-3"
+          className="relative w-full max-w-[480px] min-h-[220px] overflow-hidden rounded-[14px] border border-line bg-bg-3"
           style={{ aspectRatio: aspect }}
         >
           {/* background image */}
@@ -315,24 +370,18 @@ export function CreativeEditor({
             <img
               src={canvasImageUrl}
               alt=""
-              className="absolute inset-0 h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full object-contain"
             />
           ) : (
             <CanvasPlaceholder />
           )}
 
-          {/* cooking / queued overlay */}
-          {pollStatus !== 'done' && (
+          {/* cooking / queued overlay — only over the live (latest) version */}
+          {(pollStatus === 'cooking' || pollStatus === 'queued') && isLatestVersion && (
             <div className="pointer-events-none absolute inset-0 grid place-items-center bg-bg-0/60 backdrop-blur-[2px]">
               <div className="flex flex-col items-center gap-2">
                 <div className="grid h-9 w-9 place-items-center rounded-pill border border-line-volt bg-volt-soft text-volt">
-                  <Sparkles
-                    size={16}
-                    strokeWidth={1.75}
-                    className={
-                      pollStatus === 'cooking' || pollStatus === 'queued' ? 'animate-pulse' : ''
-                    }
-                  />
+                  <Sparkles size={16} strokeWidth={1.75} className="animate-pulse" />
                 </div>
                 <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-fg-2">
                   {pollStatus}…
@@ -552,7 +601,6 @@ export function CreativeEditor({
         >
           {pending === 'save' ? 'saving…' : 'save changes'}
         </Button>
-        {saveError && <p className="text-[11.5px] text-danger">{saveError}</p>}
 
         {/* fix layout promo card */}
         <div className="mt-1 rounded-[12px] border border-line-volt bg-volt-soft p-3.5">

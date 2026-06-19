@@ -1,6 +1,7 @@
 'use client';
 
-import { Loader2, UploadCloud, X } from 'lucide-react';
+import { UploadCloud, X } from 'lucide-react';
+import { Spinner } from '@/components/ui';
 
 export type LogoUploadStatus =
   | { kind: 'idle' }
@@ -38,7 +39,7 @@ export function LogoPreview({
         />
         {isUploading && (
           <span className="absolute inset-0 grid place-items-center rounded-[10px] bg-bg-0/70">
-            <Loader2 size={20} strokeWidth={1.75} className="animate-spin text-volt" />
+            <Spinner size={20} className="text-volt" label="uploading logo" />
           </span>
         )}
       </div>

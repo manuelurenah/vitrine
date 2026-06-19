@@ -1,8 +1,9 @@
 'use client';
 
-import { Download, Loader2, MoreVertical, Pencil, RefreshCw } from 'lucide-react';
+import { Download, MoreVertical, Pencil, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { Spinner } from '@/components/ui';
 import type { CampaignTile } from '@/lib/campaigns';
 import { AD_STACK_COUNT, isStackedPreset, PRESETS, stackedAspectRatio } from '@/lib/presets';
 import type { CreativeGroup } from './creativeGroups';
@@ -195,7 +196,7 @@ function RowImage({
           className="absolute inset-0 flex items-center justify-center bg-bg-2"
           data-testid="row-image-skeleton"
         >
-          <Loader2 size={18} strokeWidth={1.75} className="animate-spin text-fg-3" />
+          <Spinner size={18} className="text-fg-3" label="cooking" />
         </div>
       )}
       {url && (

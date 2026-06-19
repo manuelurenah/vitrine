@@ -1,9 +1,9 @@
 'use client';
 
-import { Loader2, Plus, Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
-import { Button, cn, Input, Modal } from '@/components/ui';
+import { Button, cn, Input, Modal, Spinner } from '@/components/ui';
 import type { Product } from '@/lib/catalog';
 
 /* -------------------------------------------------------------------------- */
@@ -200,10 +200,10 @@ export function ProductPickerDialog({
                           )}
                         </span>
                         {busy && (
-                          <Loader2
+                          <Spinner
                             size={14}
-                            className="animate-spin text-fg-2"
-                            aria-label="attaching"
+                            className="text-fg-2"
+                            label="attaching"
                           />
                         )}
                       </button>

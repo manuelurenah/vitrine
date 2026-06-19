@@ -1,12 +1,12 @@
 'use client';
 
-import { Loader2, Plus, RefreshCw, Save, UploadCloud, X } from 'lucide-react';
+import { Plus, RefreshCw, Save, UploadCloud, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { ColorPickerChip } from '@/components/onboarding/ColorPickerChip';
 import { LogoPreview } from '@/components/onboarding/LogoPreview';
 import { useLogoUpload } from '@/components/onboarding/useLogoUpload';
-import { Button, cn, Input, Textarea } from '@/components/ui';
+import { Button, cn, Input, Spinner, Textarea } from '@/components/ui';
 import type { BrandProfile } from '@/lib/brand';
 import { pickContrast } from '@/lib/color';
 
@@ -558,7 +558,7 @@ export function BrandEditor({ brand }: Props) {
                   aria-label="rescrape brand url"
                 >
                   {rescraping ? (
-                    <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+                    <Spinner size={12} label={null} />
                   ) : (
                     <RefreshCw size={12} strokeWidth={2} />
                   )}
@@ -755,7 +755,7 @@ export function BrandEditor({ brand }: Props) {
             disabled={busy || !name.trim() || !dirty}
             leadingIcon={
               busy ? (
-                <Loader2 size={14} strokeWidth={1.75} className="animate-spin" />
+                <Spinner size={14} label={null} />
               ) : (
                 <Save size={14} strokeWidth={1.75} />
               )

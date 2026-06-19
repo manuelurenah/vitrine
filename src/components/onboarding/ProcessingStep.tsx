@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Dna, Loader2, TriangleAlert } from 'lucide-react';
+import { Check, Dna, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';

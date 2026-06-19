@@ -1,9 +1,9 @@
 'use client';
 
-import { ChevronDown, ChevronUp, Loader2, Sparkles } from 'lucide-react';
+import { ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AssetCatalogPicker } from '@/components/pickers/AssetCatalogPicker';
-import { Button, BuzzPill, Chip, FieldLabel, Modal, Textarea } from '@/components/ui';
+import { Button, BuzzPill, Chip, FieldLabel, Modal, Spinner, Textarea } from '@/components/ui';
 
 /* -------------------------------------------------------------------------- */
 /* types                                                                       */
@@ -443,7 +443,7 @@ export function FormView({
             <span className="text-fg-3">— enter prompt to estimate</span>
           ) : previewLoading && previewEstimate === null ? (
             <span className="inline-flex items-center gap-1 text-fg-3">
-              <Loader2 size={11} className="animate-spin" /> calculating
+              <Spinner size={11} label={null} /> calculating
             </span>
           ) : previewError && previewEstimate === null ? (
             <span className="text-danger">unavailable</span>
@@ -451,11 +451,7 @@ export function FormView({
             <span className="inline-flex items-center gap-2 text-fg-0">
               <BuzzPill amount={previewEstimate} />
               {previewLoading && (
-                <Loader2
-                  size={11}
-                  className="animate-spin text-fg-3"
-                  aria-label="updating estimate"
-                />
+                <Spinner size={11} className="text-fg-3" label="updating estimate" />
               )}
             </span>
           ) : (
@@ -480,7 +476,7 @@ export function FormView({
             disabled={promptInvalid || submitting}
             leadingIcon={
               submitting ? (
-                <Loader2 size={14} className="animate-spin" />
+                <Spinner size={14} label={null} />
               ) : (
                 <Sparkles size={14} strokeWidth={1.75} />
               )

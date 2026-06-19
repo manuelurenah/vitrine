@@ -1,9 +1,10 @@
 'use client';
 
-import { Download, Loader2, MoreVertical, RefreshCw } from 'lucide-react';
+import { Download, MoreVertical, RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTileWorkflow } from '@/components/campaigns/useTileWorkflow';
+import { Spinner } from '@/components/ui';
 import type { PhotoshootTile } from '@/lib/photoshoots';
 import { PHOTOSHOOT_TEMPLATES } from '@/lib/photoshootTemplates';
 
@@ -211,12 +212,7 @@ function RowImage({
           data-testid="row-image-skeleton"
         >
           <div aria-hidden className="absolute inset-0 animate-pulse bg-bg-3" />
-          <Loader2
-            size={16}
-            strokeWidth={2}
-            aria-label="cooking"
-            className="relative animate-spin text-volt"
-          />
+          <Spinner size={16} className="relative text-volt" label="cooking" />
         </div>
       )}
       {url && (

@@ -112,7 +112,6 @@ export type CreateCampaignInput = {
     adCopy?: AdCopy | null;
     /** Defaults to 'cooking'. Failed submits are inserted as 'failed'. */
     status?: 'cooking' | 'failed';
-    error?: string | null;
   }>;
   estimatedBuzz: number;
   audience?: string | null;
@@ -155,7 +154,6 @@ export async function createCampaign(input: CreateCampaignInput): Promise<Campai
               variantIndex: t.variantIndex ?? 0,
               status: (t.status ?? 'cooking') as TileStatus,
               adCopy: t.adCopy ?? null,
-              error: t.error ?? null,
             })),
           )
           .returning()
@@ -486,9 +484,6 @@ export async function swapTileWorkflow(
   const update: Record<string, unknown> = {
     workflowId: newWorkflowId,
     status: 'cooking',
-    // Regenerate may run on a previously-`failed` (null-workflow) tile: it now
-    // has a real workflow, so clear the stale failure reason.
-    error: null,
     updatedAt: new Date(),
   };
   if (options?.prompt !== undefined) update.prompt = options.prompt;

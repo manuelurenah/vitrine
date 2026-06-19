@@ -1,9 +1,9 @@
 'use client';
 
-import { ArrowLeft, Box, Image as ImageIcon, Loader2, Sparkles } from 'lucide-react';
+import { ArrowLeft, Box, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, BuzzPill, Chip, cn, FieldLabel, Input, Textarea } from '@/components/ui';
+import { Button, BuzzPill, Chip, cn, FieldLabel, Input, Spinner, Textarea } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
 import type { Product } from '@/lib/catalog';
 import { buzzTopUpUrl } from '@/lib/links';
@@ -769,7 +769,7 @@ function ConfigureStep(props: ConfigureStepProps) {
 
           {drafting && (
             <span className="flex items-center gap-1 font-mono text-[11px] text-fg-3">
-              <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+              <Spinner size={12} label={null} />
               improving prompt…
             </span>
           )}

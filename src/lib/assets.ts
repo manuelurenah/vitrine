@@ -13,6 +13,7 @@ import {
 } from '@/lib/db/schema';
 import { env } from '@/lib/env';
 import { getObjectAsDataUrl, isLocalObjectStorage, isLocalUrl, presignGet } from '@/lib/s3';
+import { deleteTileVersionForWorkflow } from '@/lib/tileVersions';
 
 export type AssetKind = NewAsset['kind'];
 
@@ -506,7 +507,7 @@ export class MissingReferenceError extends Error {
   }
 }
 
-export async function markTileFailed(workflowId: string, errorMsg: string): Promise<void> {
+export async function markTileFailed(workflowId: string): Promise<void> {
   const [campaignTile] = await db
     .select({ id: campaignTiles.id })
     .from(campaignTiles)
@@ -515,8 +516,12 @@ export async function markTileFailed(workflowId: string, errorMsg: string): Prom
   if (campaignTile) {
     await db
       .update(campaignTiles)
-      .set({ status: 'failed', error: errorMsg, updatedAt: new Date() })
+      .set({ status: 'failed', updatedAt: new Date() })
       .where(eq(campaignTiles.id, campaignTile.id));
+    // A failed generation must not leave the version that `swapTileWorkflow`
+    // inserted optimistically at submit time — drop it so failures don't stack
+    // an empty, asset-less version on top of the tile's successful history.
+    await deleteTileVersionForWorkflow(campaignTile.id, workflowId);
     return;
   }
   const [photoshootTile] = await db
@@ -527,7 +532,7 @@ export async function markTileFailed(workflowId: string, errorMsg: string): Prom
   if (photoshootTile) {
     await db
       .update(photoshootTiles)
-      .set({ status: 'failed', error: errorMsg, updatedAt: new Date() })
+      .set({ status: 'failed', updatedAt: new Date() })
       .where(eq(photoshootTiles.id, photoshootTile.id));
   }
 }

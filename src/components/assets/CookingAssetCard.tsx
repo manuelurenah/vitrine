@@ -1,8 +1,8 @@
 'use client';
 
-import { Loader2, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { cn } from '@/components/ui';
+import { cn, Spinner } from '@/components/ui';
 
 /**
  * Placeholder tile rendered in the asset library while an ad-hoc generation is
@@ -87,7 +87,7 @@ export function CookingAssetCard({
               {failed ? (
                 <Sparkles size={16} strokeWidth={1.75} />
               ) : (
-                <Loader2 size={16} strokeWidth={1.75} className="animate-spin" />
+                <Spinner size={16} label={null} />
               )}
             </span>
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-fg-2">

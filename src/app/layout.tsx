@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { ToastProvider } from '@/components/ui';
 import { fontBody, fontDisplay, fontMono } from './fonts';
 import './globals.css';
 
@@ -28,7 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <script dangerouslySetInnerHTML={{ __html: noFlashScript }} />
       </head>
-      <body className="bg-bg-0 text-fg-0 antialiased">{children}</body>
+      <body className="bg-bg-0 text-fg-0 antialiased">
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   );
 }

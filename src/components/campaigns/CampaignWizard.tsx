@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
-  Loader2,
   Minus,
   Plus,
   RefreshCw,
@@ -22,6 +21,7 @@ import {
   FieldLabel,
   Input,
   Select,
+  Spinner,
   Textarea,
 } from '@/components/ui';
 import {
@@ -530,7 +530,7 @@ function PromptStep({
           disabled={drafting || !canSubmit}
           leadingIcon={
             drafting ? (
-              <Loader2 size={14} strokeWidth={1.75} className="animate-spin" />
+              <Spinner size={14} label={null} />
             ) : (
               <Sparkles size={14} strokeWidth={1.75} />
             )
@@ -557,7 +557,7 @@ function DraftingOverlay() {
       data-testid="drafting-overlay"
     >
       <div className="flex flex-col items-center gap-3 rounded-[14px] border border-line-subtle bg-bg-2 px-8 py-6 text-center">
-        <Loader2 size={28} strokeWidth={1.75} className="animate-spin text-volt" />
+        <Spinner size={28} className="text-volt" label={null} />
         <span className="font-mono text-[12px] uppercase tracking-[0.14em] text-fg-1">
           drafting your brief
         </span>
@@ -785,7 +785,7 @@ function BriefStep({
         </button>
         {previewLoading && (
           <span className="flex items-center gap-1 font-mono text-[11px] text-fg-3">
-            <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+            <Spinner size={12} label={null} />
             estimating…
           </span>
         )}
@@ -996,7 +996,7 @@ function BriefStep({
                         className="flex items-center gap-1 font-mono text-[11px] text-fg-3"
                         data-testid={`re-estimating-${id}`}
                       >
-                        <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+                        <Spinner size={12} label={null} />
                         re-estimating…
                       </span>
                     )}
@@ -1135,7 +1135,7 @@ function SubmitStep({ submitting, error }: { submitting: boolean; error: string 
     >
       {submitting && (
         <>
-          <Loader2 size={24} strokeWidth={1.75} className="animate-spin text-volt" />
+          <Spinner size={24} className="text-volt" label={null} />
           <span className="font-mono text-[12px] uppercase tracking-[0.1em] text-fg-2">
             submitting…
           </span>

@@ -87,7 +87,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       await updateGenerationFromSnapshot(id, snapshot);
       const status = String(snapshot.status ?? '').toLowerCase();
       if (status.includes('fail') || status.includes('error')) {
-        await markTileFailed(id, status || 'failed');
+        await markTileFailed(id);
       } else if (isSuccess(snapshot)) {
         // Terminal success: create asset rows from the produced images and flip
         // the originating tile to `done`. Idempotent (onConflictDoNothing on
