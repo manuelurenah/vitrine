@@ -1,8 +1,9 @@
 import 'server-only';
 import { lookup as dnsLookupCb } from 'node:dns';
 import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
-import { Agent, fetch as safeFetch } from 'undici';
+import http, { type IncomingMessage } from 'node:http';
+import https from 'node:https';
+import { isIP, type LookupFunction } from 'node:net';
 
 export type ScrapeResult = {
   finalUrl: string;
@@ -157,60 +158,84 @@ async function assertPublicHost(hostname: string): Promise<void> {
 }
 
 /**
- * An undici dispatcher whose DNS resolution is pinned: it resolves the host,
- * rejects the connection if ANY resolved address is private, and connects to a
- * validated public address. Because undici uses this lookup for the actual
- * socket connect — and for every redirect hop it follows — there is no second,
- * unchecked resolution between "validate" and "connect". This closes the
- * DNS-rebinding TOCTOU and the redirect-to-internal-host gap that a plain
- * hostname re-resolution leaves open.
- *
- * Requires Node >= 20.18 for undici 8 (see `.nvmrc` / package.json engines —
- * project runs on Node 22 LTS).
+ * A `net` lookup hook that pins DNS resolution: it resolves the host, rejects
+ * the connection if ANY resolved address is private, and hands the socket only
+ * validated public addresses. Passed as the `lookup` option on every http(s)
+ * request — Node uses it for the actual socket connect on every redirect hop —
+ * so there is no second, unchecked resolution between "validate" and "connect".
+ * This closes the DNS-rebinding TOCTOU and the redirect-to-internal-host gap a
+ * plain hostname re-resolution leaves open. Under MSW (e2e) the request is
+ * intercepted above the socket layer, so this never runs — which is exactly why
+ * native http(s) is e2e-mockable without a test-mode branch.
  */
-function pinnedDispatcher(): Agent {
-  return new Agent({
-    connect: {
-      lookup(hostname, _options, callback) {
-        dnsLookupCb(hostname, { all: true }, (err, addresses) => {
-          if (err) return callback(err, '', 0);
-          const list = addresses as { address: string; family: number }[];
-          try {
-            assertAddressesPublic(hostname, list);
-          } catch (e) {
-            return callback(e as Error, '', 0);
-          }
-          const first = list[0]!;
-          callback(null, first.address, first.family);
-        });
-      },
-    },
+const pinnedLookup: LookupFunction = (hostname, options, callback) => {
+  dnsLookupCb(hostname, { all: true }, (err, addresses) => {
+    if (err) {
+      callback(err, '', 0);
+      return;
+    }
+    try {
+      assertAddressesPublic(hostname, addresses);
+    } catch (e) {
+      callback(e as NodeJS.ErrnoException, '', 0);
+      return;
+    }
+    if (options.all) {
+      // happy-eyeballs path — every address is already validated public
+      (callback as (e: NodeJS.ErrnoException | null, a: typeof addresses) => void)(null, addresses);
+    } else {
+      const first = addresses[0]!;
+      callback(null, first.address, first.family);
+    }
   });
+};
+
+/** Issue a single GET (no redirect following) over http/https, pinned. */
+function rawRequest(
+  url: URL,
+  headers: Record<string, string>,
+  signal: AbortSignal,
+): Promise<IncomingMessage> {
+  return new Promise((resolve, reject) => {
+    const transport = url.protocol === 'https:' ? https : http;
+    const req = transport.request(
+      url,
+      { method: 'GET', headers, signal, lookup: pinnedLookup },
+      resolve,
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+function isAbort(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    (err.name === 'AbortError' || (err as NodeJS.ErrnoException).code === 'ABORT_ERR')
+  );
 }
 
 async function fetchHtml(url: URL): Promise<{ html: string; finalUrl: string }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  const dispatcher = pinnedDispatcher();
   try {
     let current = url;
     let redirects = 0;
     while (true) {
-      const res = await safeFetch(current.toString(), {
-        method: 'GET',
-        redirect: 'manual',
-        signal: controller.signal,
-        dispatcher,
-        headers: {
+      const res = await rawRequest(
+        current,
+        {
           'user-agent': USER_AGENT,
           accept: 'text/html,application/xhtml+xml',
           'accept-language': 'en-US,en;q=0.9',
         },
-      });
-      if (res.status >= 300 && res.status < 400) {
-        const loc = res.headers.get('location');
-        if (!loc)
-          throw new ScrapeError('request_failed', `redirect without location (${res.status})`);
+        controller.signal,
+      );
+      const status = res.statusCode ?? 0;
+      if (status >= 300 && status < 400) {
+        const loc = res.headers.location;
+        res.resume(); // drain the redirect body so the socket frees
+        if (!loc) throw new ScrapeError('request_failed', `redirect without location (${status})`);
         if (++redirects > MAX_REDIRECTS) {
           throw new ScrapeError('request_failed', 'too many redirects');
         }
@@ -219,11 +244,13 @@ async function fetchHtml(url: URL): Promise<{ html: string; finalUrl: string }> 
         current = next;
         continue;
       }
-      if (!res.ok) {
-        throw new ScrapeError('request_failed', `upstream returned ${res.status}`);
+      if (status < 200 || status >= 300) {
+        res.resume();
+        throw new ScrapeError('request_failed', `upstream returned ${status}`);
       }
-      const ct = res.headers.get('content-type') ?? '';
+      const ct = res.headers['content-type'] ?? '';
       if (!/text\/html|application\/xhtml/i.test(ct)) {
+        res.resume();
         throw new ScrapeError('not_html', `content-type was ${ct || 'unknown'}`);
       }
       const html = await readBodyCapped(res, MAX_BYTES);
@@ -231,13 +258,12 @@ async function fetchHtml(url: URL): Promise<{ html: string; finalUrl: string }> 
     }
   } catch (err) {
     if (err instanceof ScrapeError) throw err;
-    if (err instanceof Error && err.name === 'AbortError') {
+    if (isAbort(err)) {
       throw new ScrapeError('timeout', `request timed out after ${FETCH_TIMEOUT_MS}ms`);
     }
     throw new ScrapeError('request_failed', err instanceof Error ? err.message : String(err));
   } finally {
     clearTimeout(timer);
-    void dispatcher.destroy();
   }
 }
 
@@ -247,10 +273,9 @@ async function fetchStylesheetText(html: string, base: URL): Promise<string> {
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), STYLESHEET_TIMEOUT_MS);
-  const dispatcher = pinnedDispatcher();
   try {
     const settled = await Promise.allSettled(
-      urls.map((u) => fetchOneStylesheet(u, controller.signal, dispatcher)),
+      urls.map((u) => fetchOneStylesheet(u, controller.signal)),
     );
     return settled
       .map((r) => (r.status === 'fulfilled' ? r.value : ''))
@@ -258,45 +283,57 @@ async function fetchStylesheetText(html: string, base: URL): Promise<string> {
       .join('\n');
   } finally {
     clearTimeout(timer);
-    void dispatcher.destroy();
   }
 }
 
-async function fetchOneStylesheet(
-  url: URL,
-  signal: AbortSignal,
-  dispatcher: Agent,
-): Promise<string> {
-  try {
-    await assertPublicHost(url.hostname);
-  } catch {
-    return ''; // skip silently — palette is best-effort, never block the page scrape on a bad CSS host
-  }
-  let res: Awaited<ReturnType<typeof safeFetch>>;
-  try {
-    // `redirect: 'follow'` is safe here: the pinned dispatcher re-validates the
-    // resolved IP for every hop it connects to, so a stylesheet that redirects
-    // to an internal host is refused at connect time.
-    res = await safeFetch(url.toString(), {
-      method: 'GET',
-      redirect: 'follow',
-      signal,
-      dispatcher,
-      headers: {
-        'user-agent': USER_AGENT,
-        accept: 'text/css,*/*;q=0.1',
-      },
-    });
-  } catch {
-    return '';
-  }
-  if (!res.ok) return '';
-  const ct = res.headers.get('content-type') ?? '';
-  if (ct && !/text\/css|text\/plain|application\/octet-stream/i.test(ct)) return '';
-  try {
-    return await readBodyCapped(res, STYLESHEET_MAX_BYTES);
-  } catch {
-    return '';
+async function fetchOneStylesheet(url: URL, signal: AbortSignal): Promise<string> {
+  let current = url;
+  let redirects = 0;
+  while (true) {
+    try {
+      await assertPublicHost(current.hostname);
+    } catch {
+      return ''; // skip silently — palette is best-effort, never block the page scrape on a bad CSS host
+    }
+    let res: IncomingMessage;
+    try {
+      res = await rawRequest(
+        current,
+        { 'user-agent': USER_AGENT, accept: 'text/css,*/*;q=0.1' },
+        signal,
+      );
+    } catch {
+      return '';
+    }
+    const status = res.statusCode ?? 0;
+    // Following a stylesheet redirect is safe: the pinned lookup re-validates
+    // the resolved IP on every hop it connects to, so it can't reach an
+    // internal host (and assertPublicHost re-checks the hostname policy too).
+    if (status >= 300 && status < 400) {
+      const loc = res.headers.location;
+      res.resume();
+      if (!loc || ++redirects > MAX_REDIRECTS) return '';
+      try {
+        current = new URL(loc, current);
+      } catch {
+        return '';
+      }
+      continue;
+    }
+    if (status < 200 || status >= 300) {
+      res.resume();
+      return '';
+    }
+    const ct = res.headers['content-type'] ?? '';
+    if (ct && !/text\/css|text\/plain|application\/octet-stream/i.test(ct)) {
+      res.resume();
+      return '';
+    }
+    try {
+      return await readBodyCapped(res, STYLESHEET_MAX_BYTES);
+    } catch {
+      return '';
+    }
   }
 }
 
@@ -327,42 +364,21 @@ function collectStylesheetUrls(html: string, base: URL): URL[] {
   return out;
 }
 
-type ByteStreamReader = {
-  read: () => Promise<{ done: boolean; value?: Uint8Array }>;
-  releaseLock: () => void;
-};
-type CappableResponse = {
-  body: { getReader: () => ByteStreamReader } | null;
-  text: () => Promise<string>;
-};
-
-async function readBodyCapped(res: CappableResponse, maxBytes: number): Promise<string> {
-  if (!res.body) return await res.text();
-  const reader = res.body.getReader();
-  const chunks: Uint8Array[] = [];
+async function readBodyCapped(res: IncomingMessage, maxBytes: number): Promise<string> {
+  const chunks: Buffer[] = [];
   let total = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        total += value.byteLength;
-        if (total > maxBytes) {
-          throw new ScrapeError('response_too_large', `response exceeded ${maxBytes} bytes`);
-        }
-        chunks.push(value);
-      }
+  for await (const chunk of res) {
+    const buf = chunk as Buffer;
+    total += buf.byteLength;
+    if (total > maxBytes) {
+      res.destroy();
+      throw new ScrapeError('response_too_large', `response exceeded ${maxBytes} bytes`);
     }
-  } finally {
-    reader.releaseLock();
+    chunks.push(buf);
   }
-  const combined = new Uint8Array(total);
-  let off = 0;
-  for (const c of chunks) {
-    combined.set(c, off);
-    off += c.byteLength;
-  }
-  return new TextDecoder('utf-8', { fatal: false }).decode(combined);
+  // Lenient decode (invalid sequences → replacement char), matching the prior
+  // TextDecoder({ fatal: false }) behavior.
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 const META_RE = /<meta\b[^>]*>/gi;
