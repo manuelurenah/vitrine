@@ -1,5 +1,21 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// PostGenActions is a client component that calls `useRouter()`. There's no
+// AppRouterContext under `renderToStaticMarkup`, so stub next/navigation to a
+// no-op router — the component only calls `router.refresh()` in event handlers,
+// never during render.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    prefetch: vi.fn(),
+  }),
+}));
+
 import { mergeChild, PostGenActions } from './PostGenActions';
 
 /* -------------------------------------------------------------------------- */

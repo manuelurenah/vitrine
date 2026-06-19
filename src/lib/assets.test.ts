@@ -54,6 +54,7 @@ vi.mock('@/lib/db', () => {
 
 vi.mock('drizzle-orm', () => ({
   and: (...args: unknown[]) => Object.assign({}, ...args.filter(Boolean)),
+  count: () => undefined,
   desc: () => undefined,
   eq: () => undefined,
   isNull: () => undefined,

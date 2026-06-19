@@ -14,6 +14,21 @@ const orchestratorMocks = vi.hoisted(() => {
 
 vi.mock('@civitai/app-sdk/orchestrator', () => orchestratorMocks);
 
+// CreativeCard is a client component that calls `useRouter()`. There's no
+// AppRouterContext under `renderToStaticMarkup`, so stub next/navigation to a
+// no-op router — the component only calls `router.refresh()` in event handlers,
+// never during render.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    prefetch: vi.fn(),
+  }),
+}));
+
 import { CreativeCard, shouldShowTileMenu } from './CreativeCard';
 
 /* -------------------------------------------------------------------------- */
@@ -86,12 +101,11 @@ describe('CreativeCard — multi image (quantity > 1)', () => {
 /* shouldShowTileMenu — pure helper for photoshoot per-tile menu              */
 /* -------------------------------------------------------------------------- */
 //
-// The full `CreativeCard` component cannot be SSR'd in unit tests because it
-// depends on `useRouter` from `next/navigation`, which is not mounted in the
-// vitest `node` environment. We therefore exercise the menu-visibility
-// contract through the exported pure helper. The helper is the single source
-// of truth for the `showMenu` calculation inside the component, so behaviour
-// stays in sync.
+// `shouldShowTileMenu` is the single source of truth for the `showMenu`
+// calculation inside the component, so we exercise the menu-visibility contract
+// directly through it (the SSR render tests above also mount the component with
+// next/navigation mocked, but asserting menu logic on the pure helper is
+// clearer and keeps behaviour in sync).
 
 describe('shouldShowTileMenu — photoshoot per-tile menu predicate', () => {
   it('returns true when context=photoshoot, status=done, tileAssetId is set, selectMode=false', () => {

@@ -51,6 +51,9 @@ vi.mock('@/lib/campaigns', () => ({
 }));
 vi.mock('@/lib/generations', () => ({ recordGeneration: recordGenerationMock }));
 vi.mock('@/lib/buzz', () => ({ recordBuzzEvent: recordBuzzEventMock }));
+// Rate limiter is DB-backed; mock it OPEN so route tests don't hit the real
+// dev `rate_limits` table (counter would persist across runs → spurious 429s).
+vi.mock('@/lib/rateLimitGuard', () => ({ rateLimitOr429: vi.fn().mockResolvedValue(null) }));
 
 import { POST } from './route';
 
@@ -220,22 +223,23 @@ describe('POST /api/campaigns/[id]/tiles/[tileId]/regenerate', () => {
     ]);
   });
 
-  it('fix-layout (relayout) re-edits the current generated image, not the product reference', async () => {
+  it('fix-layout (relayout) composes from the product references, not the current creative', async () => {
     getCampaignMock.mockResolvedValueOnce(
       makeCampaign({
-        referenceAssetIds: ['a1'], // product ref present, but relayout must ignore it
+        referenceAssetIds: ['a1'],
+        // Tile already has a finished creative, but relayout must still build
+        // from the product refs so the edit model is free to re-arrange —
+        // feeding the creative back in would only restyle it (preserve layout).
+        // See the `relayout` contract in lib/regenerateInput.ts.
         tiles: [doneTileWithImage('https://blob.test/current-creative.jpg')],
       }),
     );
     const res = await POST(makeRelayoutRequest() as never, makeParams());
     expect(res.status).toBe(200);
-    // The edit base is the tile's current image, NOT the product reference.
-    expect(submitImageGenMock.mock.calls[0]![1].images).toEqual([
-      'https://blob.test/current-creative.jpg',
-    ]);
+    expect(submitImageGenMock.mock.calls[0]![1].images).toEqual(['https://cdn.test/a1']);
   });
 
-  it('relayout falls back to product refs when the tile has no current image', async () => {
+  it('relayout uses product refs even when the tile has no current image', async () => {
     getCampaignMock.mockResolvedValueOnce(
       makeCampaign({
         referenceAssetIds: ['a1'],

@@ -226,7 +226,7 @@ describe('buildPhotoshootPrompt', () => {
     });
     expect(out.base).toContain('product: Strawberry Fizz Can');
     expect(out.base).toContain('matte pink can');
-    expect(out.styleLayer).toContain('seamless paper background');
+    expect(out.styleLayer).toContain(PHOTOSHOOT_TEMPLATES['studio-clean'].styleNotes);
     expect(out.brandLayer).toContain('Fizzly');
     expect(out.aspectRatio).toBe('4:5');
   });

@@ -44,6 +44,9 @@ vi.mock('@/lib/civitai', () => ({
 }));
 vi.mock('@/lib/generations', () => ({ recordGeneration: recordGenerationMock }));
 vi.mock('@/lib/buzz', () => ({ recordBuzzEvent: recordBuzzEventMock }));
+// Rate limiter is DB-backed; mock it OPEN so route tests don't hit the real
+// dev `rate_limits` table (counter would persist across runs → spurious 429s).
+vi.mock('@/lib/rateLimitGuard', () => ({ rateLimitOr429: vi.fn().mockResolvedValue(null) }));
 
 import { POST } from './route';
 
