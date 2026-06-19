@@ -87,9 +87,9 @@ vi.mock('@/lib/db/schema', () => ({
 type Fixture = {
   // product_assets rows: which products link to which assets
   productAssets: Array<{ productId: string; assetId: string }>;
-  // assets rows: non-deleted images per product (inferred via productAssets join)
-  // We store a map of productId → list of non-deleted assetIds for counting
-  nonDeletedImagesByProduct: Map<string, string[]>;
+  // assets rows: non-deleted images per product, keyed by productId
+  // Each entry tracks which userId owns each assetId
+  nonDeletedImagesByProduct: Map<string, Array<{ assetId: string; userId: string }>>;
 };
 
 const fixtures: Fixture = {
@@ -156,17 +156,31 @@ function buildSelect(_proj?: unknown) {
       let rows: unknown[] = [];
 
       if (state.fromTable === 'productAssets' && state.predicate.__assetIdEq !== undefined) {
-        // Phase 1: find products linked to this asset
+        // Phase 1: find products linked to this asset, ownership-scoped by userId
         const assetId = state.predicate.__assetIdEq;
+        const userIdEq = state.predicate.__userIdEq;
         rows = fixtures.productAssets
-          .filter((pa) => pa.assetId === assetId)
+          .filter((pa) => {
+            if (pa.assetId !== assetId) return false;
+            // If the query carries a userId scope, enforce it via the image owner
+            if (userIdEq !== undefined) {
+              const images = fixtures.nonDeletedImagesByProduct.get(pa.productId) ?? [];
+              const assetEntry = images.find((img) => img.assetId === assetId);
+              if (!assetEntry || assetEntry.userId !== userIdEq) return false;
+            }
+            return true;
+          })
           .map((pa) => ({ productId: pa.productId }));
       } else if (state.fromTable === 'productAssets' && state.predicate.__productIdIn !== undefined) {
-        // Phase 2: count non-deleted images per linked product
+        // Phase 2: count non-deleted images per linked product, ownership-scoped by userId
         const productIds = state.predicate.__productIdIn ?? [];
+        const userIdEq = state.predicate.__userIdEq;
         rows = productIds.map((productId) => {
           const images = fixtures.nonDeletedImagesByProduct.get(productId) ?? [];
-          return { productId, imageCount: images.length };
+          const filtered = userIdEq !== undefined
+            ? images.filter((img) => img.userId === userIdEq)
+            : images;
+          return { productId, imageCount: filtered.length };
         });
       }
 
@@ -198,8 +212,11 @@ function seedProductAsset(productId: string, assetId: string) {
   fixtures.productAssets.push({ productId, assetId });
 }
 
-function seedNonDeletedImages(productId: string, assetIds: string[]) {
-  fixtures.nonDeletedImagesByProduct.set(productId, assetIds);
+function seedNonDeletedImages(
+  productId: string,
+  images: Array<{ assetId: string; userId: string }>,
+) {
+  fixtures.nonDeletedImagesByProduct.set(productId, images);
 }
 
 beforeEach(() => {
@@ -214,7 +231,7 @@ beforeEach(() => {
 describe('isSoleProductImage', () => {
   it('returns true when a linked product has exactly 1 image (this asset)', async () => {
     seedProductAsset('prod_1', 'asset_a');
-    seedNonDeletedImages('prod_1', ['asset_a']);
+    seedNonDeletedImages('prod_1', [{ assetId: 'asset_a', userId: 'user_1' }]);
 
     const result = await isSoleProductImage('user_1', 'asset_a');
     expect(result).toBe(true);
@@ -222,7 +239,10 @@ describe('isSoleProductImage', () => {
 
   it('returns false when a linked product has 2+ non-deleted images', async () => {
     seedProductAsset('prod_1', 'asset_a');
-    seedNonDeletedImages('prod_1', ['asset_a', 'asset_b']);
+    seedNonDeletedImages('prod_1', [
+      { assetId: 'asset_a', userId: 'user_1' },
+      { assetId: 'asset_b', userId: 'user_1' },
+    ]);
 
     const result = await isSoleProductImage('user_1', 'asset_a');
     expect(result).toBe(false);
@@ -233,5 +253,19 @@ describe('isSoleProductImage', () => {
 
     const result = await isSoleProductImage('user_1', 'asset_a');
     expect(result).toBe(false);
+  });
+
+  it('returns true (ownership guard) when the only other product image belongs to a different user', async () => {
+    // prod_1 links both asset_a (user_1) and asset_b (user_2).
+    // From user_1's scoped view, asset_a is the sole image → must return true.
+    seedProductAsset('prod_1', 'asset_a');
+    seedProductAsset('prod_1', 'asset_b');
+    seedNonDeletedImages('prod_1', [
+      { assetId: 'asset_a', userId: 'user_1' },
+      { assetId: 'asset_b', userId: 'user_2' },
+    ]);
+
+    const result = await isSoleProductImage('user_1', 'asset_a');
+    expect(result).toBe(true);
   });
 });
