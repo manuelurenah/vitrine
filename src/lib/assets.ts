@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, ne, or } from 'drizzle-orm';
 import { extractImageUrls, type WorkflowSnapshot } from '@/lib/civitai';
 import { db } from '@/lib/db';
 import {
@@ -275,6 +275,50 @@ export async function softDeleteAsset(userId: string, id: string): Promise<boole
     .where(and(eq(assets.id, id), eq(assets.userId, userId), isNull(assets.deletedAt)))
     .returning({ id: assets.id });
   return rows.length > 0;
+}
+
+/**
+ * True if soft-deleting `assetId` would leave at least one product it belongs
+ * to with zero non-deleted images. Used to block deleting a product's last
+ * photo. Ownership-scoped by userId. Returns false if the asset is linked to
+ * no product, or every linked product still has another non-deleted image.
+ */
+export async function isSoleProductImage(userId: string, assetId: string): Promise<boolean> {
+  // Phase 1: find every product this asset is linked to, scoped to owner.
+  const linked = await db
+    .select({ productId: productAssets.productId })
+    .from(productAssets)
+    .innerJoin(assets, eq(productAssets.assetId, assets.id))
+    .where(
+      and(
+        eq(productAssets.assetId, assetId),
+        eq(assets.userId, userId),
+        isNull(assets.deletedAt),
+      ),
+    );
+
+  if (linked.length === 0) return false;
+
+  const linkedProductIds = linked.map((r) => r.productId);
+
+  // Phase 2: for each linked product, count its non-deleted images.
+  // If any product's count is <= 1, deleting this asset empties it.
+  const counts = await db
+    .select({
+      productId: productAssets.productId,
+      imageCount: count(assets.id),
+    })
+    .from(productAssets)
+    .innerJoin(assets, eq(productAssets.assetId, assets.id))
+    .where(
+      and(
+        inArray(productAssets.productId, linkedProductIds),
+        isNull(assets.deletedAt),
+      ),
+    )
+    .groupBy(productAssets.productId);
+
+  return counts.some((r) => r.imageCount <= 1);
 }
 
 export async function listAssetsForProduct(productId: string): Promise<Asset[]> {

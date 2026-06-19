@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getAsset, softDeleteAsset, updateAsset } from '@/lib/assets';
+import { getAsset, isSoleProductImage, softDeleteAsset, updateAsset } from '@/lib/assets';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
 
@@ -52,6 +52,9 @@ export async function DELETE(_: NextRequest, ctx: { params: Params }) {
   if (!session) return NextResponse.json({ error: 'not_authenticated' }, { status: 401 });
   const userKey = await getUserKey(session);
   const { id } = await ctx.params;
+  if (await isSoleProductImage(userKey, id)) {
+    return NextResponse.json({ error: 'last_product_image' }, { status: 409 });
+  }
   const ok = await softDeleteAsset(userKey, id);
   if (!ok) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   return NextResponse.json({ ok: true });
