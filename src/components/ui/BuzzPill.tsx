@@ -1,6 +1,7 @@
 import { forwardRef, type HTMLAttributes } from 'react';
 import { BuzzGlyph } from './BuzzGlyph';
 import { cn } from './cn';
+import { MotionNumber } from './motion';
 
 type Props = HTMLAttributes<HTMLSpanElement> & {
   amount: number;
@@ -23,7 +24,7 @@ export const BuzzPill = forwardRef<HTMLSpanElement, Props>(function BuzzPill(
   return (
     <span ref={ref} className={cn(base, sizes[size], className)} {...rest}>
       <BuzzGlyph size={size === 'compact' ? 12 : 14} />
-      {amount.toLocaleString()}
+      <MotionNumber value={amount} />
     </span>
   );
 });
