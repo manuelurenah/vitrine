@@ -19,3 +19,13 @@ export { Modal } from './Modal';
 export { useMediaQuery } from './useMediaQuery';
 export type { TabStripProps, TabStripTab } from './TabStrip';
 export { TabStrip, tabId } from './TabStrip';
+export {
+  diffArrived,
+  FadeIn,
+  MotionNumber,
+  motionTokens,
+  PageTransition,
+  Reveal,
+  Stagger,
+  TileReveal,
+} from './motion';

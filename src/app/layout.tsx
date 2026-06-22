@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { MotionConfig } from 'motion/react';
 import { ToastProvider } from '@/components/ui';
 import { fontBody, fontDisplay, fontMono } from './fonts';
 import './globals.css';
@@ -30,7 +31,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: noFlashScript }} />
       </head>
       <body className="bg-bg-0 text-fg-0 antialiased">
-        <ToastProvider>{children}</ToastProvider>
+        <MotionConfig reducedMotion="user">
+          <ToastProvider>{children}</ToastProvider>
+        </MotionConfig>
       </body>
     </html>
   );
