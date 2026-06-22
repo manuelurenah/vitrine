@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { GradientThumb, type ThumbTone } from '@/components/campaigns';
-import { Badge, Chip, Select, cn } from '@/components/ui';
+import { Badge, Chip, Reveal, Select, Stagger, cn } from '@/components/ui';
 import type { Product, ProductStatus } from '@/lib/catalog';
 
 const TONES: ThumbTone[] = ['volt', 'ion', 'ultraviolet', 'flux', 'buzz'];
@@ -325,17 +325,21 @@ export function CatalogControls({ products }: { products: Product[] }) {
           </p>
         </div>
       ) : view === 'grid' ? (
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <Stagger className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {sorted.map((p, i) => (
-            <GridCard key={p.id} product={p} index={i} />
+            <Reveal key={p.id}>
+              <GridCard product={p} index={i} />
+            </Reveal>
           ))}
-        </div>
+        </Stagger>
       ) : (
-        <div className="mt-6 flex flex-col gap-2">
+        <Stagger className="mt-6 flex flex-col gap-2">
           {sorted.map((p, i) => (
-            <ListRow key={p.id} product={p} index={i} />
+            <Reveal key={p.id}>
+              <ListRow product={p} index={i} />
+            </Reveal>
           ))}
-        </div>
+        </Stagger>
       )}
 
     </>

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { FilterPills } from '@/components/campaigns/FilterPills';
 import { ProductPickerDialog } from '@/components/catalog';
-import { BuzzPill, InlineEditText } from '@/components/ui';
+import { BuzzPill, InlineEditText, Reveal, Stagger } from '@/components/ui';
 import { buildCampaignNewHref } from '@/lib/campaignHref';
 import type { Product } from '@/lib/catalog';
 import type { Photoshoot, PhotoshootTile } from '@/lib/photoshoots';
@@ -140,28 +140,29 @@ export function PhotoshootResults({ shoot, products }: Props) {
       </div>
 
       {/* Per-style rows — one row per tile, mirroring the campaign detail page */}
-      <div className="mt-6 flex flex-col">
+      <Stagger className="mt-6 flex flex-col">
         {shoot.tiles.map((tile) => {
           // Wrap in a div rather than conditionally rendering to keep
           // PhotoshootResultRow mounted (polling must continue for cooking tiles).
           const visible = tileMatchesFilter(tile);
           return (
-            <div
-              key={tile.id}
-              data-testid={`pshoot-tile-${tile.id}`}
-              className={visible ? undefined : 'hidden'}
-            >
-              <PhotoshootResultRow
-                shootId={shoot.id}
-                tile={tile}
-                ratio={shoot.brief.ratio}
-                onUseAsProduct={(id) => openProductDialog([id])}
-                onUseInCampaign={(id) => startCampaignWith([id])}
-              />
-            </div>
+            <Reveal key={tile.id}>
+              <div
+                data-testid={`pshoot-tile-${tile.id}`}
+                className={visible ? undefined : 'hidden'}
+              >
+                <PhotoshootResultRow
+                  shootId={shoot.id}
+                  tile={tile}
+                  ratio={shoot.brief.ratio}
+                  onUseAsProduct={(id) => openProductDialog([id])}
+                  onUseInCampaign={(id) => startCampaignWith([id])}
+                />
+              </div>
+            </Reveal>
           );
         })}
-      </div>
+      </Stagger>
 
       {/* Product picker dialog */}
       {dialogAssetIds.length > 0 && (

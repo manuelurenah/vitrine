@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { PRESETS } from '@/lib/presets';
 import type { CampaignTile } from '@/lib/campaigns';
 import type { PresetId } from '@/lib/presets';
+import { Reveal, Stagger } from '@/components/ui';
 import { CampaignCreativeRow } from './CampaignCreativeRow';
 import { groupTilesByCreative } from './creativeGroups';
 import { FilterPills, type FilterOption } from './FilterPills';
@@ -47,18 +48,18 @@ export function CampaignCreativeGrid({ campaignId, tiles }: Props) {
         />
       )}
 
-      <div className="flex flex-col">
+      <Stagger className="flex flex-col">
         {groups.map((group) => {
           // Keep the row mounted even when filtered out — it polls live
           // workflows. Toggle visibility via CSS only so polling stays alive.
           const visible = activeFilter === 'all' || group.presetId === activeFilter;
           return (
-            <div key={group.key} className={visible ? '' : 'hidden'}>
+            <Reveal key={group.key} className={visible ? undefined : 'hidden'}>
               <CampaignCreativeRow campaignId={campaignId} group={group} />
-            </div>
+            </Reveal>
           );
         })}
-      </div>
+      </Stagger>
     </>
   );
 }
