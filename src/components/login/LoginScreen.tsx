@@ -1,3 +1,4 @@
+import { Reveal } from '@/components/ui';
 import { Wordmark } from '@/components/shell';
 import { AuthCard } from './AuthCard';
 import { LoginPitch } from './LoginPitch';
@@ -22,7 +23,7 @@ export function LoginScreen({ error, notice }: Props) {
 
       {/* Responsive header padding: px-4 on mobile, px-10 on sm+ */}
       <header className="relative z-card flex items-center justify-between px-4 py-5 sm:px-10 sm:py-6">
-        <Wordmark size={28} />
+        <Reveal tier="hero"><Wordmark size={28} /></Reveal>
         {/* Tagline hidden on narrow screens to avoid overflow */}
         <span className="hidden font-mono text-[10.5px] uppercase tracking-[0.14em] text-fg-3 sm:inline">
           campaigns · photoshoot · brand dna
@@ -46,8 +47,8 @@ export function LoginScreen({ error, notice }: Props) {
 
       {/* Single column on mobile, two-column at 960px+ */}
       <main className="relative z-card mx-auto grid max-w-[1100px] grid-cols-1 items-start gap-8 px-4 pb-16 pt-6 sm:px-10 sm:pt-8 min-[960px]:items-center min-[960px]:gap-16 min-[960px]:grid-cols-[1fr_minmax(0,440px)]">
-        <LoginPitch />
-        <AuthCard />
+        <Reveal tier="hero" delay={0.08}><LoginPitch /></Reveal>
+        <Reveal tier="hero" delay={0.16}><AuthCard /></Reveal>
       </main>
 
       <footer className="relative z-card px-4 pb-8 text-center font-mono text-[10.5px] uppercase tracking-[0.12em] text-fg-3 sm:px-10">
