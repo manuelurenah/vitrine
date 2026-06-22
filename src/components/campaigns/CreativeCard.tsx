@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { PostGenActions } from '@/components/generations/PostGenActions';
-import { Badge, cn } from '@/components/ui';
+import { Badge, cn, TileReveal } from '@/components/ui';
 import { downloadImagesAsZip } from '@/lib/downloadZip';
 import { isAdPreset, PRESETS, type PresetId } from '@/lib/presets';
 import { useTileWorkflow } from './useTileWorkflow';
@@ -369,20 +369,22 @@ function SingleImage({
       style={{ aspectRatio: aspect }}
     >
       {url ? (
-        <div data-image-overlay className="absolute inset-0">
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="open full-size image"
-            className="absolute inset-0 cursor-zoom-in"
-          >
-            <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          </a>
-          {status === 'done' && (
-            <PostGenActions workflowId={workflowId} imageIndex={0} sourceUrl={url} />
-          )}
-        </div>
+        <TileReveal className="absolute inset-0">
+          <div data-image-overlay className="absolute inset-0">
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="open full-size image"
+              className="absolute inset-0 cursor-zoom-in"
+            >
+              <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            </a>
+            {status === 'done' && (
+              <PostGenActions workflowId={workflowId} imageIndex={0} sourceUrl={url} />
+            )}
+          </div>
+        </TileReveal>
       ) : (
         <PlaceholderGlow />
       )}
@@ -473,7 +475,7 @@ function ImageSlot({
       style={style ?? { aspectRatio: aspect }}
     >
       {url ? (
-        <>
+        <TileReveal className="absolute inset-0">
           <a
             href={url}
             target="_blank"
@@ -484,7 +486,7 @@ function ImageSlot({
             <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
           </a>
           <PostGenActions workflowId={workflowId} imageIndex={imageIndex} sourceUrl={url} />
-        </>
+        </TileReveal>
       ) : (
         <div
           data-testid="image-skeleton"

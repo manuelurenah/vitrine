@@ -12,8 +12,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
-import { Button, Chip, cn, Select } from '@/components/ui';
+import { useCallback, useRef, useState } from 'react';
+import { Button, Chip, cn, diffArrived, Reveal, Select, Stagger, TileReveal } from '@/components/ui';
 import type { FilterOption } from '@/components/campaigns/FilterPills';
 import type { Asset } from '@/lib/assets';
 import type { ActiveAdhocGeneration } from '@/lib/generations';
@@ -66,6 +66,13 @@ export function AssetsGallery({
   // Optimistic list of workflowIds submitted THIS session that the server
   // `cooking` prop hasn't picked up yet (it refreshes on `router.refresh()`).
   const [extraCooking, setExtraCooking] = useState<string[]>([]);
+
+  // Assets present at first render stagger in; assets that arrive AFTER mount
+  // (a cooking card resolving → router.refresh → new asset) hero-pop once via
+  // TileReveal. mountSeed is frozen at first render, so an asset's fresh-vs-
+  // initial classification never flips → settled tiles never re-animate.
+  const mountSeed = useRef<Set<string>>(new Set(assets.map((a) => a.id)));
+  const freshIds = new Set(diffArrived(mountSeed.current, assets.map((a) => a.id)));
 
   // Union of server-known + locally-submitted cooking workflowIds, deduped.
   const cookingIds = Array.from(
@@ -285,17 +292,25 @@ export function AssetsGallery({
             </header>
 
             {viewMode === 'grid' ? (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                {s.items.map((item, idx) => (
-                  <AssetTile key={item.id} item={item} collection={s.key} index={idx} />
-                ))}
-              </div>
+              <Stagger className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                {s.items.map((item, idx) =>
+                  freshIds.has(item.id) ? (
+                    <TileReveal key={item.id}><AssetTile item={item} collection={s.key} index={idx} /></TileReveal>
+                  ) : (
+                    <Reveal key={item.id}><AssetTile item={item} collection={s.key} index={idx} /></Reveal>
+                  )
+                )}
+              </Stagger>
             ) : (
-              <div className="flex flex-col gap-1.5">
-                {s.items.map((item) => (
-                  <AssetListRow key={item.id} item={item} collection={s.key} />
-                ))}
-              </div>
+              <Stagger className="flex flex-col gap-1.5">
+                {s.items.map((item) =>
+                  freshIds.has(item.id) ? (
+                    <TileReveal key={item.id}><AssetListRow item={item} collection={s.key} /></TileReveal>
+                  ) : (
+                    <Reveal key={item.id}><AssetListRow item={item} collection={s.key} /></Reveal>
+                  )
+                )}
+              </Stagger>
             )}
           </section>
         ))}
