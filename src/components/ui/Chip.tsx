@@ -10,7 +10,7 @@ type Props = HTMLAttributes<HTMLSpanElement> & {
 const base =
   'inline-flex items-center gap-[6px] select-none cursor-pointer ' +
   'font-body text-xs font-medium leading-none ' +
-  'rounded-pill px-[11px] py-[5px] border transition-colors duration-fast ease-out';
+  'rounded-pill px-[11px] py-[5px] border transition duration-fast ease-out motion-safe:active:scale-[0.96]';
 
 const idle = 'bg-bg-2 text-fg-1 border-line hover:text-fg-0 hover:border-line-strong';
 const activeCls = 'bg-volt-soft text-volt border-line-volt hover:border-line-volt';

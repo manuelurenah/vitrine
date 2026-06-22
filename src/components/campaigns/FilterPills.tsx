@@ -36,7 +36,7 @@ export function FilterPills({ options, active, onChange, className }: Props) {
             type="button"
             onClick={() => onChange(opt.key)}
             aria-pressed={isActive}
-            className="cursor-pointer rounded-pill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt focus-visible:ring-offset-1"
+            className="cursor-pointer rounded-pill transition-transform duration-fast ease-out motion-safe:active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt focus-visible:ring-offset-1"
           >
             <Chip active={isActive} aria-hidden="true" tabIndex={-1}>
               {label}

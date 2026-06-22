@@ -16,7 +16,7 @@ const base =
   'inline-flex items-center gap-[7px] whitespace-nowrap border-0 font-body font-semibold ' +
   'tracking-[-0.005em] transition-all duration-base ease-out ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-volt focus-visible:ring-offset-0 ' +
-  'disabled:cursor-not-allowed';
+  'disabled:cursor-not-allowed motion-safe:active:scale-[0.97]';
 
 const variants: Record<ButtonVariant, string> = {
   primary:

@@ -2,7 +2,7 @@
 
 import { Bookmark, Images, Megaphone, Sparkles, Tag, Upload, Users } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/components/ui';
+import { cn, FadeIn } from '@/components/ui';
 
 const COLLECTION_CARDS = [
   {
@@ -41,7 +41,7 @@ interface AssetsEmptyStateProps {
 
 export function AssetsEmptyState({ onGenerate }: AssetsEmptyStateProps) {
   return (
-    <div className="flex flex-col items-center gap-8 py-10 text-center">
+    <FadeIn className="flex flex-col items-center gap-8 py-10 text-center">
       {/* icon glyph + bloom box */}
       <div className="relative flex items-center justify-center">
         <div
@@ -169,6 +169,6 @@ export function AssetsEmptyState({ onGenerate }: AssetsEmptyStateProps) {
           add a product to your catalog →
         </Link>
       </p>
-    </div>
+    </FadeIn>
   );
 }

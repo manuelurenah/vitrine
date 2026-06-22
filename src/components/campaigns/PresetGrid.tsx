@@ -209,7 +209,7 @@ export function PresetGrid({ value, onChange }: Props) {
                     onClick={() => toggle(p.id)}
                     aria-pressed={on}
                     className={cn(
-                      'group relative flex flex-col items-center gap-3 rounded-[14px] border bg-bg-2 p-4 transition-all duration-fast ease-out',
+                      'group relative flex flex-col items-center gap-3 rounded-[14px] border bg-bg-2 p-4 transition-all duration-fast ease-out motion-safe:hover:-translate-y-[2px]',
                       on
                         ? 'border-line-volt shadow-bloom-volt-sm'
                         : 'border-line-subtle hover:border-line-strong',
