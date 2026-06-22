@@ -5,6 +5,7 @@ import { getOnboarding } from '@/lib/onboarding';
 import { getSession } from '@/lib/session';
 import { shellUserFromMe } from '@/lib/user';
 import { getUserKey } from '@/lib/userKey';
+import { RouteTransition } from '@/components/shell/RouteTransition';
 import { AppShellProvider } from './AppShellContext';
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +32,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <AppShellProvider buzzBalance={buzzBalance} user={user}>
-      {children}
+      <RouteTransition>{children}</RouteTransition>
     </AppShellProvider>
   );
 }
