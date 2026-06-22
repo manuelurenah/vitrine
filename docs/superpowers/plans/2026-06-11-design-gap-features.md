@@ -4,7 +4,7 @@
 >
 > **Implementers:** This is a Next.js 16 App Router + TypeScript strict + React 19 + Tailwind 3.4 codebase. Each UI task names a **design source** under `design_handoff_vitrine/design_files/` — READ IT before building (it is the visual spec). Match existing component patterns in `src/components/ui/` (Button, Modal, Chip, Badge, BuzzPill, Input, Textarea, FieldLabel, IconButton, TabStrip). Use `lucide-react` for icons and the `cn()` helper. Tokens are CSS vars exposed as Tailwind utilities (e.g. `bg-bg-1`, `text-fg-0`, `border-line`, `t-eyebrow`, `t-h3`, volt colors). Never invent new color literals — use existing token utilities.
 
-**Goal:** Close the desktop + mobile gaps catalogued in `claudedocs/design-handoff-gap-plan-2026-06-10.md` between the hi-fi design handoff and the shipped app.
+**Goal:** Close the desktop + mobile gaps between the hi-fi design handoff (`design_handoff_vitrine/`) and the shipped app.
 
 **Architecture:** Mostly additive React component work plus two backend additions (a `tile_versions` table with a version-write hook, and a per-template photoshoot regenerate route). Schema work lands first because the single-creative-editor and version-history screens depend on it. Each task is independently shippable and verifiable.
 
