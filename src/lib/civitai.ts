@@ -13,7 +13,12 @@ import { cache } from 'react';
 import { env } from './env';
 import type { Session } from './session';
 
-import { buildVitrineImageGenBody, TAGS, type VitrineImageGenInput } from './imageGenBody';
+import {
+  buildVitrineImageGenBody,
+  TAGS,
+  type VitrineImageGenInput,
+  withVitrineCurrencies,
+} from './imageGenBody';
 
 export {
   buildVitrineImageGenBody,
@@ -51,13 +56,14 @@ export function getMe(session: Session): Promise<MeResponse> {
 }
 
 /**
- * Aggregate Buzz balance across pools. `yellow` is the spendable balance
- * everyone sees; `blue`/`green` are reserved/promotional. We expose
- * `balance` as `yellow` for the shell pill and surface raw pools for any
- * future per-pool UI.
+ * Aggregate Buzz balance across pools. Vitrine spends from the `green` pool
+ * (SFW-only promotional Buzz — see {@link VITRINE_CURRENCIES}), so `balance`
+ * mirrors `green`: it's what the shell pill shows and what affordability
+ * checks compare cost against. Raw `yellow`/`blue`/`green` are surfaced for
+ * any future per-pool UI.
  */
 export type BuzzBalance = {
-  /** Spendable balance (yellow pool). */
+  /** Spendable balance for Vitrine (green pool). */
   balance: number;
   blue: number;
   green: number;
@@ -107,7 +113,7 @@ const fetchBuzzAccountCached = cache(async (accessToken: string): Promise<BuzzBa
         : (body as Pools);
     if (!inner) return null;
     return {
-      balance: inner.yellow ?? 0,
+      balance: inner.green ?? 0,
       yellow: inner.yellow ?? 0,
       blue: inner.blue ?? 0,
       green: inner.green ?? 0,
@@ -154,12 +160,14 @@ export function submitImageGen(
 export { mapWithConcurrency } from './concurrency';
 
 function buildUpscaleBody(sourceImageUrl: string): unknown {
-  return buildWorkflowBody(
-    {
-      $type: 'imageUpscaler',
-      input: { image: sourceImageUrl, scale: 2 },
-    },
-    { tags: TAGS },
+  return withVitrineCurrencies(
+    buildWorkflowBody(
+      {
+        $type: 'imageUpscaler',
+        input: { image: sourceImageUrl, scale: 2 },
+      },
+      { tags: TAGS },
+    ),
   );
 }
 
@@ -181,17 +189,19 @@ export function submitUpscale(session: Session, sourceImageUrl: string): Promise
 
 // TODO: confirm videoGen engine/model with smoke test
 function buildVideoAnimateBody(sourceImageUrl: string, prompt?: string): unknown {
-  return buildWorkflowBody(
-    {
-      $type: 'videoGen',
-      input: {
-        engine: 'wan',
-        model: 'image-to-video',
-        sourceImage: sourceImageUrl,
-        ...(prompt ? { prompt } : {}),
+  return withVitrineCurrencies(
+    buildWorkflowBody(
+      {
+        $type: 'videoGen',
+        input: {
+          engine: 'wan',
+          model: 'image-to-video',
+          sourceImage: sourceImageUrl,
+          ...(prompt ? { prompt } : {}),
+        },
       },
-    },
-    { tags: TAGS },
+      { tags: TAGS },
+    ),
   );
 }
 

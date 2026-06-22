@@ -238,7 +238,8 @@ export const handlers = [
     HttpResponse.json({
       result: {
         data: {
-          json: { yellow: 100_000, blue: 0, green: 0 },
+          // Vitrine spends from the green pool — fund it so cooks can pay.
+          json: { yellow: 0, blue: 0, green: 100_000 },
         },
       },
     }),
