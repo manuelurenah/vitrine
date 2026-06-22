@@ -2,9 +2,11 @@
 
 import { Check, Dna, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
+import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/components/ui';
+import { fadeUp, motionTokens } from '@/components/ui/motion';
 import type { OnboardingPayload } from '@/lib/onboarding';
 
 type Props = {
@@ -247,11 +249,16 @@ export function ProcessingStep({ payload }: Props) {
       </div>
 
       {/* Checklist — mirrors actual task progress */}
-      <ul className="flex w-full max-w-[420px] flex-col gap-[10px] text-left">
+      <motion.ul
+        className="flex w-full max-w-[420px] flex-col gap-[10px] text-left"
+        initial="hidden"
+        animate="show"
+        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08 } } }}
+      >
         {tasks.map((task) => (
           <TaskRow key={task.key} task={task} />
         ))}
-      </ul>
+      </motion.ul>
 
       {error && (
         <div className="flex flex-col items-center gap-3 rounded-[12px] border border-danger bg-danger-soft px-4 py-3 text-[13px] text-fg-0">
@@ -277,7 +284,9 @@ function TaskRow({ task }: { task: Task }) {
   const skip = task.status === 'skipped';
   const err = task.status === 'error';
   return (
-    <li
+    <motion.li
+      variants={fadeUp}
+      transition={motionTokens.transition}
       className={cn(
         'flex items-center gap-[10px] text-[14px] transition-colors duration-[240ms] ease-out',
         done && 'text-fg-1',
@@ -314,7 +323,7 @@ function TaskRow({ task }: { task: Task }) {
       {skip && (
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-fg-3">skipped</span>
       )}
-    </li>
+    </motion.li>
   );
 }
 
