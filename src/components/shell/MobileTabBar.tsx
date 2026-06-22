@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { Camera, Dna, Images, Megaphone, Package } from 'lucide-react';
-import { cn } from '@/components/ui';
+import { motion } from 'motion/react';
+import { cn, motionTokens } from '@/components/ui';
 
 /** The five primary mobile tab keys, left→right in the bottom pill. */
 export type MobileTabId = 'campaigns' | 'photoshoot' | 'catalog' | 'assets' | 'brand';
@@ -70,9 +71,11 @@ export function MobileTabBar({ active }: Props) {
             )}
           >
             {isActive && (
-              <span
+              <motion.span
+                layoutId="mobile-tab-active"
                 aria-hidden="true"
                 className="absolute inset-x-[6px] inset-y-[3px] rounded-[18px] bg-volt-soft"
+                transition={motionTokens.feedback}
               />
             )}
             <span

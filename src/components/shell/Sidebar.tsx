@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BuzzGlyph, cn } from '@/components/ui';
+import { motion } from 'motion/react';
+import { BuzzGlyph, cn, motionTokens } from '@/components/ui';
 import { buzzTopUpUrl } from '@/lib/links';
 import { activeNavFromPath, NAV, type NavId } from './nav';
 import { UserMenu } from './UserMenu';
@@ -19,29 +20,37 @@ function NavRow({ active, item }: { active: boolean; item: (typeof NAV)[number] 
     <Link
       href={item.href}
       className={cn(
-        'group flex items-center gap-[10px] rounded-[8px] px-[10px] py-[7px] text-[13.5px] font-medium',
+        'group relative flex items-center gap-[10px] rounded-[8px] px-[10px] py-[7px] text-[13.5px] font-medium',
         'transition-colors duration-fast ease-out',
         item.indent ? 'pl-[38px] text-[13px]' : '',
         active
-          ? 'bg-bg-2 text-fg-0 shadow-[inset_2px_0_0_var(--volt),inset_0_0_0_1px_var(--line-subtle)]'
+          ? 'text-fg-0'
           : 'text-fg-1 hover:bg-bg-2 hover:text-fg-0',
       )}
     >
+      {active && (
+        <motion.span
+          layoutId="sidebar-active"
+          aria-hidden="true"
+          className="absolute inset-0 rounded-[8px] bg-bg-2 shadow-[inset_2px_0_0_var(--volt),inset_0_0_0_1px_var(--line-subtle)]"
+          transition={motionTokens.feedback}
+        />
+      )}
       {Icon ? (
         <Icon
           width={18}
           height={18}
           strokeWidth={1.75}
-          className={cn('shrink-0', active ? 'text-volt' : 'text-fg-2 group-hover:text-fg-1')}
+          className={cn('relative shrink-0', active ? 'text-volt' : 'text-fg-2 group-hover:text-fg-1')}
         />
       ) : null}
-      <span className="truncate">{item.label}</span>
+      <span className="relative truncate">{item.label}</span>
       {item.badge === 'new' ? (
-        <span className="ml-auto rounded-pill border border-line-volt bg-volt-soft px-[6px] py-[1px] font-mono text-[9px] font-semibold uppercase tracking-[0.04em] text-volt">
+        <span className="relative ml-auto rounded-pill border border-line-volt bg-volt-soft px-[6px] py-[1px] font-mono text-[9px] font-semibold uppercase tracking-[0.04em] text-volt">
           new
         </span>
       ) : item.shortcut ? (
-        <span className="ml-auto font-mono text-[10px] tracking-[0.05em] text-fg-3">
+        <span className="relative ml-auto font-mono text-[10px] tracking-[0.05em] text-fg-3">
           {item.shortcut}
         </span>
       ) : null}

@@ -1,7 +1,9 @@
 'use client';
 
 import { type ReactNode, useId } from 'react';
+import { motion } from 'motion/react';
 import { cn } from './cn';
+import { motionTokens } from './motion';
 
 export type TabStripTab<K extends string> = {
   key: K;
@@ -56,10 +58,18 @@ export function TabStrip<K extends string>({
             aria-controls={panelIds?.[tab.key]}
             onClick={() => onChange(tab.key)}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-fast ease-out',
-              active ? 'bg-bg-3 text-fg-0' : 'text-fg-2 hover:text-fg-1',
+              'relative inline-flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.1em] transition-colors duration-fast ease-out',
+              active ? 'text-fg-0' : 'text-fg-2 hover:text-fg-1',
             )}
           >
+            {active && (
+              <motion.span
+                layoutId={`${base}-tabstrip-active`}
+                aria-hidden="true"
+                className="absolute inset-0 rounded-[6px] bg-bg-3"
+                transition={motionTokens.feedback}
+              />
+            )}
             {tab.icon}
             {tab.label}
           </button>
