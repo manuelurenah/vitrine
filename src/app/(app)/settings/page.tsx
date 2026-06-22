@@ -2,6 +2,7 @@ import { hasScope, TokenScope } from '@civitai/app-sdk/scopes';
 import { ArrowUpRight, KeyRound, Sparkles } from 'lucide-react';
 import { redirect } from 'next/navigation';
 import { DeleteAccountDialog } from '@/components/settings/DeleteAccountDialog';
+import { PreferencesControls } from '@/components/settings/PreferencesControls';
 import { SessionActions } from '@/components/settings/SessionActions';
 import { Badge, BuzzGlyph } from '@/components/ui';
 import { ensureDefaultBrand } from '@/lib/brand';
@@ -135,6 +136,10 @@ export default async function SettingsPage() {
             edit
           </a>
         </div>
+      </Card>
+
+      <Card title="preferences">
+        <PreferencesControls />
       </Card>
 
       <Card title="session" tone="danger">
