@@ -3,7 +3,7 @@
 import { ArrowLeft, Box, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, BuzzPill, Chip, cn, FieldLabel, Input, Spinner, Textarea } from '@/components/ui';
+import { Button, BuzzPill, Chip, cn, FieldLabel, Input, PageTransition, Spinner, Textarea } from '@/components/ui';
 import type { Asset } from '@/lib/assets';
 import type { Product } from '@/lib/catalog';
 import { buzzTopUpUrl } from '@/lib/links';
@@ -444,46 +444,48 @@ export function PhotoshootWizard({
         <StepDots step={step} />
       </header>
 
-      {step === 'configure' && (
-        <ConfigureStep
-          drafting={drafting}
-          references={references}
-          title={title}
-          setTitle={setTitle}
-          masterPrompt={masterPrompt}
-          setMasterPrompt={setMasterPrompt}
-          ratio={ratio}
-          setRatio={setRatio}
-          variants={variants}
-          setVariants={setVariants}
-          templateIds={templateIds}
-          toggleTemplate={toggleTemplate}
-          totalShots={totalShots}
-          totalBuzz={totalBuzz}
-          previewing={previewing}
-          previewError={previewError}
-          promptEmpty={promptEmpty}
-          onSubmit={onContinueToReview}
-        />
-      )}
+      <PageTransition motionKey={step}>
+        {step === 'configure' && (
+          <ConfigureStep
+            drafting={drafting}
+            references={references}
+            title={title}
+            setTitle={setTitle}
+            masterPrompt={masterPrompt}
+            setMasterPrompt={setMasterPrompt}
+            ratio={ratio}
+            setRatio={setRatio}
+            variants={variants}
+            setVariants={setVariants}
+            templateIds={templateIds}
+            toggleTemplate={toggleTemplate}
+            totalShots={totalShots}
+            totalBuzz={totalBuzz}
+            previewing={previewing}
+            previewError={previewError}
+            promptEmpty={promptEmpty}
+            onSubmit={onContinueToReview}
+          />
+        )}
 
-      {step === 'review' && (
-        <ReviewStep
-          brief={buildBrief()}
-          preview={preview}
-          previewing={previewing}
-          previewError={previewError}
-          totalBuzz={totalBuzz}
-          userOverrides={userOverrides}
-          setUserOverrides={setUserOverrides}
-          submitError={submitError}
-          onBack={() => goStep('configure')}
-          onCook={onCook}
-          buzzBalance={buzzBalance}
-        />
-      )}
+        {step === 'review' && (
+          <ReviewStep
+            brief={buildBrief()}
+            preview={preview}
+            previewing={previewing}
+            previewError={previewError}
+            totalBuzz={totalBuzz}
+            userOverrides={userOverrides}
+            setUserOverrides={setUserOverrides}
+            submitError={submitError}
+            onBack={() => goStep('configure')}
+            onCook={onCook}
+            buzzBalance={buzzBalance}
+          />
+        )}
 
-      {step === 'submit' && <SubmitStep submitting={submitting} error={submitError} />}
+        {step === 'submit' && <SubmitStep submitting={submitting} error={submitError} />}
+      </PageTransition>
     </div>
   );
 }

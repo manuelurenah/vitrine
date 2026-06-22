@@ -9,6 +9,7 @@ import {
   WelcomeStep,
 } from '@/components/onboarding';
 import { NextScreen } from '@/components/onboarding/NextScreen';
+import { PageTransition } from '@/components/ui';
 import { getOnboarding, type OnboardingPayload, recordOnboardingStep } from '@/lib/onboarding';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
@@ -34,7 +35,9 @@ export default async function OnboardingStepPage({ params }: { params: Params })
 
   return (
     <OnboardingFrame step={step}>
-      <Screen step={step} payload={payload} />
+      <PageTransition motionKey={step}>
+        <Screen step={step} payload={payload} />
+      </PageTransition>
     </OnboardingFrame>
   );
 }

@@ -20,6 +20,7 @@ import {
   cn,
   FieldLabel,
   Input,
+  PageTransition,
   Select,
   Spinner,
   Textarea,
@@ -370,52 +371,54 @@ export function CampaignWizard({ initial, fetcher }: Props) {
   return (
     <div className="flex flex-col gap-6">
       <StepDots steps={steps} step={step} />
-      {step === 'prompt' &&
-        (autoDraftPending ? (
-          <DraftingOverlay />
-        ) : (
-          <PromptStep
+      <PageTransition motionKey={step}>
+        {step === 'prompt' &&
+          (autoDraftPending ? (
+            <DraftingOverlay />
+          ) : (
+            <PromptStep
+              brief={brief}
+              setBrief={setBrief}
+              referenceAssetIds={referenceAssetIds}
+              setReferenceAssetIds={setReferenceAssetIds}
+              drafting={drafting}
+              error={draftError}
+              onContinue={handleGenerateDraft}
+            />
+          ))}
+        {step === 'brief' && (
+          <BriefStep
             brief={brief}
             setBrief={setBrief}
-            referenceAssetIds={referenceAssetIds}
-            setReferenceAssetIds={setReferenceAssetIds}
+            adCopy={adCopy}
+            setAdCopy={setAdCopy}
+            copyPool={copyPool}
+            poolCursorRef={poolCursorRef}
+            presetIds={presetIds}
+            setPresetIds={setPresetIds}
+            variantsPerPreset={variantsPerPreset}
+            setVariantsPerPreset={setVariantsPerPreset}
+            preview={preview}
+            previewLoading={loading}
+            previewError={error}
+            draftWarning={draftWarning}
             drafting={drafting}
-            error={draftError}
-            onContinue={handleGenerateDraft}
+            draftError={draftError}
+            onRegenerate={handleRegenerateDraft}
+            showAdvanced={showAdvanced}
+            setShowAdvanced={setShowAdvanced}
+            userOverrides={userOverrides}
+            showBrandLayer={showBrandLayer}
+            setShowBrandLayer={setShowBrandLayer}
+            perPresetLoading={perPresetLoading}
+            onOverrideChange={handleOverrideChange}
+            onBack={() => goToStep('prompt')}
+            onCook={handleCook}
+            buzzBalance={initial?.buzzBalance ?? null}
           />
-        ))}
-      {step === 'brief' && (
-        <BriefStep
-          brief={brief}
-          setBrief={setBrief}
-          adCopy={adCopy}
-          setAdCopy={setAdCopy}
-          copyPool={copyPool}
-          poolCursorRef={poolCursorRef}
-          presetIds={presetIds}
-          setPresetIds={setPresetIds}
-          variantsPerPreset={variantsPerPreset}
-          setVariantsPerPreset={setVariantsPerPreset}
-          preview={preview}
-          previewLoading={loading}
-          previewError={error}
-          draftWarning={draftWarning}
-          drafting={drafting}
-          draftError={draftError}
-          onRegenerate={handleRegenerateDraft}
-          showAdvanced={showAdvanced}
-          setShowAdvanced={setShowAdvanced}
-          userOverrides={userOverrides}
-          showBrandLayer={showBrandLayer}
-          setShowBrandLayer={setShowBrandLayer}
-          perPresetLoading={perPresetLoading}
-          onOverrideChange={handleOverrideChange}
-          onBack={() => goToStep('prompt')}
-          onCook={handleCook}
-          buzzBalance={initial?.buzzBalance ?? null}
-        />
-      )}
-      {step === 'submit' && <SubmitStep submitting={submitting} error={submitError} />}
+        )}
+        {step === 'submit' && <SubmitStep submitting={submitting} error={submitError} />}
+      </PageTransition>
     </div>
   );
 }
