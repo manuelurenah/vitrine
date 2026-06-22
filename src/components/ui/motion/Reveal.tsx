@@ -2,7 +2,8 @@
 
 import { motion } from 'motion/react';
 import type { ReactNode } from 'react';
-import { fadeUp, motionTokens } from './tokens';
+import { useInStagger } from './StaggerContext';
+import { fade, fadeUp, motionTokens } from './tokens';
 
 type RevealProps = {
   children: ReactNode;
@@ -11,14 +12,16 @@ type RevealProps = {
   delay?: number;
 };
 
-/** fadeUp entrance at the given tier. Enter-only: no exit. */
+/** fadeUp entrance at the given tier. Enter-only: no exit. Inside a Stagger it
+ *  defers initial/animate to the parent so staggerChildren can sequence it. */
 export function Reveal({ children, className, tier = 'transition', delay = 0 }: RevealProps) {
+  const inStagger = useInStagger();
   return (
     <motion.div
       className={className}
       variants={fadeUp}
-      initial="hidden"
-      animate="show"
+      initial={inStagger ? undefined : 'hidden'}
+      animate={inStagger ? undefined : 'show'}
       transition={{ ...motionTokens[tier], delay }}
     >
       {children}
@@ -36,11 +39,13 @@ export function FadeIn({
   className?: string;
   delay?: number;
 }) {
+  const inStagger = useInStagger();
   return (
     <motion.div
       className={className}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      variants={fade}
+      initial={inStagger ? undefined : 'hidden'}
+      animate={inStagger ? undefined : 'show'}
       transition={{ ...motionTokens.transition, delay }}
     >
       {children}
