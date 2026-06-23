@@ -205,6 +205,24 @@ describe('POST /api/campaigns/cook', () => {
     expect(new Set(groupIds).size).toBe(2);
   });
 
+  it('links the campaign to the first product: reference token', async () => {
+    await POST(
+      makeRequest(
+        validBody({
+          referenceAssetIds: ['product:prod-abc', 'asset:a1', 'product:prod-def'],
+        }),
+      ) as never,
+    );
+    const input = createCampaignMock.mock.calls[0]![0];
+    expect(input.productId).toBe('prod-abc');
+  });
+
+  it('leaves productId null when no product: reference is present', async () => {
+    await POST(makeRequest(validBody({ referenceAssetIds: ['asset:a1', 'a2'] })) as never);
+    const input = createCampaignMock.mock.calls[0]![0];
+    expect(input.productId ?? null).toBeNull();
+  });
+
   it('reference URLs land in images[] on the orchestrator body', async () => {
     await POST(makeRequest(validBody({ referenceAssetIds: ['ref1'] })) as never);
     expect(getPublicUrlsMock).toHaveBeenCalledWith(expect.any(String), ['ref1']);
