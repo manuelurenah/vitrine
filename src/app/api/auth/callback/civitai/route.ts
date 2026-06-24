@@ -11,9 +11,9 @@ export async function GET(req: NextRequest) {
 
   const expected = await consumeOAuthState();
 
-  if (error) return redirectHome(req, `oauth_error:${error}`);
-  if (!code || !state) return redirectHome(req, 'missing_code_or_state');
-  if (!expected || expected.state !== state) return redirectHome(req, 'state_mismatch');
+  if (error) return redirectHome(`oauth_error:${error}`);
+  if (!code || !state) return redirectHome('missing_code_or_state');
+  if (!expected || expected.state !== state) return redirectHome('state_mismatch');
 
   try {
     const tokens = await exchangeCode({
@@ -28,14 +28,19 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     const msg =
       err instanceof OAuthError ? `token_exchange:${err.status}` : 'token_exchange_failed';
-    return redirectHome(req, msg);
+    return redirectHome(msg);
   }
 
-  return redirectHome(req, undefined, 'connected');
+  return redirectHome(undefined, 'connected');
 }
 
-function redirectHome(req: NextRequest, error?: string, notice?: string): NextResponse {
-  const url = new URL('/', req.url);
+// Build the post-OAuth redirect from the configured public origin, NOT from
+// req.url: behind a reverse proxy (Traefik/Cloudflare) Next resolves req.url to
+// the server's internal listen address (http://localhost:3000), so a req.url
+// base sent users to localhost after login. NEXT_PUBLIC_APP_URL is the real
+// public origin.
+function redirectHome(error?: string, notice?: string): NextResponse {
+  const url = new URL('/', env.NEXT_PUBLIC_APP_URL);
   if (error) url.searchParams.set('error', error);
   if (notice) url.searchParams.set('notice', notice);
   return NextResponse.redirect(url, { status: 303 });
