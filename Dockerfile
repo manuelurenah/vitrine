@@ -18,6 +18,17 @@ RUN pnpm install --frozen-lockfile
 ARG NEXT_PUBLIC_APP_URL=https://vitrine.civitai.com
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 
+# S3_ENDPOINT / S3_PUBLIC_URL are read at BUILD time by next.config.mjs, which
+# folds their origins into the CSP connect-src (browser presigned PUT) and
+# img-src (uploaded-asset <img>). They must be present during `next build` or
+# the baked-in CSP omits the storage host and blocks uploads + asset rendering
+# at runtime. Public bucket host only (no secret) — the access key/secret stay
+# runtime-injected. Defaults target Backblaze B2 us-west-004.
+ARG S3_ENDPOINT=https://s3.us-west-004.backblazeb2.com
+ENV S3_ENDPOINT=$S3_ENDPOINT
+ARG S3_PUBLIC_URL=https://s3.us-west-004.backblazeb2.com
+ENV S3_PUBLIC_URL=$S3_PUBLIC_URL
+
 # devDependencies (drizzle-kit) are kept so the cluster initContainer can run
 # migrations before each rollout: `node ./node_modules/drizzle-kit/bin.cjs migrate`.
 #
