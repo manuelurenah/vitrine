@@ -41,6 +41,8 @@ jobs:
           push: true
           build-args: |
             NEXT_PUBLIC_APP_URL=https://vitrine.civitai.com
+            S3_ENDPOINT=https://s3.us-west-004.backblazeb2.com
+            S3_PUBLIC_URL=https://s3.us-west-004.backblazeb2.com
           tags: |
             ghcr.io/${{ github.repository_owner }}/vitrine:${{ steps.tag.outputs.tag }}
             ghcr.io/${{ github.repository_owner }}/vitrine:latest
