@@ -1,0 +1,46 @@
+name: Build & publish Docker image
+
+# On push to main, builds and pushes ghcr.io/<owner>/vitrine with tags
+# `<14-digit-ts>-<shortsha>` + `latest` using the default GITHUB_TOKEN (no
+# secrets to configure). FluxCD on the Civitai cluster watches the ts-sha tag
+# stream and auto-deploys to vitrine.civitai.com (talos-infra).
+#
+# NOTE: after the first publish, flip the GHCR package visibility to PUBLIC
+# (package settings) — the cluster pulls without credentials.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image tag
+        id: tag
+        run: echo "tag=$(date -u +%Y%m%d%H%M%S)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: |
+            NEXT_PUBLIC_APP_URL=https://vitrine.civitai.com
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/vitrine:${{ steps.tag.outputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/vitrine:latest

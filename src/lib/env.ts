@@ -30,7 +30,6 @@ export const env = createEnv({
     S3_BUCKET_UPLOADS: z.string().optional(),
     S3_BUCKET_ASSETS: z.string().optional(),
     S3_PUBLIC_URL: z.string().url().optional(),
-    REDIS_URL: z.string().optional(),
     OPENROUTER_API_KEY: z.string().optional(),
     OPENROUTER_MODEL: z.string().default('google/gemini-2.5-flash-lite'),
     /**
@@ -66,7 +65,6 @@ export const env = createEnv({
     S3_BUCKET_UPLOADS: process.env.S3_BUCKET_UPLOADS,
     S3_BUCKET_ASSETS: process.env.S3_BUCKET_ASSETS,
     S3_PUBLIC_URL: process.env.S3_PUBLIC_URL,
-    REDIS_URL: process.env.REDIS_URL,
     OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
     OPENROUTER_MODEL: process.env.OPENROUTER_MODEL,
     OPENROUTER_MODELS: process.env.OPENROUTER_MODELS,
