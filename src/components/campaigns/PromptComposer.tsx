@@ -118,6 +118,7 @@ export function PromptComposer({
     getSpeechSupportServerSnapshot,
   );
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const micPendingRef = useRef(false);
 
   const canSubmit = value.trim().length > 0;
 
@@ -148,52 +149,60 @@ export function PromptComposer({
       return;
     }
 
+    // Re-entrancy guard: ignore a second click while the permission dialog is open.
+    if (micPendingRef.current) return;
+    micPendingRef.current = true;
+
     setMicError(null);
 
-    const perm = await ensureMicPermission();
-    if (!perm.ok) {
-      setMicError(perm.message);
-      return;
-    }
-
-    const rec = new SR();
-    rec.lang = 'en-US';
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-
-    rec.onresult = (event: SpeechRecognitionResultEvent) => {
-      const transcript = event.results[0]?.[0]?.transcript ?? '';
-      if (transcript) {
-        setMicError(null);
-        setValue((prev) => {
-          const trimmed = prev.trimEnd();
-          return trimmed ? `${trimmed} ${transcript}` : transcript;
-        });
-      }
-    };
-
-    rec.onend = () => {
-      setListening(false);
-      recognitionRef.current = null;
-    };
-
-    rec.onerror = (event: SpeechRecognitionErrorEvent) => {
-      setListening(false);
-      recognitionRef.current = null;
-      setMicError(describeSpeechError(event.error));
-    };
-
-    recognitionRef.current = rec;
-    // start() can also throw synchronously (e.g. an already-running instance or a
-    // non-secure context); surface that instead of dying silently.
     try {
-      rec.start();
-      setListening(true);
-    } catch (err) {
-      recognitionRef.current = null;
-      setMicError(
-        err instanceof Error ? `voice input failed: ${err.message}` : 'voice input failed to start',
-      );
+      const perm = await ensureMicPermission();
+      if (!perm.ok) {
+        setMicError(perm.message);
+        return;
+      }
+
+      const rec = new SR();
+      rec.lang = 'en-US';
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+
+      rec.onresult = (event: SpeechRecognitionResultEvent) => {
+        const transcript = event.results[0]?.[0]?.transcript ?? '';
+        if (transcript) {
+          setMicError(null);
+          setValue((prev) => {
+            const trimmed = prev.trimEnd();
+            return trimmed ? `${trimmed} ${transcript}` : transcript;
+          });
+        }
+      };
+
+      rec.onend = () => {
+        setListening(false);
+        recognitionRef.current = null;
+      };
+
+      rec.onerror = (event: SpeechRecognitionErrorEvent) => {
+        setListening(false);
+        recognitionRef.current = null;
+        setMicError(describeSpeechError(event.error));
+      };
+
+      recognitionRef.current = rec;
+      // start() can also throw synchronously (e.g. an already-running instance or a
+      // non-secure context); surface that instead of dying silently.
+      try {
+        rec.start();
+        setListening(true);
+      } catch (err) {
+        recognitionRef.current = null;
+        setMicError(
+          err instanceof Error ? `voice input failed: ${err.message}` : 'voice input failed to start',
+        );
+      }
+    } finally {
+      micPendingRef.current = false;
     }
   }
 
