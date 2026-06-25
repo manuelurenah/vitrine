@@ -25,9 +25,14 @@ const APP_URL = process.env.APP_URL ?? 'http://localhost:3334';
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? 'postgres://app:app@localhost:5432/vitrine_test';
 
-if (!process.env.NEXT_PUBLIC_CIVITAI_BASE_URL) {
+const REAL_OAUTH = process.env.E2E_REAL_OAUTH === '1';
+// The app's Zod env still needs a syntactically-valid URL even offline; a
+// dummy is fine because MSW intercepts all Civitai calls. Only real-OAuth
+// mode needs a reachable host.
+const CIVITAI_BASE_URL = process.env.NEXT_PUBLIC_CIVITAI_BASE_URL ?? 'http://civitai.invalid';
+if (REAL_OAUTH && !process.env.NEXT_PUBLIC_CIVITAI_BASE_URL) {
   throw new Error(
-    'NEXT_PUBLIC_CIVITAI_BASE_URL is required for e2e (your local Civitai dev host). See playwright.config.ts header.',
+    'E2E_REAL_OAUTH=1 requires NEXT_PUBLIC_CIVITAI_BASE_URL (your local Civitai dev host).',
   );
 }
 
@@ -51,6 +56,7 @@ export default defineConfig({
       MOCK_CIVITAI: '1',
       TEST_PORT: new URL(APP_URL).port || '3334',
       NEXT_PUBLIC_APP_URL: APP_URL,
+      NEXT_PUBLIC_CIVITAI_BASE_URL: CIVITAI_BASE_URL,
     },
   },
   use: {

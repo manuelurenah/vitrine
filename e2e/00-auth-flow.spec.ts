@@ -3,6 +3,11 @@ import { signInToApp } from './helpers/auth';
 import { resetUserData } from './helpers/db';
 
 test.describe('OAuth + session', () => {
+  test.skip(
+    process.env.E2E_REAL_OAUTH !== '1',
+    'Real OAuth round-trip — needs the Civitai dev server. Run with E2E_REAL_OAUTH=1.',
+  );
+
   test.beforeAll(async () => {
     // Fresh user state — no users row, no onboarding row. Forces the post-
     // login redirect into onboarding.

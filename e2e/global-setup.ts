@@ -1,19 +1,25 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { FullConfig } from '@playwright/test';
+import { sealCivSession } from './helpers/session';
 
 /**
- * One-time setup: sign in to the local Civitai dev server as the test user
- * via the `testing-login` NextAuth credentials provider (dev/test only),
- * then write the resulting cookies to a Playwright storageState JSON. Each
- * spec loads this state via `use.storageState` in playwright.config.ts.
+ * Playwright globalSetup.
  *
- * Uses plain Node fetch + a tiny cookie jar for the sign-in handshake, then
- * hand-builds the storageState file. Playwright's own request contexts
- * don't reliably persist the NextAuth session cookie in this flow.
+ * Offline default (E2E_REAL_OAUTH unset): seal a fake `civ_session` cookie for
+ * the test user and write it to the Playwright storageState file. No Civitai
+ * dev server is contacted. MSW intercepts /api/v1/me + buzz on the test
+ * server, so the mock token is never validated.
+ *
+ * Real-OAuth mode (E2E_REAL_OAUTH=1): additionally sign in to the local
+ * Civitai dev server via the `testing-login` provider and prepend its NextAuth
+ * cookies, so the `00-auth-flow` spec lands on the consent screen during the
+ * real OAuth round-trip.
  */
 
 export const STORAGE_STATE_PATH = '.auth/civitai-session.json';
+
+const E2E_REAL_OAUTH = process.env.E2E_REAL_OAUTH === '1';
 
 interface PwCookie {
   name: string;
@@ -26,20 +32,18 @@ interface PwCookie {
   sameSite: 'Strict' | 'Lax' | 'None';
 }
 
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) {
-    throw new Error(
-      `${name} is required for e2e. See playwright.config.ts header for the full prereq list.`,
-    );
-  }
-  return v;
-}
-
 interface ParsedCookie {
   name: string;
   value: string;
   attrs: Map<string, string | true>;
+}
+
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) {
+    throw new Error(`${name} is required for E2E_REAL_OAUTH mode. See playwright.config.ts header.`);
+  }
+  return v;
 }
 
 function parseSetCookie(line: string): ParsedCookie {
@@ -73,30 +77,39 @@ function toPwCookie(parsed: ParsedCookie, defaultDomain: string): PwCookie {
     value: parsed.value,
     domain,
     path: String(parsed.attrs.get('path') ?? '/'),
-    expires: -1, // session cookie
+    expires: -1,
     httpOnly: !!parsed.attrs.get('httponly'),
     secure: !!parsed.attrs.get('secure'),
     sameSite,
   };
 }
 
-export default async function globalSetup(_config: FullConfig) {
-  // Local Civitai dev often uses a self-signed (and sometimes expired) cert
-  // on a custom hostname (e.g. https://civitai-dev.blue). Disable TLS
-  // verification for this setup process — affects only globalSetup, not the
-  // test browsers (those use Playwright's ignoreHTTPSErrors).
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+function civSessionCookie(userId: string): PwCookie {
+  return {
+    name: 'civ_session',
+    value: sealCivSession(userId),
+    domain: 'localhost',
+    path: '/',
+    expires: -1,
+    httpOnly: true,
+    secure: false,
+    sameSite: 'Lax',
+  };
+}
 
+/**
+ * Sign into the local Civitai dev server via `testing-login` and return its
+ * NextAuth cookies as Playwright cookies. Only used in real-OAuth mode.
+ */
+async function captureCivitaiCookies(userId: string): Promise<PwCookie[]> {
+  // Local Civitai dev often uses a self-signed cert on a custom hostname.
+  // Disable TLS verification for this setup process only (not the browsers).
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
   const civitaiBaseUrl = requireEnv('NEXT_PUBLIC_CIVITAI_BASE_URL');
-  const userId = process.env.TEST_USER_ID ?? '1';
   const civitaiHost = new URL(civitaiBaseUrl).hostname;
 
-  // ---- plain fetch + cookie jar ----
-  // Two-layer storage: the live jar (for sending Cookie on subsequent
-  // requests) and the parsed list (for constructing the Playwright file).
   const jar = new Map<string, string>();
   const parsed = new Map<string, ParsedCookie>();
-
   const cookieHeader = () =>
     Array.from(jar.entries())
       .map(([k, v]) => `${k}=${v}`)
@@ -120,12 +133,10 @@ export default async function globalSetup(_config: FullConfig) {
     return res;
   }
 
-  // 1. CSRF
   const csrfRes = await req('/api/auth/csrf');
   if (!csrfRes.ok) throw new Error(`GET /api/auth/csrf failed (${csrfRes.status})`);
   const { csrfToken } = (await csrfRes.json()) as { csrfToken: string };
 
-  // 2. testing-login
   const form = new URLSearchParams({
     csrfToken,
     id: userId,
@@ -143,61 +154,33 @@ export default async function globalSetup(_config: FullConfig) {
     );
   }
 
-  // 3. Verify the session is live in our local jar.
   const sessionRes = await req('/api/auth/session');
   const session = (await sessionRes.json()) as { user?: { id?: number } };
-  const gotId = session?.user?.id;
-  if (Number(gotId) !== Number(userId)) {
+  if (Number(session?.user?.id) !== Number(userId)) {
     throw new Error(
       `testing-login succeeded but /api/auth/session has no matching user.\n` +
-        `  Got: ${JSON.stringify(session)}\n` +
-        `  Expected user id: ${userId}\n` +
+        `  Got: ${JSON.stringify(session)}\n  Expected user id: ${userId}\n` +
         `Is the testing-login provider enabled (NODE_ENV=development on Civitai)?`,
     );
   }
 
-  // 4. Convert captured cookies into Playwright storageState shape.
-  const cookies: PwCookie[] = Array.from(parsed.values()).map((p) => toPwCookie(p, civitaiHost));
+  return Array.from(parsed.values()).map((p) => toPwCookie(p, civitaiHost));
+}
 
-  // 5. Inject a pre-sealed `civ_session` cookie so every spec starts with a
-  //    valid app session — skipping the per-test OAuth roundtrip (which gets
-  //    rate-limited by the Civitai dev server). MSW intercepts /api/v1/me +
-  //    /api/trpc/buzz.getUserAccount on the test server, so the mock token
-  //    is never actually validated. The auth-flow spec explicitly clears
-  //    this cookie before doing a real OAuth round-trip.
-  const sessionSecret = process.env.SESSION_SECRET;
-  if (!sessionSecret) {
-    throw new Error('SESSION_SECRET is required to seal an e2e app session cookie.');
+export default async function globalSetup(_config: FullConfig): Promise<void> {
+  const userId = process.env.TEST_USER_ID ?? '1';
+  const cookies: PwCookie[] = [];
+
+  if (E2E_REAL_OAUTH) {
+    cookies.push(...(await captureCivitaiCookies(userId)));
   }
-  const { sealCookie } = await import('@civitai/app-sdk');
-  const fakeSession = {
-    tokens: {
-      access_token: 'e2e-mock-access-token',
-      refresh_token: 'e2e-mock-refresh-token',
-      token_type: 'Bearer',
-      expires_at: Date.now() + 30 * 24 * 60 * 60 * 1000,
-      scope: 0xff,
-    },
-    user: { id: Number(userId), username: 'e2e-tester' },
-  };
-  const sealed = sealCookie(JSON.stringify(fakeSession), sessionSecret);
-  cookies.push({
-    name: 'civ_session',
-    value: sealed,
-    domain: 'localhost',
-    path: '/',
-    expires: -1,
-    httpOnly: true,
-    secure: false,
-    sameSite: 'Lax',
-  });
+  cookies.push(civSessionCookie(userId));
 
   const state = { cookies, origins: [] };
-
   await mkdir(dirname(STORAGE_STATE_PATH), { recursive: true });
   await writeFile(STORAGE_STATE_PATH, JSON.stringify(state, null, 2), 'utf8');
 
   console.log(
-    `[e2e] signed in as user ${userId} on ${civitaiBaseUrl}; ${cookies.length} cookies (incl. injected civ_session) → ${STORAGE_STATE_PATH}`,
+    `[e2e] storageState written (${cookies.length} cookies, realOAuth=${E2E_REAL_OAUTH}) → ${STORAGE_STATE_PATH}`,
   );
 }
