@@ -151,15 +151,18 @@ test.describe('onboarding next', () => {
     await expect(page.getByRole('heading', { name: /your brand dna/i })).toBeVisible();
 
     // Back nav: ArrowLeft from /input → /welcome is a stable edge (neither step
-    // auto-forwards), so it exercises backward keyboard nav deterministically.
+    // auto-forwards). Re-dispatch until it lands: a synthetic keydown can fire
+    // before the client keyboard listener (a useEffect) mounts — hydration lags
+    // the SSR'd heading, especially in CI. ArrowLeft on /welcome is a no-op, so
+    // retrying is overshoot-safe.
     await page.goto(`${baseURL}/onboarding/input`);
     await expect(page.getByRole('heading', { name: /tell us who you are/i })).toBeVisible();
-    await page.evaluate(() => {
-      (document.activeElement as HTMLElement | null)?.blur();
-    });
-    await page.evaluate(() => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
-    });
-    await page.waitForURL(/\/onboarding\/welcome/, { timeout: 15_000 });
+    await expect(async () => {
+      await page.evaluate(() => {
+        (document.activeElement as HTMLElement | null)?.blur();
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+      });
+      await expect(page).toHaveURL(/\/onboarding\/welcome/, { timeout: 1_000 });
+    }).toPass({ timeout: 20_000 });
   });
 });
