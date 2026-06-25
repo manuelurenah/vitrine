@@ -3,9 +3,13 @@ import { BuzzGlyph } from './BuzzGlyph';
 import { cn } from './cn';
 import { MotionNumber } from './motion';
 
+export const GREEN_BUZZ_TOOLTIP =
+  'Vitrine spends green Buzz from your Civitai wallet — not your scarce yellow Buzz.';
+
 type Props = HTMLAttributes<HTMLSpanElement> & {
   amount: number;
   size?: 'compact' | 'default';
+  title?: string;
 };
 
 const base =

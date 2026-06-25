@@ -34,6 +34,7 @@ import {
 } from '@/hooks/useCampaignPreview';
 import { buzzTopUpUrl } from '@/lib/links';
 import type { EnhancedPrompt } from '@/lib/promptBuilder';
+import { GREEN_BUZZ_TOOLTIP } from '@/components/ui/BuzzPill';
 import { PresetGrid } from './PresetGrid';
 
 type AdCopyShape = { headline: string; subhead: string; cta?: string };
@@ -793,7 +794,8 @@ function BriefStep({
           </span>
         )}
         <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-fg-3">total</span>
-        <BuzzPill amount={total} data-testid="total-buzz" />
+        <BuzzPill amount={total} data-testid="total-buzz" title={GREEN_BUZZ_TOOLTIP} />
+        <span className="text-fg-3 text-[10px]">green buzz</span>
       </header>
 
       {draftError && (

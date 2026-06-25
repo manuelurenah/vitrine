@@ -61,10 +61,10 @@
   --info: var(--ion);
 
   /* Buzz */
-  --buzz: #ffce3d;
-  --buzz-soft: rgba(255, 206, 61, 0.08);
-  --buzz-border: rgba(255, 206, 61, 0.25);
-  --buzz-glow: rgba(255, 206, 61, 0.55);
+  --buzz: #1fd27a;                          /* green buzz (was #ffce3d yellow) */
+  --buzz-soft: rgba(31, 210, 122, 0.10);
+  --buzz-border: rgba(31, 210, 122, 0.28);
+  --buzz-glow: rgba(31, 210, 122, 0.55);
 
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -208,10 +208,10 @@
   --danger: #d8253f;
   --danger-soft: rgba(216, 37, 63, 0.1);
 
-  --buzz: #c79900;
-  --buzz-soft: rgba(199, 153, 0, 0.08);
-  --buzz-border: rgba(199, 153, 0, 0.3);
-  --buzz-glow: rgba(199, 153, 0, 0.45);
+  --buzz: #0f9d57;                          /* darker green for light-theme contrast */
+  --buzz-soft: rgba(15, 157, 87, 0.10);
+  --buzz-border: rgba(15, 157, 87, 0.32);
+  --buzz-glow: rgba(15, 157, 87, 0.45);
 
   --shadow-sm: 0 1px 2px rgba(10, 10, 30, 0.06);
   --shadow-md: 0 4px 16px rgba(10, 10, 30, 0.08), 0 1px 3px rgba(10, 10, 30, 0.04);
