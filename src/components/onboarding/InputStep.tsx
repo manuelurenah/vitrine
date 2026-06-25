@@ -7,7 +7,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, cn, Input, Textarea } from '@/components/ui';
 import { pickContrast } from '@/lib/color';
 import type { OnboardingPayload } from '@/lib/onboarding';
+import { canLeaveInputStep } from '@/lib/onboardingValidation';
 import { ColorPickerChip } from './ColorPickerChip';
+import { useOnboardingKeyboardNav } from './useOnboardingKeyboardNav';
 import { LogoPreview } from './LogoPreview';
 import { useLogoUpload } from './useLogoUpload';
 
@@ -28,6 +30,12 @@ export function InputStep({ payload = {} }: Props) {
   const [logoName, setLogoName] = useState<string | null>(payload.logoName ?? null);
   const [logoUrl, setLogoUrl] = useState<string | null>(payload.logoUrl ?? null);
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [continueError, setContinueError] = useState<string | null>(null);
+
+  // Own the keyboard nav for this step so we can gate forward nav on form validity.
+  useOnboardingKeyboardNav('input', {
+    canAdvance: () => canLeaveInputStep({ brandName, description, url }),
+  });
 
   const logoUpload = useLogoUpload();
 
@@ -143,6 +151,15 @@ export function InputStep({ payload = {} }: Props) {
 
   async function onContinue() {
     setUrlError(null);
+    setContinueError(null);
+    if (!canLeaveInputStep({ brandName, description, url })) {
+      if (!brandName.trim()) {
+        setContinueError('add your brand name');
+      } else {
+        setContinueError('add a description or a site to scrape');
+      }
+      return;
+    }
     setPending('continue');
     await flushPatch();
     // Skip the processing screen entirely — there's nothing to do.
@@ -372,22 +389,30 @@ export function InputStep({ payload = {} }: Props) {
         </div>
       </article>
 
-      <div className="flex items-center justify-between">
-        <Link
-          href="/onboarding/welcome"
-          className="font-mono text-[12px] uppercase tracking-[0.12em] text-fg-3 hover:text-fg-1"
-        >
-          ← back
-        </Link>
-        <Button
-          variant="primary"
-          size="lg"
-          onClick={onContinue}
-          disabled={pending !== null}
-          trailingIcon={<ArrowRight size={16} strokeWidth={1.75} />}
-        >
-          {pending === 'continue' ? 'continuing…' : 'continue'}
-        </Button>
+      <div className="flex flex-col gap-2">
+        {continueError && (
+          <p className="flex items-center justify-end gap-2 text-[12px] text-fg-2">
+            <TriangleAlert size={12} strokeWidth={2} className="text-danger" />
+            {continueError}
+          </p>
+        )}
+        <div className="flex items-center justify-between">
+          <Link
+            href="/onboarding/welcome"
+            className="font-mono text-[12px] uppercase tracking-[0.12em] text-fg-3 hover:text-fg-1"
+          >
+            ← back
+          </Link>
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={onContinue}
+            disabled={pending !== null || !brandName.trim()}
+            trailingIcon={<ArrowRight size={16} strokeWidth={1.75} />}
+          >
+            {pending === 'continue' ? 'continuing…' : 'continue'}
+          </Button>
+        </div>
       </div>
     </section>
   );

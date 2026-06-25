@@ -9,11 +9,21 @@ import { useOnboardingKeyboardNav } from './useOnboardingKeyboardNav';
 type Props = {
   step: OnboardingStep;
   children: ReactNode;
-  skipHref?: string;
+  /**
+   * When true, the frame's built-in keyboard navigation is suppressed.
+   * Use this when a child step component registers its own keyboard nav
+   * (e.g. InputStep which needs a `canAdvance` guard tied to its local state).
+   */
+  suppressKeyboardNav?: boolean;
+  /**
+   * Optional gate for ArrowRight keyboard navigation. When provided and it
+   * returns false, forward navigation is blocked.
+   */
+  canAdvance?: () => boolean;
 };
 
-export function OnboardingFrame({ step, children, skipHref = '/onboarding/dna' }: Props) {
-  useOnboardingKeyboardNav(step);
+export function OnboardingFrame({ step, children, suppressKeyboardNav, canAdvance }: Props) {
+  useOnboardingKeyboardNav(suppressKeyboardNav ? null : step, { canAdvance });
   const stepIndex = ONBOARDING_STEPS.indexOf(step);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -60,12 +70,6 @@ export function OnboardingFrame({ step, children, skipHref = '/onboarding/dna' }
               />
             ))}
           </div>
-          <Link
-            href={skipHref}
-            className="font-mono text-[11px] uppercase tracking-[0.1em] text-fg-3 transition-colors duration-fast ease-out hover:text-fg-1"
-          >
-            skip →
-          </Link>
           <span aria-hidden className="h-3 w-px bg-line-subtle" />
           <button
             type="button"

@@ -4,17 +4,37 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { type OnboardingStep, nextStep, prevStep } from './steps';
 
+type Options = {
+  /**
+   * Optional callback checked before ArrowRight navigation. Return false to
+   * block forward navigation (e.g. when the current step has unmet requirements).
+   * Backward navigation (ArrowLeft) is never blocked.
+   */
+  canAdvance?: () => boolean;
+};
+
 /**
  * Mounts a keydown listener for ArrowLeft / ArrowRight to navigate between
  * onboarding steps. Ignores keypresses when:
  * - A form control is focused (input, textarea, select, contenteditable)
  * - A modifier key is held (Ctrl, Meta, Alt, Shift)
+ * - `canAdvance` returns false (ArrowRight only)
+ *
+ * Pass `null` for `currentStep` to disable the listener entirely (e.g. when
+ * a child step component registers its own listener with a `canAdvance` guard).
  */
-export function useOnboardingKeyboardNav(currentStep: OnboardingStep) {
+export function useOnboardingKeyboardNav(
+  currentStep: OnboardingStep | null,
+  { canAdvance }: Options = {},
+) {
   const router = useRouter();
 
   useEffect(() => {
+    // Disabled — child component owns the keyboard nav for this step.
+    if (currentStep === null) return;
+
     function onKey(e: KeyboardEvent) {
+      if (currentStep === null) return;
       // Skip when modifier is held
       if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
 
@@ -33,6 +53,8 @@ export function useOnboardingKeyboardNav(currentStep: OnboardingStep) {
       }
 
       if (e.key === 'ArrowRight') {
+        // Block forward nav when the caller says the current step isn't ready.
+        if (canAdvance && !canAdvance()) return;
         const next = nextStep(currentStep);
         if (next) router.push(`/onboarding/${next}`);
       } else if (e.key === 'ArrowLeft') {
@@ -43,5 +65,5 @@ export function useOnboardingKeyboardNav(currentStep: OnboardingStep) {
 
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [currentStep, router]);
+  }, [currentStep, router, canAdvance]);
 }

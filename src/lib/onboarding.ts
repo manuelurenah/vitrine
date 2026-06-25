@@ -3,6 +3,8 @@ import { eq, sql } from 'drizzle-orm';
 import { ONBOARDING_STEPS, type OnboardingStep } from '@/components/onboarding/steps';
 import { db } from '@/lib/db';
 import { type OnboardingState, onboardingState } from '@/lib/db/schema';
+import { getDefaultBrand } from '@/lib/brand';
+import { isBrandDnaSufficient } from '@/lib/onboardingValidation';
 
 export type OnboardingPayload = {
   brandName?: string;
@@ -80,12 +82,23 @@ export async function recordOnboardingStep(
   const existingStep = coerceStep(existing.currentStep);
   const currentIdx = ONBOARDING_STEPS.indexOf(existingStep);
   const furthest = visitedIdx > currentIdx ? step : existingStep;
+
+  // Only mark onboarding complete if the user's brand DNA passes the
+  // sufficiency check. Without this gate a user could skip the DNA step
+  // (or navigate directly to /onboarding/next) and land in the app with an
+  // empty brand record.
+  let complete = false;
+  if (isFinal) {
+    const brand = await getDefaultBrand(userId);
+    complete = isBrandDnaSufficient(brand ?? {});
+  }
+
   const [row] = await db
     .update(onboardingState)
     .set({
       currentStep: furthest,
       updatedAt: new Date(),
-      completedAt: isFinal ? new Date() : sql`${onboardingState.completedAt}`,
+      completedAt: complete ? new Date() : sql`${onboardingState.completedAt}`,
     })
     .where(eq(onboardingState.userId, userId))
     .returning();
