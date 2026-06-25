@@ -28,6 +28,13 @@ export const NAV: NavItem[] = [
   { id: 'photoshoot', label: 'photoshoot', href: '/photoshoot', icon: Camera, shortcut: '⌘3' },
 ];
 
+/** Extract the digit from a shortcut label like '⌘2' → 2. */
+export function shortcutDigit(label: string | undefined): number | null {
+  if (!label) return null;
+  const m = label.match(/(\d)\s*$/);
+  return m ? Number(m[1]) : null;
+}
+
 const PREFIX_TO_ID: Array<[string, NavId]> = [
   ['/campaigns', 'campaigns'],
   ['/photoshoot', 'photoshoot'],

@@ -8,6 +8,7 @@ import { MobileAccountMenu } from './MobileAccountMenu';
 import { type MobileTabId } from './MobileTabBar';
 import { ScreenFrame } from './ScreenFrame';
 import { Shell } from './Shell';
+import { useNavShortcuts } from './useNavShortcuts';
 
 type Props = {
   user: ShellUser;
@@ -38,6 +39,7 @@ function mobileTabFromPath(pathname: string): MobileTabId {
 export function AppShell({ user, buzzBalance, children }: Props) {
   const isMobile = useMediaQuery('(max-width: 767px)');
   const pathname = usePathname();
+  useNavShortcuts();
 
   if (isMobile) {
     const activeTab = mobileTabFromPath(pathname);
