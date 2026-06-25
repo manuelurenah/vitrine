@@ -102,7 +102,7 @@ export function ScreenFrame({
           className="absolute left-3 right-3 z-[15] rounded-[14px] border border-line p-[10px] backdrop-blur-[14px]"
           style={{
             bottom: 'calc(env(safe-area-inset-bottom) + 84px)',
-            background: 'rgba(15,15,22,0.92)',
+            background: 'var(--bg-blur)',
             boxShadow: '0 -8px 32px -12px rgba(0,0,0,0.5)',
           }}
         >

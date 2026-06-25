@@ -49,8 +49,8 @@ export function MobileTabBar({ active }: Props) {
       style={{
         height: 64,
         bottom: 'calc(env(safe-area-inset-bottom) + 12px)',
-        background: 'rgba(15,15,22,0.94)',
-        boxShadow: '0 8px 32px -8px rgba(0,0,0,0.6)',
+        background: 'var(--bg-blur)',
+        boxShadow: 'var(--shadow-float)',
       }}
     >
       {TABS.map((tab) => {

@@ -29,7 +29,7 @@ type Props = {
  * 52 px sticky top bar for mobile screens.
  *
  * Grid: [36px leading] [1fr center] [auto trailing]
- * Background: rgba(15,15,22,0.92) + backdrop-blur(14px).
+ * Background: var(--bg-blur) + backdrop-blur(14px).
  * Matches mobile-shell.jsx / vitrine-mobile.css `.m-topbar`.
  */
 export function MobileTopBar({
@@ -53,7 +53,7 @@ export function MobileTopBar({
           : 'border-line-subtle backdrop-blur-[14px]',
         className,
       )}
-      style={transparent ? undefined : { background: 'rgba(15,15,22,0.92)' }}
+      style={transparent ? undefined : { background: 'var(--bg-blur)' }}
     >
       {/* Leading slot — back button or wordmark */}
       {back ? (
