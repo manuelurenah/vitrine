@@ -51,21 +51,23 @@ In `package.json`, change:
 to:
 
 ```jsonc
-    "test:unit": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run",
-    "test:unit:watch": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs"
+    "test:unit": "node --env-file=.env ./node_modules/vitest/vitest.mjs run",
+    "test:unit:watch": "node --env-file=.env ./node_modules/vitest/vitest.mjs"
 ```
 
-`--env-file-if-exists` (Node ≥20.12; local Node 20.13 and CI Node 24 both satisfy it) loads `.env` when present and continues silently when absent.
+Use plain `--env-file=.env` (local Node 20.13.1 does not support
+`--env-file-if-exists` — it throws `bad option`). This matches the existing
+`test:e2e` / `test:server` scripts, which already require `.env`. CI writes
+`.env` before the unit step; local devs already have one.
 
 - [ ] **Step 3: Verify it passes with `.env` present**
 
 Run: `pnpm test:unit 2>&1 | tail -4`
 Expected: PASS — `Test Files  71 passed (71)`, `Tests  586 passed (586)`.
 
-- [ ] **Step 4: Verify it does not error when `.env` is absent**
+- [ ] **Step 4: (consistency note — no separate check)**
 
-Run: `mv .env .env.bak && pnpm test:unit 2>&1 | tail -4; mv .env.bak .env`
-Expected: Vitest runs (does NOT crash with `ENOENT .env`). Some env-dependent files may fail without env — that is fine; the point is no `--env-file` crash. Restore `.env` afterward (the command does this).
+`pnpm test:unit` now requires `.env`, exactly like `test:e2e` / `test:server`. On a fresh clone without `.env` it errors `node: .env: not found` — the same behavior as the other test scripts, by design. CI writes `.env` before this step.
 
 - [ ] **Step 5: Commit**
 
