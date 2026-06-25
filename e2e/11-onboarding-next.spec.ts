@@ -143,16 +143,23 @@ test.describe('onboarding next', () => {
     await page.evaluate(() => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     });
-    await page.waitForURL(/\/onboarding\/processing/, { timeout: 15_000 });
+    // ArrowRight advances linearly to /processing, but with no URL the
+    // processing step has nothing to scrape and immediately forwards to /dna
+    // (ProcessingStep always router.push('/onboarding/dna')). /dna is the stable
+    // resting state — asserting the transient /processing is racy under load.
+    await page.waitForURL(/\/onboarding\/dna/, { timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: /your brand dna/i })).toBeVisible();
 
-    // Wait for the processing page to stabilise, then go back with ArrowLeft
-    await expect(page.getByRole('heading', { name: /cooking your brand dna/i })).toBeVisible();
+    // Back nav: ArrowLeft from /input → /welcome is a stable edge (neither step
+    // auto-forwards), so it exercises backward keyboard nav deterministically.
+    await page.goto(`${baseURL}/onboarding/input`);
+    await expect(page.getByRole('heading', { name: /tell us who you are/i })).toBeVisible();
     await page.evaluate(() => {
       (document.activeElement as HTMLElement | null)?.blur();
     });
     await page.evaluate(() => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
     });
-    await page.waitForURL(/\/onboarding\/input/, { timeout: 15_000 });
+    await page.waitForURL(/\/onboarding\/welcome/, { timeout: 15_000 });
   });
 });
