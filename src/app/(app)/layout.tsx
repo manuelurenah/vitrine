@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { getBuzzAccount, getMe } from '@/lib/civitai';
@@ -10,7 +11,7 @@ import { AppShellProvider } from './AppShellContext';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { robots: { index: false, follow: false } };
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await getSession();
