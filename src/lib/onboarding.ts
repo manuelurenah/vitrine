@@ -3,7 +3,6 @@ import { eq, sql } from 'drizzle-orm';
 import { ONBOARDING_STEPS, type OnboardingStep } from '@/components/onboarding/steps';
 import { db } from '@/lib/db';
 import { type OnboardingState, onboardingState } from '@/lib/db/schema';
-import { getDefaultBrand } from '@/lib/brand';
 import { isBrandDnaSufficient } from '@/lib/onboardingValidation';
 
 export type OnboardingPayload = {
@@ -87,10 +86,20 @@ export async function recordOnboardingStep(
   // sufficiency check. Without this gate a user could skip the DNA step
   // (or navigate directly to /onboarding/next) and land in the app with an
   // empty brand record.
+  //
+  // Gate against the onboarding PAYLOAD, not `brand_profiles`: during
+  // onboarding the brand row doesn't exist yet — the brand DNA the user is
+  // entering lives in `onboardingState.payload`. Reading the (non-existent)
+  // brand profile here would always fail the check and deadlock every user
+  // on /onboarding/input.
   let complete = false;
   if (isFinal) {
-    const brand = await getDefaultBrand(userId);
-    complete = isBrandDnaSufficient(brand ?? {});
+    const payload = (existing.payload as OnboardingPayload) ?? {};
+    complete = isBrandDnaSufficient({
+      name: payload.brandName,
+      description: payload.description,
+      palette: payload.colors,
+    });
   }
 
   const [row] = await db

@@ -20,9 +20,12 @@ test.describe('Onboarding flow', () => {
     await expect(page.getByRole('heading', { name: /welcome to/i })).toBeVisible();
     await page.getByRole('link', { name: /let.s go/i }).click();
 
-    // Input — no URL, just fill the manual description.
+    // Input — no URL. Fill a real brand name + manual description so the
+    // brand DNA is sufficient and the completion gate fires at /onboarding/next.
+    // (The "continue" button stays disabled until a brand name is present.)
     await page.waitForURL(/\/onboarding\/input/);
     await expect(page.getByRole('heading', { name: /tell us who you are/i })).toBeVisible();
+    await page.getByPlaceholder(/lumen skincare/i).fill('austin heat co');
     await page
       .getByPlaceholder(/we make small-batch chili oil/i)
       .fill('small-batch hot sauce — austin · TX. customers are food nerds.');
@@ -34,9 +37,10 @@ test.describe('Onboarding flow', () => {
     await expect(page.getByRole('heading', { name: /your brand dna/i })).toBeVisible();
     await page.getByRole('link', { name: /let.s go/i }).click();
 
-    // Next — terminal step. Visiting it sets completed_at; the layout gate
-    // will then let us into /campaigns. The step renders inline as a full
-    // choice screen ("your brand DNA is ready.") with campaigns + photoshoot cards.
+    // Next — terminal step. Reaching it with sufficient brand DNA (real name +
+    // description, seeded above) sets completed_at; the layout gate then lets us
+    // into /campaigns. The step renders inline as a full choice screen
+    // ("your brand DNA is ready.") with campaigns + photoshoot cards.
     await page.waitForURL(/\/onboarding\/next/);
     await expect(page.getByRole('heading', { name: /your brand dna is ready/i })).toBeVisible();
     await page.getByTestId('next-choice-campaigns').click();

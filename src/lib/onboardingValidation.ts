@@ -1,5 +1,3 @@
-import { z } from 'zod';
-
 const DEFAULT_BRAND_NAME = 'my brand';
 
 /**
@@ -20,13 +18,6 @@ export function isBrandDnaSufficient(brand: {
   const hasColor = Array.isArray(brand.palette) && brand.palette.length > 0;
   return hasDescription || hasColor;
 }
-
-/** Zod schema for the minimum required input-step fields. */
-export const INPUT_STEP_MIN = z.object({
-  brandName: z.string().trim().min(1, 'add your brand name'),
-  description: z.string().trim().min(1).optional(),
-  url: z.string().trim().min(1).optional(),
-});
 
 /**
  * Returns true when the input step has the minimum to proceed:

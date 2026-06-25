@@ -32,9 +32,10 @@ export function useOnboardingKeyboardNav(
   useEffect(() => {
     // Disabled — child component owns the keyboard nav for this step.
     if (currentStep === null) return;
+    // Bind to a non-null local so the closure below keeps the narrowed type.
+    const step = currentStep;
 
     function onKey(e: KeyboardEvent) {
-      if (currentStep === null) return;
       // Skip when modifier is held
       if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
 
@@ -55,10 +56,10 @@ export function useOnboardingKeyboardNav(
       if (e.key === 'ArrowRight') {
         // Block forward nav when the caller says the current step isn't ready.
         if (canAdvance && !canAdvance()) return;
-        const next = nextStep(currentStep);
+        const next = nextStep(step);
         if (next) router.push(`/onboarding/${next}`);
       } else if (e.key === 'ArrowLeft') {
-        const prev = prevStep(currentStep);
+        const prev = prevStep(step);
         if (prev) router.push(`/onboarding/${prev}`);
       }
     }

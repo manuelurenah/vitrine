@@ -15,15 +15,10 @@ type Props = {
    * (e.g. InputStep which needs a `canAdvance` guard tied to its local state).
    */
   suppressKeyboardNav?: boolean;
-  /**
-   * Optional gate for ArrowRight keyboard navigation. When provided and it
-   * returns false, forward navigation is blocked.
-   */
-  canAdvance?: () => boolean;
 };
 
-export function OnboardingFrame({ step, children, suppressKeyboardNav, canAdvance }: Props) {
-  useOnboardingKeyboardNav(suppressKeyboardNav ? null : step, { canAdvance });
+export function OnboardingFrame({ step, children, suppressKeyboardNav }: Props) {
+  useOnboardingKeyboardNav(suppressKeyboardNav ? null : step);
   const stepIndex = ONBOARDING_STEPS.indexOf(step);
   const [signingOut, setSigningOut] = useState(false);
 
