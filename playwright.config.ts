@@ -1,5 +1,4 @@
 import { defineConfig, devices } from '@playwright/test';
-import { STORAGE_STATE_PATH } from './e2e/global-setup';
 
 /**
  * The e2e suite signs into a local Civitai dev server (real OAuth) and
@@ -43,7 +42,13 @@ export default defineConfig({
   timeout: 180_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
-  workers: 1, // Sequential — the OAuth consent record is shared user state.
+  // File-level parallelism: whole spec files run concurrently on separate
+  // workers, each pinned to its own synthetic user (e2e/fixtures.ts). Tests
+  // within a file stay serial (fullyParallel: false). Capped at 4 because the
+  // bottleneck is the single Next dev test server (lazy route compilation),
+  // not CPU cores — more workers just saturate it and time out cold compiles.
+  // Real-OAuth runs use 1 worker (shared Civitai consent state).
+  workers: process.env.E2E_REAL_OAUTH === '1' ? 1 : 4,
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: process.env.CI ? 'github' : 'list',
@@ -65,7 +70,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    storageState: STORAGE_STATE_PATH,
+    // storageState is provided per-worker by e2e/fixtures.ts (per-worker user).
     // Accept self-signed certs on local Civitai dev hosts (e.g. civitai-dev.blue).
     ignoreHTTPSErrors: true,
   },

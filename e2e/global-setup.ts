@@ -2,23 +2,24 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { FullConfig } from '@playwright/test';
 import { Pool } from 'pg';
-import { sealCivSession } from './helpers/session';
 
 /**
  * Playwright globalSetup.
  *
- * Offline default (E2E_REAL_OAUTH unset): seal a fake `civ_session` cookie for
- * the test user and write it to the Playwright storageState file. No Civitai
- * dev server is contacted. MSW intercepts /api/v1/me + buzz on the test
- * server, so the mock token is never validated.
+ * Always: truncate the test DB for a clean slate (see truncateAllTables).
  *
- * Real-OAuth mode (E2E_REAL_OAUTH=1): additionally sign in to the local
- * Civitai dev server via the `testing-login` provider and prepend its NextAuth
- * cookies, so the `00-auth-flow` spec lands on the consent screen during the
- * real OAuth round-trip.
+ * Offline default (E2E_REAL_OAUTH unset): contacts nothing else. Each worker
+ * mints its own `civ_session` cookie in the storageState fixture
+ * (e2e/fixtures.ts). MSW intercepts /api/v1/me + buzz on the test server, so
+ * the mock token is never validated.
+ *
+ * Real-OAuth mode (E2E_REAL_OAUTH=1): sign in to the local Civitai dev server
+ * via the `testing-login` provider and write its NextAuth cookies to
+ * CIVITAI_COOKIES_PATH, so the `00-auth-flow` spec lands on the consent screen
+ * during the real OAuth round-trip.
  */
 
-export const STORAGE_STATE_PATH = '.auth/civitai-session.json';
+export const CIVITAI_COOKIES_PATH = '.auth/civitai-cookies.json';
 
 const E2E_REAL_OAUTH = process.env.E2E_REAL_OAUTH === '1';
 
@@ -82,19 +83,6 @@ function toPwCookie(parsed: ParsedCookie, defaultDomain: string): PwCookie {
     httpOnly: !!parsed.attrs.get('httponly'),
     secure: !!parsed.attrs.get('secure'),
     sameSite,
-  };
-}
-
-function civSessionCookie(userId: string): PwCookie {
-  return {
-    name: 'civ_session',
-    value: sealCivSession(userId),
-    domain: 'localhost',
-    path: '/',
-    expires: -1,
-    httpOnly: true,
-    secure: false,
-    sameSite: 'Lax',
   };
 }
 
@@ -197,19 +185,16 @@ async function truncateAllTables(): Promise<void> {
 export default async function globalSetup(_config: FullConfig): Promise<void> {
   await truncateAllTables();
 
-  const userId = process.env.TEST_USER_ID ?? '1';
-  const cookies: PwCookie[] = [];
-
-  if (E2E_REAL_OAUTH) {
-    cookies.push(...(await captureCivitaiCookies(userId)));
+  if (!E2E_REAL_OAUTH) {
+    console.log('[e2e] offline mode — per-worker civ_session provided by the fixture');
+    return;
   }
-  cookies.push(civSessionCookie(userId));
 
-  const state = { cookies, origins: [] };
-  await mkdir(dirname(STORAGE_STATE_PATH), { recursive: true });
-  await writeFile(STORAGE_STATE_PATH, JSON.stringify(state, null, 2), 'utf8');
-
+  const userId = process.env.TEST_USER_ID ?? '1';
+  const civitaiCookies = await captureCivitaiCookies(userId);
+  await mkdir(dirname(CIVITAI_COOKIES_PATH), { recursive: true });
+  await writeFile(CIVITAI_COOKIES_PATH, JSON.stringify(civitaiCookies, null, 2), 'utf8');
   console.log(
-    `[e2e] storageState written (${cookies.length} cookies, realOAuth=${E2E_REAL_OAUTH}) → ${STORAGE_STATE_PATH}`,
+    `[e2e] real-OAuth — wrote ${civitaiCookies.length} Civitai cookies → ${CIVITAI_COOKIES_PATH}`,
   );
 }
