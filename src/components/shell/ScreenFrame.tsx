@@ -103,7 +103,7 @@ export function ScreenFrame({
           style={{
             bottom: 'calc(env(safe-area-inset-bottom) + 84px)',
             background: 'var(--bg-blur)',
-            boxShadow: '0 -8px 32px -12px rgba(0,0,0,0.5)',
+            boxShadow: 'var(--shadow-notch)',
           }}
         >
           {stickyCta}

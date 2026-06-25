@@ -25,6 +25,7 @@ import {
   Spinner,
   Textarea,
 } from '@/components/ui';
+import { GREEN_BUZZ_TOOLTIP } from '@/components/ui/BuzzPill';
 import {
   type CampaignPreviewResponse,
   type FetchPreviewArgs,
@@ -34,7 +35,6 @@ import {
 } from '@/hooks/useCampaignPreview';
 import { buzzTopUpUrl } from '@/lib/links';
 import type { EnhancedPrompt } from '@/lib/promptBuilder';
-import { GREEN_BUZZ_TOOLTIP } from '@/components/ui/BuzzPill';
 import { PresetGrid } from './PresetGrid';
 
 type AdCopyShape = { headline: string; subhead: string; cta?: string };

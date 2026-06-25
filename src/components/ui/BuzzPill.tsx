@@ -9,7 +9,6 @@ export const GREEN_BUZZ_TOOLTIP =
 type Props = HTMLAttributes<HTMLSpanElement> & {
   amount: number;
   size?: 'compact' | 'default';
-  title?: string;
 };
 
 const base =

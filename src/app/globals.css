@@ -20,6 +20,7 @@
   --bg-inverse: #f6f6fa;
   --bg-blur: rgba(15, 15, 22, 0.92);        /* translucent surface for blurred mobile bars */
   --shadow-float: 0 8px 32px -8px rgba(0, 0, 0, 0.6);
+  --shadow-notch: 0 -8px 32px -12px rgba(0, 0, 0, 0.5);
 
   /* Foreground */
   --fg-0: #f6f6fa;
@@ -176,6 +177,7 @@
   --bg-inverse: #0a0a0f;
   --bg-blur: rgba(250, 249, 245, 0.92);     /* matches light --bg-0 */
   --shadow-float: 0 8px 32px -8px rgba(10, 10, 30, 0.14);
+  --shadow-notch: 0 -8px 32px -12px rgba(10, 10, 30, 0.12);
 
   --fg-0: #0a0a0f;
   --fg-1: #3a3a48;

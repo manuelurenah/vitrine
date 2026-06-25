@@ -20,8 +20,8 @@ export function useNavShortcuts() {
     function onKey(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
       if (isEditable(e.target)) return;
+      if (!/^[0-9]$/.test(e.key)) return;
       const digit = Number(e.key);
-      if (Number.isNaN(digit)) return;
       const hit = bindings.find((b) => b.digit === digit);
       if (!hit) return;
       e.preventDefault();

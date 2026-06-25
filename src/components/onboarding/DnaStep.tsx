@@ -7,6 +7,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Button, cn, Input, Textarea } from '@/components/ui';
 import { pickContrast } from '@/lib/color';
 import type { OnboardingPayload, ScrapedSite } from '@/lib/onboarding';
+import { isBrandDnaSufficient } from '@/lib/onboardingValidation';
 import { ColorPickerChip } from './ColorPickerChip';
 import { LogoPreview } from './LogoPreview';
 import { useLogoUpload } from './useLogoUpload';
@@ -16,8 +17,6 @@ type Props = {
 };
 
 const DEFAULT_TONE = ['playful', 'plainspoken', 'lowercase', 'punchy', 'warm'];
-
-const READINESS_THRESHOLD = 60;
 
 export function DnaStep({ payload }: Props) {
   const router = useRouter();
@@ -294,7 +293,7 @@ export function DnaStep({ payload }: Props) {
         <Button
           variant="primary"
           size="lg"
-          disabled={readiness < READINESS_THRESHOLD}
+          disabled={!isBrandDnaSufficient({ name: brandName, description, palette: colors })}
           onClick={() => router.push('/onboarding/next')}
           trailingIcon={<ArrowRight size={16} strokeWidth={1.75} />}
         >
