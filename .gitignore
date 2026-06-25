@@ -28,3 +28,11 @@ Thumbs.db
 
 .claude/worktrees/
 scripts/prompt-lab/runs/
+
+# Local planning / agent docs. Kept on disk for reference but never committed —
+# they carry implementation detail (and internal findings) that should not live
+# in the repo.
+docs/superpowers/
+.superpowers/
+claudedocs/
+design_handoff_vitrine/

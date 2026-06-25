@@ -35,7 +35,9 @@ test.describe('Onboarding flow', () => {
     await page.getByRole('button', { name: /^continue$/i }).click();
     await page.waitForURL(/\/onboarding\/dna/, { timeout: 15_000 });
     await expect(page.getByRole('heading', { name: /your brand dna/i })).toBeVisible();
-    await page.getByRole('link', { name: /let.s go/i }).click();
+    // The dna-step "let's go" is a <Button> (router.push), not a <Link> like
+    // the welcome step's — match by the button role.
+    await page.getByRole('button', { name: /let.s go/i }).click();
 
     // Next — terminal step. Reaching it with sufficient brand DNA (real name +
     // description, seeded above) sets completed_at; the layout gate then lets us

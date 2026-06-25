@@ -37,7 +37,10 @@ test.describe('Brand pages render', () => {
     await expect(page.getByText('0f172a', { exact: false })).toBeVisible({ timeout: 5_000 });
 
     await page.getByRole('button', { name: /save changes/i }).click();
-    await expect(page.getByText('saved.')).toBeVisible({ timeout: 5_000 });
+    // Save is a network round-trip to /api/brand/[id]; in CI that route
+    // cold-compiles (Next dev) under load, so give it room beyond the 5s used
+    // for client-only assertions above.
+    await expect(page.getByText('saved.')).toBeVisible({ timeout: 15_000 });
   });
 
   test('assets gallery renders with empty state when no uploads', async ({ page, baseURL }) => {

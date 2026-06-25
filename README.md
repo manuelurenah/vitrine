@@ -140,7 +140,7 @@ src/
 
 ## End-to-end tests
 
-Playwright suite under `e2e/`. Runs against an isolated `vitrine_test` Postgres database and a dedicated Next dev server (port 3334) with MSW intercepting Civitai + orchestrator HTTP calls — no Buzz is spent, no real orchestrator dependency.
+Playwright suite under `e2e/`. Runs **fully offline by default** against an isolated `vitrine_test` Postgres database and a dedicated Next dev server (port 3334) with MSW intercepting all Civitai + orchestrator HTTP calls — no Buzz is spent, no real orchestrator, and **no Civitai dev server required**. Specs run in parallel, each worker pinned to its own synthetic test user.
 
 ### One-time setup
 
@@ -149,27 +149,38 @@ pnpm test:e2e:install     # install Chromium for Playwright
 pnpm test:db:setup        # CREATE DATABASE vitrine_test + apply migrations
 ```
 
-Make sure your Civitai OAuth app has both `http://localhost:3333/api/auth/callback/civitai` and `http://localhost:3334/api/auth/callback/civitai` registered as redirect URIs.
+For real-OAuth mode only: make sure your Civitai OAuth app has both `http://localhost:3333/api/auth/callback/civitai` and `http://localhost:3334/api/auth/callback/civitai` registered as redirect URIs.
 
 ### Running
 
 ```bash
-NEXT_PUBLIC_CIVITAI_BASE_URL=http://localhost:3000 \
-TEST_USER_ID=1 \
 pnpm test:e2e
 ```
 
-Playwright auto-boots the test Next dev server (`scripts/test-server.mjs`) — no manual `pnpm dev` needed. `pnpm dev` can run in parallel; the test server uses `.next-test/` as its `distDir` to side-step Next 16's per-directory dev-server lock.
+Fully offline — no Civitai dev server needed. Playwright auto-boots the test Next dev server (`scripts/test-server.mjs`); `pnpm dev` can run alongside it (the test server uses `.next-test/` as its `distDir` to side-step Next 16's per-directory dev-server lock). Files run in parallel across workers (capped at 4 — the single dev server is the bottleneck, not CPU); tune with `--workers=N`.
+
+To exercise the **real OAuth round-trip** (`00-auth-flow`), start your local Civitai dev server and run:
+
+```bash
+E2E_REAL_OAUTH=1 \
+TEST_USER_ID=1 \
+NEXT_PUBLIC_CIVITAI_BASE_URL=http://localhost:3000 \
+pnpm test:e2e e2e/00-auth-flow.spec.ts
+```
 
 ### Auth strategy
 
-Global setup signs in once via Civitai's `testing-login` provider, then seals a fake-token `civ_session` cookie with your `SESSION_SECRET` so every spec starts pre-authenticated to the app. The `00-auth-flow.spec.ts` spec clears that cookie in `beforeEach` to exercise the real OAuth round-trip; everything else skips OAuth entirely (avoiding the Civitai dev server's rate limits).
+Offline (default): each Playwright worker seals a fake-token `civ_session` cookie for its own synthetic user (`90000 + workerIndex`) using `SESSION_SECRET`, so every spec starts pre-authenticated and parallel workers never clobber each other's data. MSW answers `/api/v1/me` + buzz, so the mock token is never validated.
+
+Real-OAuth (`E2E_REAL_OAUTH=1`): `globalSetup` signs in once via Civitai's `testing-login` provider and caches its cookies; the `00-auth-flow.spec.ts` spec (skipped otherwise) clears `civ_session` and drives the real authorize → consent → callback flow. Run it with `--workers=1` / `TEST_USER_ID=1` (shared Civitai consent state).
+
+The test DB is **persistent**: `globalSetup` truncates all tables on entry (a clean slate that survives crashed runs and leaves rows intact for post-mortem debugging), and it is never dropped.
 
 ### What's covered
 
 | Spec | Covers |
 |---|---|
-| `00-auth-flow` | real OAuth → onboarding redirect for a fresh user |
+| `00-auth-flow` | real OAuth → onboarding redirect for a fresh user (skipped unless `E2E_REAL_OAUTH=1`) |
 | `10-onboarding` | walks the 5-step flow → unlocks the shell |
 | `20-catalog` | create product → list → delete |
 | `30-brand` | brand DNA / book / assets render with seeded data |

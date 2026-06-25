@@ -1,5 +1,4 @@
 import { defineConfig, devices } from '@playwright/test';
-import { STORAGE_STATE_PATH } from './e2e/global-setup';
 
 /**
  * The e2e suite signs into a local Civitai dev server (real OAuth) and
@@ -25,21 +24,38 @@ const APP_URL = process.env.APP_URL ?? 'http://localhost:3334';
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? 'postgres://app:app@localhost:5432/vitrine_test';
 
-if (!process.env.NEXT_PUBLIC_CIVITAI_BASE_URL) {
+const REAL_OAUTH = process.env.E2E_REAL_OAUTH === '1';
+// The app's Zod env still needs a syntactically-valid URL even offline; a
+// dummy is fine because MSW intercepts all Civitai calls. Only real-OAuth
+// mode needs a reachable host.
+const CIVITAI_BASE_URL = process.env.NEXT_PUBLIC_CIVITAI_BASE_URL ?? 'http://civitai.invalid';
+if (REAL_OAUTH && !process.env.NEXT_PUBLIC_CIVITAI_BASE_URL) {
   throw new Error(
-    'NEXT_PUBLIC_CIVITAI_BASE_URL is required for e2e (your local Civitai dev host). See playwright.config.ts header.',
+    'E2E_REAL_OAUTH=1 requires NEXT_PUBLIC_CIVITAI_BASE_URL (your local Civitai dev host).',
   );
 }
 
 export default defineConfig({
   testDir: './e2e',
   globalSetup: './e2e/global-setup.ts',
+  globalTeardown: './e2e/global-teardown.ts',
   timeout: 180_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
-  workers: 1, // Sequential — the OAuth consent record is shared user state.
+  // File-level parallelism: whole spec files run concurrently on separate
+  // workers, each pinned to its own synthetic user (e2e/fixtures.ts). Tests
+  // within a file stay serial (fullyParallel: false). The bottleneck is the
+  // single Next dev test server (lazy route compilation), not CPU cores — more
+  // workers just saturate it and time out cold compiles. CI runners are small
+  // and slower, so cap at 2 there to cut first-attempt cold-compile flakes;
+  // local uses 4. Real-OAuth runs use 1 worker (shared Civitai consent state).
+  workers: process.env.E2E_REAL_OAUTH === '1' ? 1 : process.env.CI ? 2 : 4,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  // Retry in CI only. The dev-server cold-compile + small-runner contention
+  // makes a different timing-sensitive spec flake each run; on retry the route
+  // is already warm-compiled so it passes. Playwright still flags retried specs
+  // as "flaky", so a genuinely-broken test (fails all attempts) stays visible.
+  retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   webServer: {
     command: 'pnpm test:server',
@@ -51,6 +67,7 @@ export default defineConfig({
       MOCK_CIVITAI: '1',
       TEST_PORT: new URL(APP_URL).port || '3334',
       NEXT_PUBLIC_APP_URL: APP_URL,
+      NEXT_PUBLIC_CIVITAI_BASE_URL: CIVITAI_BASE_URL,
     },
   },
   use: {
@@ -58,7 +75,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    storageState: STORAGE_STATE_PATH,
+    // storageState is provided per-worker by e2e/fixtures.ts (per-worker user).
     // Accept self-signed certs on local Civitai dev hosts (e.g. civitai-dev.blue).
     ignoreHTTPSErrors: true,
   },

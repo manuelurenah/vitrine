@@ -11,7 +11,13 @@ import { Pool } from 'pg';
 
 import type { PhotoshootTemplateId } from '../../src/lib/photoshootTemplates';
 
-const TEST_USER_ID = process.env.TEST_USER_ID ?? '1';
+// One synthetic app user per Playwright worker slot. TEST_PARALLEL_INDEX is
+// set by Playwright in each worker process (0..workers-1, stable for the
+// worker's life, reused as a slot picks up later files). The 90000+ base
+// avoids collisions with real Civitai ids. TEST_USER_ID overrides it
+// (real-OAuth mode pins this to '1').
+const PARALLEL_INDEX = Number.parseInt(process.env.TEST_PARALLEL_INDEX ?? '0', 10);
+const TEST_USER_ID = process.env.TEST_USER_ID ?? String(90000 + PARALLEL_INDEX);
 
 let cached: Pool | null = null;
 
