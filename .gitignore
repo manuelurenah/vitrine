@@ -28,3 +28,8 @@ Thumbs.db
 
 .claude/worktrees/
 scripts/prompt-lab/runs/
+
+# Local planning docs (brainstorming specs + implementation plans). Kept on
+# disk for reference but never committed — they carry implementation detail and
+# risk leaking internal data into the repo.
+docs/superpowers/
