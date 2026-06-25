@@ -10,6 +10,8 @@ import { AppShellProvider } from './AppShellContext';
 
 export const dynamic = 'force-dynamic';
 
+export const metadata = { robots: { index: false, follow: false } };
+
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await getSession();
   if (!session) redirect('/');

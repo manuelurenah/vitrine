@@ -18,6 +18,8 @@ type Params = Promise<{ step: string }>;
 
 export const dynamic = 'force-dynamic';
 
+export const metadata = { robots: { index: false, follow: false } };
+
 export default async function OnboardingStepPage({ params }: { params: Params }) {
   const { step } = await params;
   if (!isOnboardingStep(step)) notFound();
