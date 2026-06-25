@@ -1,0 +1,89 @@
+name: test
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_call: {}
+
+# Cancel superseded PR runs to save minutes.
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: vitrine
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d vitrine"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CIVITAI_CLIENT_ID: ci
+      CIVITAI_CLIENT_SECRET: ci
+      SESSION_SECRET: ci_session_secret_0123456789abcdef0123456789abcdef
+      NEXT_PUBLIC_APP_URL: http://localhost:3334
+      NEXT_PUBLIC_CIVITAI_BASE_URL: http://civitai.invalid
+      DATABASE_URL: postgres://app:app@localhost:5432/vitrine
+      TEST_DATABASE_URL: postgres://app:app@localhost:5432/vitrine_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Write .env for --env-file scripts
+        run: |
+          cat > .env <<'EOF'
+          CIVITAI_CLIENT_ID=ci
+          CIVITAI_CLIENT_SECRET=ci
+          SESSION_SECRET=ci_session_secret_0123456789abcdef0123456789abcdef
+          NEXT_PUBLIC_APP_URL=http://localhost:3334
+          NEXT_PUBLIC_CIVITAI_BASE_URL=http://civitai.invalid
+          DATABASE_URL=postgres://app:app@localhost:5432/vitrine
+          TEST_DATABASE_URL=postgres://app:app@localhost:5432/vitrine_test
+          EOF
+
+      - name: Set up test database
+        run: pnpm test:db:setup
+
+      - name: Install Playwright Chromium
+        run: pnpm test:e2e:install
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+      - name: E2E tests
+        run: pnpm test:e2e
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
