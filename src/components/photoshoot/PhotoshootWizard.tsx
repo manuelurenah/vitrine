@@ -4,6 +4,7 @@ import { ArrowLeft, Box, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, BuzzPill, Chip, cn, FieldLabel, Input, PageTransition, Spinner, Textarea } from '@/components/ui';
+import { GREEN_BUZZ_TOOLTIP } from '@/components/ui/BuzzPill';
 import type { Asset } from '@/lib/assets';
 import type { Product } from '@/lib/catalog';
 import { buzzTopUpUrl } from '@/lib/links';
@@ -845,7 +846,8 @@ function ReviewStep(props: ReviewStepProps) {
         </div>
         <div className="flex items-center gap-2">
           <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-fg-3">total</span>
-          <BuzzPill amount={totalBuzz} data-testid="total-buzz" />
+          <BuzzPill amount={totalBuzz} data-testid="total-buzz" title={GREEN_BUZZ_TOOLTIP} />
+          <span className="text-fg-3 text-[10px]">green buzz</span>
         </div>
       </div>
 

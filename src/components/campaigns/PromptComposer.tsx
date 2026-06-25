@@ -36,13 +36,40 @@ interface SpeechRecognitionErrorEvent {
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
 
-// Map Web Speech error codes to a short, user-readable reason. The mic otherwise
-// fails silently — the most common case is `not-allowed` (permission blocked for
-// the site), which shows no browser prompt, so the user sees nothing happen.
+// Trigger the real browser mic permission prompt via getUserMedia, then release
+// the stream (SpeechRecognition captures its own audio — we only need the grant).
+// Returns { ok: true } on success or { ok: false, message } on any failure.
+async function ensureMicPermission(): Promise<{ ok: true } | { ok: false; message: string }> {
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+    return { ok: false, message: 'voice input is not supported in this browser' };
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // We don't need the stream itself — SpeechRecognition captures its own.
+    stream.getTracks().forEach((t) => t.stop());
+    return { ok: true };
+  } catch (err) {
+    const name = err instanceof DOMException ? err.name : '';
+    if (name === 'NotAllowedError' || name === 'SecurityError') {
+      return {
+        ok: false,
+        message: 'microphone permission denied — allow mic for this site via the address-bar icon',
+      };
+    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      return { ok: false, message: 'no microphone found' };
+    }
+    return { ok: false, message: 'could not access the microphone — try again' };
+  }
+}
+
+// Map Web Speech error codes to a short, user-readable reason. Permission errors
+// are caught upstream by ensureMicPermission; `not-allowed` here signals a late
+// block after the preflight (e.g. user revoked permission mid-session).
 function describeSpeechError(code: string): string {
   switch (code) {
     case 'not-allowed':
-      return 'microphone permission denied — allow mic for this site via the address-bar icon';
+      return 'microphone access was blocked — check the site permission in the address-bar icon';
     case 'service-not-allowed':
       return 'speech service blocked — enable Chrome under System Settings › Privacy › Microphone, then reopen Chrome';
     case 'audio-capture':
@@ -91,6 +118,7 @@ export function PromptComposer({
     getSpeechSupportServerSnapshot,
   );
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const micPendingRef = useRef(false);
 
   const canSubmit = value.trim().length > 0;
 
@@ -112,7 +140,7 @@ export function PromptComposer({
     }
   }
 
-  function handleMicClick() {
+  async function handleMicClick() {
     const SR = getSpeechRecognition();
     if (!SR) return;
 
@@ -121,46 +149,60 @@ export function PromptComposer({
       return;
     }
 
+    // Re-entrancy guard: ignore a second click while the permission dialog is open.
+    if (micPendingRef.current) return;
+    micPendingRef.current = true;
+
     setMicError(null);
 
-    const rec = new SR();
-    rec.lang = 'en-US';
-    rec.interimResults = false;
-    rec.maxAlternatives = 1;
-
-    rec.onresult = (event: SpeechRecognitionResultEvent) => {
-      const transcript = event.results[0]?.[0]?.transcript ?? '';
-      if (transcript) {
-        setMicError(null);
-        setValue((prev) => {
-          const trimmed = prev.trimEnd();
-          return trimmed ? `${trimmed} ${transcript}` : transcript;
-        });
-      }
-    };
-
-    rec.onend = () => {
-      setListening(false);
-      recognitionRef.current = null;
-    };
-
-    rec.onerror = (event: SpeechRecognitionErrorEvent) => {
-      setListening(false);
-      recognitionRef.current = null;
-      setMicError(describeSpeechError(event.error));
-    };
-
-    recognitionRef.current = rec;
-    // start() can also throw synchronously (e.g. an already-running instance or a
-    // non-secure context); surface that instead of dying silently.
     try {
-      rec.start();
-      setListening(true);
-    } catch (err) {
-      recognitionRef.current = null;
-      setMicError(
-        err instanceof Error ? `voice input failed: ${err.message}` : 'voice input failed to start',
-      );
+      const perm = await ensureMicPermission();
+      if (!perm.ok) {
+        setMicError(perm.message);
+        return;
+      }
+
+      const rec = new SR();
+      rec.lang = 'en-US';
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+
+      rec.onresult = (event: SpeechRecognitionResultEvent) => {
+        const transcript = event.results[0]?.[0]?.transcript ?? '';
+        if (transcript) {
+          setMicError(null);
+          setValue((prev) => {
+            const trimmed = prev.trimEnd();
+            return trimmed ? `${trimmed} ${transcript}` : transcript;
+          });
+        }
+      };
+
+      rec.onend = () => {
+        setListening(false);
+        recognitionRef.current = null;
+      };
+
+      rec.onerror = (event: SpeechRecognitionErrorEvent) => {
+        setListening(false);
+        recognitionRef.current = null;
+        setMicError(describeSpeechError(event.error));
+      };
+
+      recognitionRef.current = rec;
+      // start() can also throw synchronously (e.g. an already-running instance or a
+      // non-secure context); surface that instead of dying silently.
+      try {
+        rec.start();
+        setListening(true);
+      } catch (err) {
+        recognitionRef.current = null;
+        setMicError(
+          err instanceof Error ? `voice input failed: ${err.message}` : 'voice input failed to start',
+        );
+      }
+    } finally {
+      micPendingRef.current = false;
     }
   }
 

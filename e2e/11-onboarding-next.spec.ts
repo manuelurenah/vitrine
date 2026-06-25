@@ -3,14 +3,32 @@ import { signInToApp } from './helpers/auth';
 import { resetUserData } from './helpers/db';
 
 /**
- * Onboarding "what's next" modal + keyboard nav.
+ * Onboarding "what's next" terminal step + keyboard nav.
  *
  * Each test starts with a fully-reset user (no onboarding_state row) so the
  * app treats the user as mid-onboarding and the session cookie gives us a
- * valid session. Visiting /onboarding/next directly is safe: the route only
- * checks for a valid session, calls recordOnboardingStep('next') which creates
- * the onboarding_state row and sets completed_at, then renders NextScreen.
+ * valid session.
+ *
+ * Completion is gated on brand DNA: reaching /onboarding/next runs
+ * recordOnboardingStep('next'), which only sets completed_at when the
+ * onboarding PAYLOAD has sufficient brand DNA (a real brand name plus a
+ * description or at least one color). A user who reaches /onboarding/next
+ * WITHOUT that data is NOT completed and gets server-redirected back to
+ * /onboarding/input. To exercise the "completed" path we first seed a
+ * sufficient payload via POST /api/onboarding/payload.
  */
+
+/** Seed a sufficient brand-DNA payload so the completion gate fires. */
+async function seedBrandDna(
+  page: import('@playwright/test').Page,
+  baseURL: string,
+): Promise<void> {
+  const res = await page.request.post(`${baseURL}/api/onboarding/payload`, {
+    data: { brandName: 'austin heat co', description: 'small-batch hot sauce from austin' },
+  });
+  expect(res.ok()).toBeTruthy();
+}
+
 test.describe('onboarding next', () => {
   test.beforeEach(async () => {
     // Reset all user data — leave NO onboarding_state row so the user is
@@ -18,14 +36,28 @@ test.describe('onboarding next', () => {
     await resetUserData();
   });
 
+  test('redirects back to /onboarding/input when brand DNA is insufficient', async ({
+    page,
+    baseURL,
+  }) => {
+    // Sign in — lands somewhere in /onboarding (welcome, since no state exists).
+    await signInToApp(page, baseURL!);
+
+    // Navigate directly to the terminal step with NO brand DNA seeded. The
+    // server gate leaves completed_at null and redirects back to the input step.
+    await page.goto(`${baseURL}/onboarding/next`);
+    await page.waitForURL(/\/onboarding\/input/);
+    await expect(page.getByRole('heading', { name: /tell us who you are/i })).toBeVisible();
+  });
+
   test('next step renders as a full step screen with both choice cards', async ({
     page,
     baseURL,
   }) => {
-    // Sign in — lands somewhere in /onboarding (welcome, since no state exists)
     await signInToApp(page, baseURL!);
+    await seedBrandDna(page, baseURL!);
 
-    // Navigate directly to the terminal step
+    // Navigate directly to the terminal step — now allowed (DNA is sufficient).
     await page.goto(`${baseURL}/onboarding/next`);
     await page.waitForURL(/\/onboarding\/next/);
 
@@ -44,6 +76,7 @@ test.describe('onboarding next', () => {
 
   test('clicking campaigns card routes to /campaigns', async ({ page, baseURL }) => {
     await signInToApp(page, baseURL!);
+    await seedBrandDna(page, baseURL!);
     await page.goto(`${baseURL}/onboarding/next`);
     await page.waitForURL(/\/onboarding\/next/);
 
@@ -54,6 +87,7 @@ test.describe('onboarding next', () => {
 
   test('clicking photoshoot card routes to /photoshoot', async ({ page, baseURL }) => {
     await signInToApp(page, baseURL!);
+    await seedBrandDna(page, baseURL!);
     await page.goto(`${baseURL}/onboarding/next`);
     await page.waitForURL(/\/onboarding\/next/);
 
@@ -64,6 +98,7 @@ test.describe('onboarding next', () => {
 
   test('back link routes to /onboarding/dna', async ({ page, baseURL }) => {
     await signInToApp(page, baseURL!);
+    await seedBrandDna(page, baseURL!);
     await page.goto(`${baseURL}/onboarding/next`);
     await page.waitForURL(/\/onboarding\/next/);
 
@@ -73,6 +108,7 @@ test.describe('onboarding next', () => {
 
   test('dashboard fallback link routes to /campaigns', async ({ page, baseURL }) => {
     await signInToApp(page, baseURL!);
+    await seedBrandDna(page, baseURL!);
     await page.goto(`${baseURL}/onboarding/next`);
     await page.waitForURL(/\/onboarding\/next/);
 
@@ -87,6 +123,13 @@ test.describe('onboarding next', () => {
     await page.goto(`${baseURL}/onboarding/input`);
     // Wait for the heading to confirm the page is rendered and interactive
     await expect(page.getByRole('heading', { name: /tell us who you are/i })).toBeVisible();
+
+    // The input step gates ArrowRight on form validity (canLeaveInputStep), so
+    // fill a brand name + description first or forward nav is blocked.
+    await page.getByPlaceholder(/lumen skincare/i).fill('austin heat co');
+    await page
+      .getByPlaceholder(/we make small-batch chili oil/i)
+      .fill('small-batch hot sauce from austin');
 
     // Blur any focused element so the keyboard nav hook isn't suppressed.
     // We do this via evaluate to avoid clicking interactive elements.

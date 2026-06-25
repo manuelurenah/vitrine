@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import {
   DnaStep,
@@ -18,6 +19,8 @@ type Params = Promise<{ step: string }>;
 
 export const dynamic = 'force-dynamic';
 
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
 export default async function OnboardingStepPage({ params }: { params: Params }) {
   const { step } = await params;
   if (!isOnboardingStep(step)) notFound();
@@ -31,10 +34,18 @@ export default async function OnboardingStepPage({ params }: { params: Params })
   const userKey = await getUserKey(session);
   await recordOnboardingStep(userKey, step);
   const snapshot = await getOnboarding(userKey);
+
+  // Hard server-side gate: if the user reaches /onboarding/next but their
+  // brand DNA isn't sufficient, recordOnboardingStep will have left
+  // completedAt null. Send them back to fill it in.
+  if (step === 'next' && snapshot.completedAt === null) {
+    redirect('/onboarding/input');
+  }
+
   const payload: OnboardingPayload = snapshot.payload;
 
   return (
-    <OnboardingFrame step={step}>
+    <OnboardingFrame step={step} suppressKeyboardNav={step === 'input'}>
       <PageTransition motionKey={step}>
         <Screen step={step} payload={payload} />
       </PageTransition>

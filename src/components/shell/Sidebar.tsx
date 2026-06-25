@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion } from 'motion/react';
 import { BuzzGlyph, cn, motionTokens } from '@/components/ui';
+import { GREEN_BUZZ_TOOLTIP } from '@/components/ui/BuzzPill';
 import { buzzTopUpUrl } from '@/lib/links';
 import { activeNavFromPath, NAV, type NavId } from './nav';
 import { UserMenu } from './UserMenu';
@@ -87,7 +88,10 @@ export function Sidebar({ buzzBalance, user }: Props) {
         <NavRow key={item.id} item={item} active={active === item.id} />
       ))}
 
-      <div className="mt-auto flex flex-col gap-2 rounded-[12px] border border-buzz-border bg-buzz-soft p-3">
+      <div
+        className="mt-auto flex flex-col gap-2 rounded-[12px] border border-buzz-border bg-buzz-soft p-3"
+        title={GREEN_BUZZ_TOOLTIP}
+      >
         <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-fg-2">
           buzz balance
         </span>
@@ -97,6 +101,7 @@ export function Sidebar({ buzzBalance, user }: Props) {
             {(buzzBalance ?? 0).toLocaleString()}
           </span>
         </div>
+        <span className="text-fg-3 text-[10px]">green buzz</span>
         <a
           href={buzzTopUpUrl()}
           target="_blank"

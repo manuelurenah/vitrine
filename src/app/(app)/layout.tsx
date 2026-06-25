@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { getBuzzAccount, getMe } from '@/lib/civitai';
@@ -6,9 +7,12 @@ import { getSession } from '@/lib/session';
 import { shellUserFromMe } from '@/lib/user';
 import { getUserKey } from '@/lib/userKey';
 import { RouteTransition } from '@/components/shell/RouteTransition';
+import { SessionKeepAlive } from '@/components/shell/SessionKeepAlive';
 import { AppShellProvider } from './AppShellContext';
 
 export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await getSession();
@@ -32,6 +36,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <AppShellProvider buzzBalance={buzzBalance} user={user}>
+      <SessionKeepAlive />
       <RouteTransition>{children}</RouteTransition>
     </AppShellProvider>
   );

@@ -1,13 +1,29 @@
 import type { Metadata, Viewport } from 'next';
 import { PreferencesProvider } from '@/components/PreferencesProvider';
 import { ToastProvider } from '@/components/ui';
+import { env } from '@/lib/env';
 import { fontBody, fontDisplay, fontMono } from './fonts';
 import './globals.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
   title: 'vitrine · campaigns powered by civitai',
   description:
     'drop a photo. ship a campaign. one product shot becomes posts, ads, and a hero video — paid in buzz.',
+  keywords: ['ai campaign generator', 'product photoshoot', 'civitai', 'buzz', 'brand marketing'],
+  openGraph: {
+    type: 'website',
+    siteName: 'vitrine',
+    title: 'vitrine · campaigns powered by civitai',
+    description: 'your brand, shot on demand. on-brand images, ads, and copy — paid in buzz.',
+    images: [{ url: '/brand/og.png', width: 1200, height: 630, alt: 'vitrine' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'vitrine · campaigns powered by civitai',
+    description: 'your brand, shot on demand.',
+    images: ['/brand/og.png'],
+  },
 };
 
 export const viewport: Viewport = {

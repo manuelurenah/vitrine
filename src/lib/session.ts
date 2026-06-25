@@ -54,20 +54,53 @@ export async function getSession(): Promise<Session | null> {
 
   // Try to refresh.
   if (!session.tokens.refresh_token) return null;
-  try {
-    const fresh = await oauthRefresh({
-      baseUrl: env.NEXT_PUBLIC_CIVITAI_BASE_URL,
-      clientId: env.CIVITAI_CLIENT_ID,
-      clientSecret: env.CIVITAI_CLIENT_SECRET,
-      refreshToken: session.tokens.refresh_token,
-    });
-    const next: Session = { ...session, tokens: fresh };
-    await setSession(next);
-    return next;
-  } catch {
-    await clearSession();
-    return null;
-  }
+  return refreshAndPersist(session);
+}
+
+/**
+ * Merge a refreshed token set onto the previous one. Civitai may issue a fresh
+ * `refresh_token` (rotation) or omit it; when omitted we carry the previous one
+ * forward so the next refresh still has a usable token.
+ */
+export function mergeRefreshedTokens(prev: OAuthTokens, fresh: OAuthTokens): OAuthTokens {
+  return { ...fresh, refresh_token: fresh.refresh_token ?? prev.refresh_token };
+}
+
+/**
+ * Single-flight refresh dedupe. Civitai issues single-use refresh tokens, so two
+ * concurrent renders racing the same token would burn it (one wins, the other's
+ * old token is dead). Keyed by the refresh token so concurrent callers share one
+ * in-flight promise. In-process only — across separate serverless invocations
+ * this can't help; the client keep-alive is what keeps RSC reads from ever
+ * seeing expiry in practice.
+ */
+const inflight = new Map<string, Promise<Session | null>>();
+
+async function refreshAndPersist(session: Session): Promise<Session | null> {
+  const key = session.tokens.refresh_token;
+  if (!key) return null;
+  const existing = inflight.get(key);
+  if (existing) return existing;
+  const p = (async (): Promise<Session | null> => {
+    try {
+      const fresh = await oauthRefresh({
+        baseUrl: env.NEXT_PUBLIC_CIVITAI_BASE_URL,
+        clientId: env.CIVITAI_CLIENT_ID,
+        clientSecret: env.CIVITAI_CLIENT_SECRET,
+        refreshToken: key,
+      });
+      const next: Session = { ...session, tokens: mergeRefreshedTokens(session.tokens, fresh) };
+      await setSession(next);
+      return next;
+    } catch {
+      await clearSession();
+      return null;
+    } finally {
+      inflight.delete(key);
+    }
+  })();
+  inflight.set(key, p);
+  return p;
 }
 
 /** Shared cookie attrs — httpOnly + lax + secure-in-prod for every cookie we set. */

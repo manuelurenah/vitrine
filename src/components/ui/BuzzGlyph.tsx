@@ -13,8 +13,8 @@ export function BuzzGlyph({ size = 14, className }: Props) {
     >
       <defs>
         <linearGradient id="vitrine-buzz-glyph" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#ffe25a" />
-          <stop offset="100%" stopColor="#ffce3d" />
+          <stop offset="0%" stopColor="#5dffb0" />
+          <stop offset="100%" stopColor="#1fd27a" />
         </linearGradient>
       </defs>
       <circle cx="12" cy="12" r="10" fill="url(#vitrine-buzz-glyph)" />

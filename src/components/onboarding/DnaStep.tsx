@@ -2,10 +2,12 @@
 
 import { ArrowRight, Globe, Pencil, Plus, TriangleAlert, UploadCloud, X } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Button, cn, Input, Textarea } from '@/components/ui';
 import { pickContrast } from '@/lib/color';
 import type { OnboardingPayload, ScrapedSite } from '@/lib/onboarding';
+import { isBrandDnaSufficient } from '@/lib/onboardingValidation';
 import { ColorPickerChip } from './ColorPickerChip';
 import { LogoPreview } from './LogoPreview';
 import { useLogoUpload } from './useLogoUpload';
@@ -17,6 +19,7 @@ type Props = {
 const DEFAULT_TONE = ['playful', 'plainspoken', 'lowercase', 'punchy', 'warm'];
 
 export function DnaStep({ payload }: Props) {
+  const router = useRouter();
   const scrape: ScrapedSite | null = payload.scrape ?? null;
   const websiteUrl = payload.websiteUrl ?? null;
 
@@ -279,20 +282,23 @@ export function DnaStep({ payload }: Props) {
               dna readiness
             </span>
             <span className="h-2 w-[160px] overflow-hidden rounded-pill bg-bg-3">
-              <span className="block h-full w-full bg-volt shadow-[0_0_12px_-2px_var(--volt-glow)]" />
+              <span
+                className="block h-full bg-volt shadow-[0_0_12px_-2px_var(--volt-glow)] transition-[width] duration-300 ease-out"
+                style={{ width: `${readiness}%` }}
+              />
             </span>
-            <span className="font-mono text-[11px] text-volt">100%</span>
+            <span className="font-mono text-[11px] text-volt">{readiness}%</span>
           </div>
         </div>
-        <Link href="/onboarding/next">
-          <Button
-            variant="primary"
-            size="lg"
-            trailingIcon={<ArrowRight size={16} strokeWidth={1.75} />}
-          >
-            let&apos;s go
-          </Button>
-        </Link>
+        <Button
+          variant="primary"
+          size="lg"
+          disabled={!isBrandDnaSufficient({ name: brandName, description, palette: colors })}
+          onClick={() => router.push('/onboarding/next')}
+          trailingIcon={<ArrowRight size={16} strokeWidth={1.75} />}
+        >
+          let&apos;s go
+        </Button>
       </div>
     </section>
   );

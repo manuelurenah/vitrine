@@ -18,6 +18,9 @@
   --bg-3: #1f1f2c;
   --bg-4: #292936;
   --bg-inverse: #f6f6fa;
+  --bg-blur: rgba(15, 15, 22, 0.92);        /* translucent surface for blurred mobile bars */
+  --shadow-float: 0 8px 32px -8px rgba(0, 0, 0, 0.6);
+  --shadow-notch: 0 -8px 32px -12px rgba(0, 0, 0, 0.5);
 
   /* Foreground */
   --fg-0: #f6f6fa;
@@ -61,10 +64,10 @@
   --info: var(--ion);
 
   /* Buzz */
-  --buzz: #ffce3d;
-  --buzz-soft: rgba(255, 206, 61, 0.08);
-  --buzz-border: rgba(255, 206, 61, 0.25);
-  --buzz-glow: rgba(255, 206, 61, 0.55);
+  --buzz: #1fd27a;                          /* green buzz (was #ffce3d yellow) */
+  --buzz-soft: rgba(31, 210, 122, 0.10);
+  --buzz-border: rgba(31, 210, 122, 0.28);
+  --buzz-glow: rgba(31, 210, 122, 0.55);
 
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -172,6 +175,9 @@
   --bg-3: #f1efe7;
   --bg-4: #ebe8de;
   --bg-inverse: #0a0a0f;
+  --bg-blur: rgba(250, 249, 245, 0.92);     /* matches light --bg-0 */
+  --shadow-float: 0 8px 32px -8px rgba(10, 10, 30, 0.14);
+  --shadow-notch: 0 -8px 32px -12px rgba(10, 10, 30, 0.12);
 
   --fg-0: #0a0a0f;
   --fg-1: #3a3a48;
@@ -208,10 +214,10 @@
   --danger: #d8253f;
   --danger-soft: rgba(216, 37, 63, 0.1);
 
-  --buzz: #c79900;
-  --buzz-soft: rgba(199, 153, 0, 0.08);
-  --buzz-border: rgba(199, 153, 0, 0.3);
-  --buzz-glow: rgba(199, 153, 0, 0.45);
+  --buzz: #0f9d57;                          /* darker green for light-theme contrast */
+  --buzz-soft: rgba(15, 157, 87, 0.10);
+  --buzz-border: rgba(15, 157, 87, 0.32);
+  --buzz-glow: rgba(15, 157, 87, 0.45);
 
   --shadow-sm: 0 1px 2px rgba(10, 10, 30, 0.06);
   --shadow-md: 0 4px 16px rgba(10, 10, 30, 0.08), 0 1px 3px rgba(10, 10, 30, 0.04);

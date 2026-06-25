@@ -25,6 +25,7 @@ import {
   Spinner,
   Textarea,
 } from '@/components/ui';
+import { GREEN_BUZZ_TOOLTIP } from '@/components/ui/BuzzPill';
 import {
   type CampaignPreviewResponse,
   type FetchPreviewArgs,
@@ -793,7 +794,8 @@ function BriefStep({
           </span>
         )}
         <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-fg-3">total</span>
-        <BuzzPill amount={total} data-testid="total-buzz" />
+        <BuzzPill amount={total} data-testid="total-buzz" title={GREEN_BUZZ_TOOLTIP} />
+        <span className="text-fg-3 text-[10px]">green buzz</span>
       </header>
 
       {draftError && (
