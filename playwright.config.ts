@@ -39,6 +39,7 @@ if (REAL_OAUTH && !process.env.NEXT_PUBLIC_CIVITAI_BASE_URL) {
 export default defineConfig({
   testDir: './e2e',
   globalSetup: './e2e/global-setup.ts',
+  globalTeardown: './e2e/global-teardown.ts',
   timeout: 180_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,

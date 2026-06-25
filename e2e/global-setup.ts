@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { FullConfig } from '@playwright/test';
+import { Pool } from 'pg';
 import { sealCivSession } from './helpers/session';
 
 /**
@@ -167,7 +168,35 @@ async function captureCivitaiCookies(userId: string): Promise<PwCookie[]> {
   return Array.from(parsed.values()).map((p) => toPwCookie(p, civitaiHost));
 }
 
+/**
+ * Wipe every row in the test DB before the run. Clean slate is guaranteed at
+ * setup (not teardown) so it survives a crashed/aborted previous run and
+ * leaves rows intact for post-mortem debugging after a failure. The DB itself
+ * is never dropped. Drizzle's migration metadata lives in the `drizzle`
+ * schema, so truncating only `public` tables leaves migrations intact.
+ */
+async function truncateAllTables(): Promise<void> {
+  const connectionString = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error('TEST_DATABASE_URL or DATABASE_URL is required for e2e globalSetup.');
+  }
+  const pool = new Pool({ connectionString, max: 1 });
+  try {
+    const { rows } = await pool.query<{ tablename: string }>(
+      `SELECT tablename FROM pg_tables WHERE schemaname = 'public'`,
+    );
+    if (rows.length === 0) return;
+    const list = rows.map((r) => `"public"."${r.tablename}"`).join(', ');
+    await pool.query(`TRUNCATE ${list} RESTART IDENTITY CASCADE`);
+    console.log(`[e2e] truncated ${rows.length} public tables in the test DB`);
+  } finally {
+    await pool.end();
+  }
+}
+
 export default async function globalSetup(_config: FullConfig): Promise<void> {
+  await truncateAllTables();
+
   const userId = process.env.TEST_USER_ID ?? '1';
   const cookies: PwCookie[] = [];
 
