@@ -44,13 +44,18 @@ export default defineConfig({
   fullyParallel: false,
   // File-level parallelism: whole spec files run concurrently on separate
   // workers, each pinned to its own synthetic user (e2e/fixtures.ts). Tests
-  // within a file stay serial (fullyParallel: false). Capped at 4 because the
-  // bottleneck is the single Next dev test server (lazy route compilation),
-  // not CPU cores — more workers just saturate it and time out cold compiles.
-  // Real-OAuth runs use 1 worker (shared Civitai consent state).
-  workers: process.env.E2E_REAL_OAUTH === '1' ? 1 : 4,
+  // within a file stay serial (fullyParallel: false). The bottleneck is the
+  // single Next dev test server (lazy route compilation), not CPU cores — more
+  // workers just saturate it and time out cold compiles. CI runners are small
+  // and slower, so cap at 2 there to cut first-attempt cold-compile flakes;
+  // local uses 4. Real-OAuth runs use 1 worker (shared Civitai consent state).
+  workers: process.env.E2E_REAL_OAUTH === '1' ? 1 : process.env.CI ? 2 : 4,
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  // Retry in CI only. The dev-server cold-compile + small-runner contention
+  // makes a different timing-sensitive spec flake each run; on retry the route
+  // is already warm-compiled so it passes. Playwright still flags retried specs
+  // as "flaky", so a genuinely-broken test (fails all attempts) stays visible.
+  retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   webServer: {
     command: 'pnpm test:server',
