@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Button, cn, Input, Textarea } from '@/components/ui';
+import { track } from '@/lib/analytics';
 import { pickContrast } from '@/lib/color';
 import type { OnboardingPayload, ScrapedSite } from '@/lib/onboarding';
 import { isBrandDnaSufficient } from '@/lib/onboardingValidation';
@@ -97,7 +98,11 @@ export function DnaStep({ payload }: Props) {
           logoUrl,
           logoName,
         }),
-      }).catch(() => {});
+      })
+        .then((res) => {
+          if (res.ok) track('brand_dna_saved', { fonts: font ? 1 : 0, colors: colors.length });
+        })
+        .catch(() => {});
     }, 500);
     return () => {
       clearTimeout(t);
