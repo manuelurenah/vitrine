@@ -10,8 +10,17 @@ and connections (datasources). Pairs with the local stack from `pnpm dev:up`
 (Grafana at `http://localhost:3001`, fed by Alloy → Loki/Tempo/Prometheus).
 
 Credentials are **never hardcoded** — `grafana.mjs` reads `GRAFANA_URL` and auth
-from the project-root `.env` (already-set env vars win). Don't paste tokens into
+from a `.env` file (already-set shell env vars win). Don't paste tokens into
 commands or this file.
+
+**Where config is read (low → high precedence):** project-root `.env` → this
+skill dir's own `.env` → real environment variables. To keep Grafana creds with
+the skill instead of the app's root `.env`:
+
+```bash
+cp .claude/skills/grafana/.env.example .claude/skills/grafana/.env
+# then edit it — the skill-dir .env is gitignored
+```
 
 ## Auth (.env)
 

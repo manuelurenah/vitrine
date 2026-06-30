@@ -8,13 +8,14 @@
 // See SKILL.md for the full command + flag reference.
 
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // --- .env loader (minimal KEY=VALUE; real env vars take precedence) ---
-function loadDotEnv() {
+function parseDotEnv(path) {
   const out = {};
   try {
-    const raw = readFileSync(resolve(process.cwd(), '.env'), 'utf8');
+    const raw = readFileSync(path, 'utf8');
     for (const line of raw.split('\n')) {
       const m = line.match(/^\s*([A-Za-z0-9_]+)\s*=\s*(.*?)\s*$/);
       if (!m) continue;
@@ -25,9 +26,20 @@ function loadDotEnv() {
       out[m[1]] = v;
     }
   } catch {
-    /* no .env — rely on process.env */
+    /* no file here — fine */
   }
   return out;
+}
+
+// Precedence (low → high): project-root .env, then this skill dir's own .env,
+// then real process.env (handled in envOf). Co-locating a `.env` with the skill
+// keeps Grafana creds out of the app's project-root .env; it's gitignored.
+function loadDotEnv() {
+  const skillDir = dirname(fileURLToPath(import.meta.url));
+  return {
+    ...parseDotEnv(resolve(process.cwd(), '.env')),
+    ...parseDotEnv(resolve(skillDir, '.env')),
+  };
 }
 
 const FILE_ENV = loadDotEnv();
