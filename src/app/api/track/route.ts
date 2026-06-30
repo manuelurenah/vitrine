@@ -1,23 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import type { AnalyticsEvent } from '@/lib/analytics';
+import { ANALYTICS_EVENTS } from '@/lib/analytics';
 import { recordEvent } from '@/lib/analytics.server';
 import { getSession } from '@/lib/session';
 import { getUserKey } from '@/lib/userKey';
 
-const EVENTS: readonly AnalyticsEvent[] = [
-  'login_succeeded',
-  'onboarding_step_viewed',
-  'onboarding_completed',
-  'brand_dna_saved',
-  'campaign_cook_submitted',
-  'tile_regenerated',
-  'campaign_exported',
-  'photoshoot_cook_submitted',
-];
-
 const bodySchema = z.object({
-  event: z.enum(EVENTS as [AnalyticsEvent, ...AnalyticsEvent[]]),
+  event: z.enum(ANALYTICS_EVENTS),
   props: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
   sessionId: z.string().nullish(),
 });

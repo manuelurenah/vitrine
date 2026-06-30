@@ -92,10 +92,12 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Emit browser source maps in production so Faro can symbolicate stack
-  // traces. Upload to the Alloy/Grafana source-map store is wired at the
-  // infra/CI layer (keyed by NEXT_PUBLIC_APP_VERSION); not served publicly there.
-  productionBrowserSourceMaps: true,
+  // Emit browser source maps in production ONLY when Faro is configured, so it
+  // can symbolicate stack traces. NOTE: Next serves these .js.map files
+  // PUBLICLY from the app origin — acceptable interim (no secrets; only
+  // NEXT_PUBLIC_* is in the bundle). End-state is hidden maps + private
+  // Grafana upload (infra/CI, keyed by NEXT_PUBLIC_APP_VERSION).
+  productionBrowserSourceMaps: Boolean(process.env.NEXT_PUBLIC_FARO_URL),
   // Override the build/dev output directory when running the e2e test server
   // so it can coexist with a parallel `pnpm dev` (Next 16 advisory-locks
   // each distDir against multiple concurrent dev processes).

@@ -1,21 +1,24 @@
+import { faro } from '@grafana/faro-web-sdk';
+
 /**
  * Shared analytics types (client + server safe — no `server-only`, no faro/db
  * imports). The client `track()` lives below; the server `recordEvent()` lives
  * in `analytics.server.ts` and imports these types only.
  */
-export type AnalyticsEvent =
-  | 'login_succeeded'
-  | 'onboarding_step_viewed'
-  | 'onboarding_completed'
-  | 'brand_dna_saved'
-  | 'campaign_cook_submitted'
-  | 'tile_regenerated'
-  | 'campaign_exported'
-  | 'photoshoot_cook_submitted';
+export const ANALYTICS_EVENTS = [
+  'login_succeeded',
+  'onboarding_step_viewed',
+  'onboarding_completed',
+  'brand_dna_saved',
+  'campaign_cook_submitted',
+  'tile_regenerated',
+  'campaign_exported',
+  'photoshoot_cook_submitted',
+] as const;
+
+export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[number];
 
 export type AnalyticsProps = Record<string, string | number | boolean | null>;
-
-import { faro } from '@grafana/faro-web-sdk';
 
 /**
  * Client-side product-analytics emit. Dual-writes: Faro `pushEvent` (realtime
