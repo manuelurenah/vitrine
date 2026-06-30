@@ -23,7 +23,7 @@ export function faroEnabled(): boolean {
  * StrictMode double-invocation can't double-init.
  */
 export function initFaro(): void {
-  if (!faroEnabled() || started) return;
+  if (!faroEnabled() || started || typeof window === 'undefined') return;
   started = true;
 
   initializeFaro({

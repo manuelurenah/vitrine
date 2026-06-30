@@ -15,6 +15,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 describe('faro init', () => {
@@ -27,6 +28,7 @@ describe('faro init', () => {
   });
 
   it('initializes once when NEXT_PUBLIC_FARO_URL is set', async () => {
+    vi.stubGlobal('window', {});
     vi.stubEnv('NEXT_PUBLIC_FARO_URL', 'https://alloy.example.com/collect');
     const { faroEnabled, initFaro } = await import('./faro');
     expect(faroEnabled()).toBe(true);
