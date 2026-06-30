@@ -15,7 +15,6 @@ export type AnalyticsEvent =
 
 export type AnalyticsProps = Record<string, string | number | boolean | null>;
 
-// @ts-ignore — faro-web-sdk types are available at runtime but TypeScript module resolution doesn't pick them up in pnpm virtual store
 import { faro } from '@grafana/faro-web-sdk';
 
 /**
@@ -27,7 +26,15 @@ import { faro } from '@grafana/faro-web-sdk';
 export function track(event: AnalyticsEvent, props?: AnalyticsProps): void {
   let sessionId: string | null = null;
   try {
-    faro.api?.pushEvent(event, props);
+    // Filter out nulls and convert to strings for Faro (EventAttributes only accepts strings).
+    const faroProps = props
+      ? Object.fromEntries(
+          Object.entries(props)
+            .filter(([, v]) => v !== null)
+            .map(([k, v]) => [k, String(v)]),
+        )
+      : undefined;
+    faro.api?.pushEvent(event, faroProps);
     sessionId = faro.api?.getSession()?.id ?? null;
   } catch {
     // faro not initialized (telemetry off) — skip the realtime copy.

@@ -18,7 +18,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe('track', () => {
   it('pushes a Faro event and POSTs /api/track with the session id', () => {
     track('brand_dna_saved', { fonts: 2 });
-    expect(pushEvent).toHaveBeenCalledWith('brand_dna_saved', { fonts: 2 });
+    expect(pushEvent).toHaveBeenCalledWith('brand_dna_saved', { fonts: '2' });
     expect(fetch).toHaveBeenCalledWith(
       '/api/track',
       expect.objectContaining({
