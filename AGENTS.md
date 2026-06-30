@@ -17,6 +17,7 @@ isolated test database.
 - S3-compatible object storage (MinIO local, R2 prod) — required for the asset uploader
 - Encrypted-cookie sessions (no token storage in DB)
 - MSW node interceptor for e2e (`src/instrumentation.ts`, gated on `MOCK_CIVITAI=1`)
+- Faro (frontend) + OTel (backend) telemetry, env-gated — local Grafana stack (`lgtm` + `alloy` in `docker-compose.yml`) via `pnpm dev:up`, Grafana UI at http://localhost:3001 (admin/admin)
 
 ## File layout
 
