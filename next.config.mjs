@@ -54,6 +54,12 @@ const STORAGE_HOSTS = Array.from(
   ),
 );
 
+// Grafana Alloy Faro receiver origin — folded into connect-src so the browser
+// can POST telemetry. Empty when NEXT_PUBLIC_FARO_URL is unset (no-op).
+const FARO_HOSTS = Array.from(
+  new Set([originOrNull(process.env.NEXT_PUBLIC_FARO_URL)].filter(Boolean)),
+);
+
 // Google Fonts are loaded dynamically by the DnaStep font picker.
 const GOOGLE_FONTS = ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'];
 
@@ -63,7 +69,7 @@ const csp = [
   `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
   `style-src 'self' 'unsafe-inline' ${GOOGLE_FONTS[0]}`,
   `font-src 'self' data: ${GOOGLE_FONTS[1]}`,
-  `connect-src 'self' ${[...CIVITAI_HOSTS, ...STORAGE_HOSTS].join(' ')}`,
+  `connect-src 'self' ${[...CIVITAI_HOSTS, ...STORAGE_HOSTS, ...FARO_HOSTS].join(' ')}`,
   `frame-ancestors 'none'`,
   `base-uri 'self'`,
   `form-action 'self' ${CIVITAI_HOSTS.join(' ')}`,
@@ -86,6 +92,10 @@ const securityHeaders = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Emit browser source maps in production so Faro can symbolicate stack
+  // traces. Upload to the Alloy/Grafana source-map store is wired at the
+  // infra/CI layer (keyed by NEXT_PUBLIC_APP_VERSION); not served publicly there.
+  productionBrowserSourceMaps: true,
   // Override the build/dev output directory when running the e2e test server
   // so it can coexist with a parallel `pnpm dev` (Next 16 advisory-locks
   // each distDir against multiple concurrent dev processes).
